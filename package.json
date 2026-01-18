@@ -6,20 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:auto": "playwright test e2e/debug-auto.spec.ts",
+    "test:e2e:fix": "playwright test e2e/auto-fix-full.spec.ts",
+    "test:e2e:fix-reports": "playwright test e2e/auto-fix-from-reports.spec.ts",
+    "fix-errors": "playwright test e2e/fix-all-errors.spec.ts",
+    "fix-from-html": "playwright test e2e/fix-from-html-report.spec.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "chart.js": "^4.4.0",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "19.2.3",
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "playwright": "^1.57.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

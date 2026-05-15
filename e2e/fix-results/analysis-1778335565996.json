@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-05-09T14:06:05.996Z",
+  "totalReports": 1,
+  "autoFixable": 1,
+  "manualFixable": 0,
+  "fixes": [
+    {
+      "report": "robust-button-order-ロバスト性--a73a2-る-次Presenter→回答者→Presenter--chromium",
+      "errorType": "LoadingStuck",
+      "issues": [
+        "ページが「読み込み中...」で止まっている"
+      ],
+      "suggestions": [
+        "開発サーバーが起動しているか確認してください",
+        "npm run dev を実行してください"
+      ],
+      "canAutoFix": true
+    }
+  ]
+}

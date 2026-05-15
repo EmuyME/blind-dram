@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-01-18T03:04:11.270Z",
+  "totalErrors": 2,
+  "autoFixable": 2,
+  "manualFixable": 0,
+  "fixed": 2,
+  "errors": [
+    {
+      "test": "Unknown Test",
+      "error": "ページが「読み込み中...」で止まっている",
+      "errorType": "LoadingStuck",
+      "details": {
+        "fullContent": "# Page snapshot\n\n```yaml\n- generic [active] [ref=e1]:\n  - button \"Open Next.js Dev Tools\" [ref=e7] [cursor=pointer]:\n    - img [ref=e8]\n  - alert [ref=e11]\n  - paragraph [ref=e14]: 読み込み中...\n```",
+        "detectedFrom": "page snapshot"
+      }
+    },
+    {
+      "test": "Unknown Test",
+      "error": "ページが「読み込み中...」で止まっている",
+      "errorType": "LoadingStuck",
+      "details": {
+        "fullContent": "# Page snapshot\n\n```yaml\n- generic [active] [ref=e1]:\n  - paragraph [ref=e3]: 読み込み中...\n  - button \"Open Next.js Dev Tools\" [ref=e9] [cursor=pointer]:\n    - img [ref=e10]\n  - alert [ref=e13]\n```",
+        "detectedFrom": "page snapshot"
+      }
+    }
+  ],
+  "analysis": {
+    "autoFixable": [
+      {
+        "error": {
+          "test": "Unknown Test",
+          "error": "ページが「読み込み中...」で止まっている",
+          "errorType": "LoadingStuck",
+          "details": {
+            "fullContent": "# Page snapshot\n\n```yaml\n- generic [active] [ref=e1]:\n  - button \"Open Next.js Dev Tools\" [ref=e7] [cursor=pointer]:\n    - img [ref=e8]\n  - alert [ref=e11]\n  - paragraph [ref=e14]: 読み込み中...\n```",
+            "detectedFrom": "page snapshot"
+          }
+        },
+        "fix": "Check if dev server is running: npm run dev"
+      },
+      {
+        "error": {
+          "test": "Unknown Test",
+          "error": "ページが「読み込み中...」で止まっている",
+          "errorType": "LoadingStuck",
+          "details": {
+            "fullContent": "# Page snapshot\n\n```yaml\n- generic [active] [ref=e1]:\n  - paragraph [ref=e3]: 読み込み中...\n  - button \"Open Next.js Dev Tools\" [ref=e9] [cursor=pointer]:\n    - img [ref=e10]\n  - alert [ref=e13]\n```",
+            "detectedFrom": "page snapshot"
+          }
+        },
+        "fix": "Check if dev server is running: npm run dev"
+      }
+    ],
+    "manualFixable": []
+  },
+  "fixResults": [
+    {
+      "error": {
+        "test": "Unknown Test",
+        "error": "ページが「読み込み中...」で止まっている",
+        "errorType": "LoadingStuck",
+        "details": {
+          "fullContent": "# Page snapshot\n\n```yaml\n- generic [active] [ref=e1]:\n  - button \"Open Next.js Dev Tools\" [ref=e7] [cursor=pointer]:\n    - img [ref=e8]\n  - alert [ref=e11]\n  - paragraph [ref=e14]: 読み込み中...\n```",
+          "detectedFrom": "page snapshot"
+        }
+      },
+      "fixed": true,
+      "details": {
+        "message": "Dev server is running"
+      }
+    },
+    {
+      "error": {
+        "test": "Unknown Test",
+        "error": "ページが「読み込み中...」で止まっている",
+        "errorType": "LoadingStuck",
+        "details": {
+          "fullContent": "# Page snapshot\n\n```yaml\n- generic [active] [ref=e1]:\n  - paragraph [ref=e3]: 読み込み中...\n  - button \"Open Next.js Dev Tools\" [ref=e9] [cursor=pointer]:\n    - img [ref=e10]\n  - alert [ref=e13]\n```",
+          "detectedFrom": "page snapshot"
+        }
+      },
+      "fixed": true,
+      "details": {
+        "message": "Dev server is running"
+      }
+    }
+  ]
+}

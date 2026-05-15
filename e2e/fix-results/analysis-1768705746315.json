@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-01-18T03:09:06.315Z",
+  "totalReports": 1,
+  "autoFixable": 0,
+  "manualFixable": 1,
+  "fixes": [
+    {
+      "report": "debug-recent-features-最近実装-c2725-ー、参加コード機能、逐次モード途中結果ページの動作確認-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    }
+  ]
+}

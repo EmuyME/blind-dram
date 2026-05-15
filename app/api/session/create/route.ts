@@ -1,6 +1,6 @@
 // POST /api/session/create
 import { NextRequest } from 'next/server';
-import { successResponse, errorResponse, generateUUID, generateJoinCode } from '@/lib/api-utils';
+import { successResponse, errorResponse, generateUUID, generateJoinCode, isMissingPublicResultsColumn } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     // 逐次モードで前のセッションが指定された場合、その状態をチェック
     let previousSessionId: string | null = null;
     if (mode === 'sequential' && (previous_session_id || previous_session_join_token)) {
-      let previousSessionQuery = previous_session_id
+      const previousSessionQuery = previous_session_id
         ? supabase.from('sessions').select('id, state').eq('id', previous_session_id).single()
         : supabase.from('sessions').select('id, state').eq('join_token', previous_session_join_token).single();
 
@@ -113,22 +113,33 @@ export async function POST(request: NextRequest) {
       attempts++;
     }
 
-    // Session作成
-    const { data: session, error } = await supabase
+    // Session作成（DB に public_results 列がない環境では列なしで再試行）
+    const baseInsert = {
+      title: title.trim(),
+      owner_token: ownerToken,
+      join_token: joinToken,
+      join_code: joinCode,
+      mode,
+      state: 'registering' as const,
+      flavor_chart_id: flavor_chart_id || null,
+      flavor_chart_snapshot: null,
+      previous_session_id: previousSessionId || null,
+    };
+
+    let { data: session, error } = await supabase
       .from('sessions')
-      .insert({
-        title: title.trim(),
-        owner_token: ownerToken,
-        join_token: joinToken,
-        join_code: joinCode,
-        mode,
-        state: 'registering',
-        flavor_chart_id: flavor_chart_id || null,
-        flavor_chart_snapshot: null,
-        previous_session_id: previousSessionId || null,
-      })
+      .insert({ ...baseInsert, public_results: true })
       .select()
       .single();
+
+    if (error && isMissingPublicResultsColumn(error)) {
+      console.warn(
+        'sessions.public_results 列がありません。add_public_results_to_sessions.sql を Supabase に適用してください。暫定的に列なしで作成します。',
+      );
+      const retry = await supabase.from('sessions').insert(baseInsert).select().single();
+      session = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Session creation error:', error);

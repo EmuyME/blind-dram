@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-01-15T15:17:09.202Z",
+  "totalReports": 3,
+  "autoFixable": 3,
+  "manualFixable": 0,
+  "fixes": [
+    {
+      "report": "debug-auto-Auto-Debug-Tests-回答提出時のエラー検出-chromium",
+      "errorType": "LoadingStuck",
+      "issues": [
+        "ページが「読み込み中...」で止まっている"
+      ],
+      "suggestions": [
+        "開発サーバーが起動しているか確認してください",
+        "npm run dev を実行してください"
+      ],
+      "canAutoFix": true
+    },
+    {
+      "report": "debug-auto-Auto-Debug-Tests-画像アップロードの動作確認-chromium",
+      "errorType": "LoadingStuck",
+      "issues": [
+        "ページが「読み込み中...」で止まっている"
+      ],
+      "suggestions": [
+        "開発サーバーが起動しているか確認してください",
+        "npm run dev を実行してください"
+      ],
+      "canAutoFix": true
+    },
+    {
+      "report": "full-flow-Blind-Dram-E2E-Tests-シナリオ1-参加登録→順番決め→開始-chromium",
+      "errorType": "LoadingStuck",
+      "issues": [
+        "ページが「読み込み中...」で止まっている"
+      ],
+      "suggestions": [
+        "開発サーバーが起動しているか確認してください",
+        "npm run dev を実行してください"
+      ],
+      "canAutoFix": true
+    }
+  ]
+}

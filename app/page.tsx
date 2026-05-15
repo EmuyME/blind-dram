@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 export default function Home() {
   return (
     <div className="min-h-screen bg-neutral-900 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-8">
-      <main className="max-w-xl w-full bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-8 md:p-12">
+      <main className="ui-card max-w-xl w-full p-8 md:p-12">
         <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-semibold text-stone-100 mb-4 tracking-tight">
             Blind Dram

@@ -30,8 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — .env.example はテンプレとしてコミットする
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -43,6 +48,12 @@ next-env.d.ts
 # logs
 logs/
 logs/
+
+# IDE / 一時（リポジトリに含めない）
+.cursor/
+.playwright-mcp/
+tmp-error-context/
+tmp-error-context-latest/
 
 # Playwright
 /test-results/

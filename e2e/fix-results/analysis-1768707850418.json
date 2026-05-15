@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-01-18T03:44:10.418Z",
+  "totalReports": 5,
+  "autoFixable": 1,
+  "manualFixable": 4,
+  "fixes": [
+    {
+      "report": "auto-fix-full-Auto-Fix-Full-Test-全フローをテストしてエラーを自動修正-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "auto-fix-full-Auto-Fix-Full-Test-全フローをテストしてエラーを自動修正-Mobile-Chrome",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-recent-features-最近実装-c2725-ー、参加コード機能、逐次モード途中結果ページの動作確認-chromium",
+      "errorType": "LoadingStuck",
+      "issues": [
+        "ページが「読み込み中...」で止まっている"
+      ],
+      "suggestions": [
+        "開発サーバーが起動しているか確認してください",
+        "npm run dev を実行してください"
+      ],
+      "canAutoFix": true
+    },
+    {
+      "report": "debug-sequential-simultane-10073-ボタンが機能し、全員がクリックしたら次のラウンドに進む-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "sequential-round-result-Se-1bf3f-Result-Tests-結果ページが正しく表示される-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    }
+  ]
+}

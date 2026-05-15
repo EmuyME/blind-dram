@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --foreground-rgb: 245, 245, 244;
@@ -9,12 +7,109 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  background:
+    radial-gradient(1200px circle at 15% -10%, rgba(200, 138, 43, 0.14), transparent 45%),
+    radial-gradient(900px circle at 95% 10%, rgba(56, 189, 248, 0.10), transparent 45%),
+    rgb(var(--background-rgb));
 }
 
 /* モバイルファースト: 基本スタイル */
 * {
   box-sizing: border-box;
+}
+
+@layer components {
+  .ui-card {
+    /*
+      NOTE: Tailwind v4 currently fails to @apply utilities that use slash alpha syntax
+      (e.g. bg-neutral-800/90, border-white/10, shadow-black/40).
+      So we keep @apply to “plain” utilities and set alpha colors via raw CSS.
+    */
+    @apply bg-neutral-800 border rounded-2xl shadow-xl;
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow:
+      0 20px 25px -5px rgba(0, 0, 0, 0.35),
+      0 8px 10px -6px rgba(0, 0, 0, 0.35);
+  }
+
+  .ui-card-hover {
+    @apply hover:bg-neutral-800 transition-colors;
+  }
+
+  .ui-h1 {
+    @apply text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight;
+  }
+
+  .ui-h2 {
+    @apply text-xl md:text-2xl font-semibold text-stone-100 tracking-tight;
+  }
+
+  .ui-h3 {
+    @apply text-lg font-semibold text-stone-100 tracking-tight;
+  }
+
+  .ui-muted {
+    @apply text-stone-400;
+  }
+
+  .ui-table {
+    @apply min-w-full text-sm;
+  }
+
+  .ui-thead {
+    @apply border-b;
+    border-bottom-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(10, 10, 10, 0.35);
+  }
+
+  .ui-th {
+    @apply text-left py-3 px-3 text-stone-200 font-semibold;
+  }
+
+  .ui-tr {
+    @apply border-b hover:bg-neutral-700 transition-colors;
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* セグメントタブ（結果・詳細 など） */
+  .ui-tablist {
+    @apply flex flex-wrap gap-1 p-1 rounded-xl;
+    background-color: rgba(10, 10, 10, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .ui-tab {
+    @apply min-h-[44px] flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+      text-stone-400 hover:text-stone-200 hover:bg-neutral-800/80;
+  }
+
+  .ui-tab-active {
+    @apply text-stone-100 bg-neutral-700;
+    box-shadow:
+      inset 0 0 0 1px rgba(200, 138, 43, 0.4),
+      0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  /* ページ見出しブロック */
+  .ui-page-hero {
+    @apply rounded-2xl p-6 md:p-8;
+    background: linear-gradient(
+      145deg,
+      rgba(38, 38, 38, 0.95) 0%,
+      rgba(23, 23, 23, 0.65) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 20px 40px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(200, 138, 43, 0.12);
+  }
+
+  .ui-accent-dot {
+    @apply inline-block h-2 w-2 rounded-full;
+    background: linear-gradient(135deg, #e7c27b, #c88a2b);
+    box-shadow: 0 0 12px rgba(200, 138, 43, 0.45);
+  }
 }
 
 /* スクロールバーのスタイル（ダークUI対応） */

@@ -1,0 +1,176 @@
+{
+  "timestamp": "2026-05-06T05:59:36.637Z",
+  "totalReports": 24,
+  "autoFixable": 0,
+  "manualFixable": 24,
+  "fixes": [
+    {
+      "report": "auto-fix-full-Auto-Fix-Full-Test-全フローをテストしてエラーを自動修正-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "auto-fix-full-Auto-Fix-Full-Test-全フローをテストしてエラーを自動修正-Mobile-Chrome",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-auto-Auto-Debug-Tests-回答提出時のエラー検出-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-auto-Auto-Debug-Tests-回答提出時のエラー検出-Mobile-Chrome",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-auto-Auto-Debug-Tests-画像アップロードの動作確認-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-auto-Auto-Debug-Tests-画像アップロードの動作確認-Mobile-Chrome",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-recent-features-最近実装-c2725-ー、参加コード機能、逐次モード途中結果ページの動作確認-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-sequential-simultane-10073-ボタンが機能し、全員がクリックしたら次のラウンドに進む-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-sequential-simultane-6071a-ード-ラウンド終了時に結果ページにリダイレクトされない-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-sequential-simultane-87c2d-g-Tests-一斉モード-通常の動作が正しく機能する-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-sequential-simultane-8cb71-モード-ラウンド終了時に結果ページにリダイレクトされる-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "full-flow-Blind-Dram-E2E-T-03046-Round進行（回答入力→Truth入力→採点→終了）-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "full-flow-Blind-Dram-E2E-Tests-シナリオ1-参加登録→順番決め→開始-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "sequential-round-result-Se-1bf3f-Result-Tests-結果ページが正しく表示される-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "sequential-round-result-Se-21369-sts-一斉モードでは結果ページにリダイレクトされない-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "sequential-round-result-Se-4db5b-sts-ラウンド終了時に結果ページにリダイレクトされる-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "sequential-round-result-Se-d42f7-d-Result-Tests-「次へ」ボタンが機能する-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-2名・各1本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-2名・各2本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-3名・1本、2本、3本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-3名・各1本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-3名・各2本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-results-display-Seque-36b66-est-逐次モード-セッション終了時に結果が表示される-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-sequential-next-butto-b552b-確認-全員が「次へ」を押しても自動リダイレクトされない-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    }
+  ]
+}

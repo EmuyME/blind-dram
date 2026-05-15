@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-01-18T02:32:59.048Z",
+  "totalReports": 3,
+  "autoFixable": 0,
+  "manualFixable": 3,
+  "fixes": [
+    {
+      "report": "debug-auto-Auto-Debug-Tests-回答提出時のエラー検出-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-auto-Auto-Debug-Tests-画像アップロードの動作確認-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "debug-recent-features-最近実装-c2725-ー、参加コード機能、逐次モード途中結果ページの動作確認-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    }
+  ]
+}

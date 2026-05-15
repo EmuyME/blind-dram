@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-05-06T09:22:14.457Z",
+  "totalReports": 5,
+  "autoFixable": 0,
+  "manualFixable": 5,
+  "fixes": [
+    {
+      "report": "test-all-combinations-完全フロー-2名・各1本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-2名・各2本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-3名・1本、2本、3本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-3名・各1本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    },
+    {
+      "report": "test-all-combinations-完全フロー-3名・各2本-chromium",
+      "errorType": "Unknown",
+      "issues": [],
+      "suggestions": [],
+      "canAutoFix": false
+    }
+  ]
+}

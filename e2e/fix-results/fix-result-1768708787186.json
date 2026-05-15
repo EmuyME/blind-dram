@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-01-18T03:59:47.185Z",
+  "errorReport": "test-results\\debug-sequential-simultane-10073-ボタンが機能し、全員がクリックしたら次のラウンドに進む-chromium\\error-context.md",
+  "errorType": "LoadingStuck",
+  "issues": [
+    "ページが「読み込み中...」で止まっている"
+  ],
+  "suggestions": [
+    "開発サーバーが起動しているか確認してください",
+    "npm run dev を実行してください"
+  ],
+  "fixed": true
+}

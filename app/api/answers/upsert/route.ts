@@ -192,10 +192,11 @@ export async function POST(request: NextRequest) {
       const submittedParticipantIds = new Set(submittedAnswers?.map((a) => a.participant_id) || []);
       
       // プレゼンター以外の全参加者が提出済みかチェック
+      // 回答者ゼロ（プレゼンターのみ等）のときは「全員提出」とみなさない。
+      // さもないと Truth 保存だけで answering → grading に進み、ラウンドが一瞬で終わって見える。
       const allSubmitted =
-        nonPresenterParticipants.length === 0
-          ? true
-          : nonPresenterParticipants.every((p) => submittedParticipantIds.has(p.id));
+        nonPresenterParticipants.length > 0 &&
+        nonPresenterParticipants.every((p) => submittedParticipantIds.has(p.id));
       const truthEntered = !!truth;
 
       const transitionLogData = {

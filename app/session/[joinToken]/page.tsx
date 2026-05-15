@@ -68,6 +68,20 @@ export default function SessionHomePage() {
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isPublishingResults, setIsPublishingResults] = useState(false);
+  /** running なのに current_sample が一時的に取れないとき、check-complete の reason を UI に出す */
+  const [runningGapReason, setRunningGapReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (session?.state !== 'running') {
+      setRunningGapReason(null);
+    }
+  }, [session?.state]);
+
+  useEffect(() => {
+    if (roundStatus != null) {
+      setRunningGapReason(null);
+    }
+  }, [roundStatus]);
 
   useEffect(() => {
     if (!joinToken) return;
@@ -383,22 +397,29 @@ export default function SessionHomePage() {
         const result = await response.json();
         
         if (result.data?.updated) {
-          // セッション状態を再読み込み
+          setRunningGapReason(null);
           await loadSession();
+          return;
         }
+        const reason = result.data?.reason;
+        if (typeof reason === 'string') {
+          setRunningGapReason(reason);
+        } else {
+          setRunningGapReason(null);
+        }
+        loadCurrentSampleAndStatus();
       } catch (error) {
         console.error('Check complete error:', error);
+        setRunningGapReason('error');
       }
     };
 
-    // 初回チェック
     checkAndUpdateSession();
-    
-    // 5秒ごとにチェック
-    const interval = setInterval(checkAndUpdateSession, 5000);
+
+    const interval = setInterval(checkAndUpdateSession, 4000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.state, roundStatus, joinToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSession は毎レンダーで新規生成
+  }, [session?.state, roundStatus, joinToken, loadCurrentSampleAndStatus]);
 
   // aggregating状態の間、定期的にセッション状態をチェックして、publishedになったら結果ページにリダイレクト
   useEffect(() => {
@@ -896,9 +917,20 @@ export default function SessionHomePage() {
   }
 
   if (session.state === 'running' && !roundStatus) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:478',message:'No round status - all samples may be completed',data:{session_state:session?.state,has_round_status:!!roundStatus},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
+    const reasonHints: Record<string, string> = {
+      no_samples:
+        'サンプル（ボトル）が1件も登録されていない可能性があります。オーナーの「参加登録締切」前に、参加者が持ち込み本数を正しく登録したか確認してください。',
+      incomplete_samples_pending:
+        'サーバー上ではラウンド未完了と判断されています。プレゼンターが「Round開始」を済ませているか、しばらく待ってから更新してください。',
+      samples_not_completed:
+        'いずれかのサンプルがまだ最終状態（結果公開／クローズ）になっていません。表示の同期待ちの可能性があります。',
+      error: 'サーバーとの通信に失敗しました。接続を確認してから更新してください。',
+    };
+    const hint =
+      runningGapReason && reasonHints[runningGapReason]
+        ? reasonHints[runningGapReason]
+        : '現在のサンプル情報を取得できていません。数秒待つか、下のボタンで再読み込みしてください。';
+
     return (
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
@@ -907,10 +939,20 @@ export default function SessionHomePage() {
         />
         <div className="max-w-md mx-auto mt-8">
           <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-            <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">すべてのRoundが完了しました</h2>
-            <p className="text-stone-400 mb-4 leading-relaxed">
-              すべてのサンプルの回答が完了しました。結果を待っています。
-            </p>
+            <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">
+              進行状況を同期しています
+            </h2>
+            <p className="text-stone-400 mb-4 leading-relaxed">{hint}</p>
+            <Button
+              variant="primary"
+              onClick={() => {
+                void loadSession();
+                void loadCurrentSampleAndStatus();
+              }}
+              className="w-full"
+            >
+              状態を更新
+            </Button>
           </div>
         </div>
       </div>

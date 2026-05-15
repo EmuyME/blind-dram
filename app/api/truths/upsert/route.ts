@@ -146,10 +146,10 @@ export async function POST(request: NextRequest) {
       const submittedParticipantIds = new Set(submittedAnswers?.map((a) => a.participant_id) || []);
       
       // プレゼンター以外の全参加者が提出済みかチェック
+      // 回答者ゼロのときは「全員提出」とみなさない（Truth だけで grading に進めない）
       const allSubmitted =
-        nonPresenterParticipants.length === 0
-          ? true
-          : nonPresenterParticipants.every((p) => submittedParticipantIds.has(p.id));
+        nonPresenterParticipants.length > 0 &&
+        nonPresenterParticipants.every((p) => submittedParticipantIds.has(p.id));
 
       console.log('[DEBUG] Truth upsert - State transition check:', {
         sample_id: sample_id,

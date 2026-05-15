@@ -176,6 +176,33 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // state が NULL / 想定外のとき .eq('state','pending') にマッチせず null になり、
+    // クライアントが「全ラウンド完了」と誤表示するのを防ぐ
+    const { data: allSamplesFallback, error: fallbackError } = await supabase
+      .from('samples')
+      .select('id, label, state, sort_order')
+      .eq('session_id', session.id)
+      .order('sort_order', { ascending: true });
+
+    if (!fallbackError && allSamplesFallback?.length) {
+      const nonTerminal = allSamplesFallback.find(
+        (s) => s.state !== 'revealed' && s.state !== 'closed',
+      );
+      if (nonTerminal) {
+        const st = nonTerminal.state;
+        const normalizedState =
+          st === 'pending' || st === 'answering' || st === 'grading' ? st : 'pending';
+        return successResponse({
+          current_sample: {
+            id: nonTerminal.id,
+            label: nonTerminal.label,
+            state: normalizedState,
+          },
+          mode: session.mode,
+        });
+      }
+    }
+
     // 進行中のSampleがない場合
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/current-sample/route.ts:72',message:'No samples found',data:{session_id:session.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});

@@ -85,10 +85,25 @@ export async function POST(request: NextRequest) {
     const gradedParticipantIds = new Set(grades?.map((g) => g.participant_id) || []);
     
     // プレゼンター以外の全参加者が採点済みかチェック
-    const allGraded = 
-      nonPresenterParticipants.length === 0
-        ? true
-        : nonPresenterParticipants.every((p) => gradedParticipantIds.has(p.id));
+    // 採点対象者がゼロのときは採点完了扱いにしない（誤って即 reveal しない）
+    let allGraded =
+      nonPresenterParticipants.length > 0 &&
+      nonPresenterParticipants.every((p) => gradedParticipantIds.has(p.id));
+
+    // オーナーのみ: 採点対象が0人のときでもラウンドを締められる（テスト用・復旧用）
+    if (!allGraded && owner_token) {
+      const { data: sessionOwnerRow } = await supabase
+        .from('sessions')
+        .select('owner_token')
+        .eq('id', sample.session_id)
+        .single();
+      if (
+        sessionOwnerRow?.owner_token === owner_token &&
+        nonPresenterParticipants.length === 0
+      ) {
+        allGraded = true;
+      }
+    }
 
     console.log('[DEBUG] Round finish - Grading check:', {
       sample_id: sample_id,
@@ -101,8 +116,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!allGraded) {
+      const missing = nonPresenterParticipants.filter((p) => !gradedParticipantIds.has(p.id));
       return errorResponse(
-        '採点が完了していません。全参加者の採点を完了してください',
+        missing.length > 0
+          ? `採点が完了していません。未採点の参加者が${missing.length}名います。プレゼンター画面で全員分の採点を済ませてから「Round終了」を押してください。`
+          : '採点が完了していません。全参加者の採点を完了してください',
         'GRADING_INCOMPLETE',
         400
       );

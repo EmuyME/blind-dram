@@ -22,6 +22,8 @@ interface Sample {
   label: string;
   state: 'pending' | 'answering' | 'grading' | 'revealed' | 'closed';
   sort_order: number;
+  /** current-sample API などで付与（round/status 失敗時の Presenter 判定用） */
+  presenter_participant_id?: string | null;
 }
 
 interface RoundStatus {
@@ -310,6 +312,48 @@ export default function SessionHomePage() {
           }))
         : [];
 
+      const resolvedPresenterId =
+        statusResult?.data?.presenter_participant_id ??
+        currentSample.presenter_participant_id ??
+        null;
+
+      let listForPendingCheck: MySample[] = mySamples;
+      if (participantToken) {
+        try {
+          const msRes = await fetch(
+            `/api/session/my-samples?join_token=${encodeURIComponent(joinToken)}&participant_token=${encodeURIComponent(participantToken)}`,
+          );
+          let msBody: { data?: MySample[] } = {};
+          try {
+            msBody = (await msRes.json()) as { data?: MySample[] };
+          } catch {
+            msBody = {};
+          }
+          if (msRes.ok && Array.isArray(msBody.data)) {
+            listForPendingCheck = msBody.data;
+            setMySamples(msBody.data);
+          }
+        } catch {
+          /* my-samples は補助。無視して従来の mySamples を使う */
+        }
+      }
+
+      if (
+        listForPendingCheck.length === 0 &&
+        participantId &&
+        resolvedPresenterId === participantId &&
+        currentSample
+      ) {
+        const fallbackRow: MySample = {
+          id: currentSample.id,
+          label: statusResult?.data?.label || currentSample.label,
+          state: currentSample.state,
+          sort_order: 0,
+        };
+        listForPendingCheck = [fallbackRow];
+        setMySamples([fallbackRow]);
+      }
+
       // ログは重要な変更時のみ記録（ポーリングで頻繁に呼ばれるため）
       // console.log('[DEBUG] Session home - Loaded round status:', {
       //   sample_id: currentSample.id,
@@ -324,46 +368,18 @@ export default function SessionHomePage() {
         current_sample: currentSample,
         participants: participantProgress,
         truth_entered: statusResult?.data?.truth_entered || false,
-        presenter_participant_id: statusResult?.data?.presenter_participant_id, // PresenterのIDを保存
-        label: statusResult?.data?.label, // Sampleのラベルを保存
+        presenter_participant_id: resolvedPresenterId,
+        label: statusResult?.data?.label ?? currentSample.label,
         truth: statusResult?.data?.truth, // Truth情報を保存（revealed状態の場合）
       });
 
-      // 現在のSampleが自分の持ち込みSampleかどうかを確認（participant_tokenがある場合のみ）
-      if (
-        currentSample &&
-        participantId &&
-        statusResult?.data?.presenter_participant_id === participantId
-      ) {
-        // 自分の持ち込みSampleをmySamplesに追加（関数型更新を使用）
-        setMySamples((prev) => {
-          if (!prev.some((s) => s.id === currentSample.id)) {
-            return [
-              ...prev,
-              {
-                id: currentSample.id,
-                label: statusResult?.data?.label || currentSample.label,
-                state: currentSample.state,
-                sort_order: 0, // 正確なsort_orderは不要
-              },
-            ];
-          } else {
-            // 既に存在する場合は状態を更新
-            return prev.map((s) =>
-              s.id === currentSample.id
-                ? { ...s, state: currentSample.state }
-                : s
-            );
-          }
-        });
-      }
-      
       // 自分のpending状態のサンプルがある場合、全員の「次へ」待ちかどうかをチェック
       if (participantId && session?.mode === 'sequential') {
-        const myPendingSamples = mySamples.filter((s) => s.state === 'pending');
-        myPendingSamples.forEach((sample) => {
-          checkPendingSampleReady(sample.id);
-        });
+        listForPendingCheck
+          .filter((s) => s.state === 'pending')
+          .forEach((sample) => {
+            checkPendingSampleReady(sample.id);
+          });
       }
     } catch (error) {
       console.error('Load current sample and status error:', error);

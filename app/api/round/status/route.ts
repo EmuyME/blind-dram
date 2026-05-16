@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         .from('participants')
         .select('id')
         .eq('participant_token', participantToken)
+        .eq('session_id', sample.session_id)
         .single();
 
       if (participantError) {

@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     if (isSequential) {
       const { data: revealedSample, error: revealedError } = await supabase
         .from('samples')
-        .select('id, label, state, sort_order')
+        .select('id, label, state, sort_order, presenter_participant_id')
         .eq('session_id', session.id)
         .eq('state', 'revealed')
         .order('sort_order', { ascending: false })
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
             id: revealedSample.id,
             label: revealedSample.label,
             state: revealedSample.state,
+            presenter_participant_id: revealedSample.presenter_participant_id ?? null,
           },
           mode: session.mode,
         });
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
 
       const { data: closedSample, error: closedError } = await supabase
         .from('samples')
-        .select('id, label, state, sort_order')
+        .select('id, label, state, sort_order, presenter_participant_id')
         .eq('session_id', session.id)
         .eq('state', 'closed')
         .order('sort_order', { ascending: false })
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest) {
             id: closedSample.id,
             label: closedSample.label,
             state: 'revealed',
+            presenter_participant_id: closedSample.presenter_participant_id ?? null,
           },
           mode: session.mode,
         });
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest) {
     // 現在のSampleを取得（優先順位: answering > grading > pending）
     const { data: answeringSample, error: answeringError } = await supabase
       .from('samples')
-      .select('id, label, state, sort_order')
+      .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)
       .eq('state', 'answering')
       .order('sort_order')
@@ -113,6 +115,7 @@ export async function GET(request: NextRequest) {
           id: answeringSample.id,
           label: answeringSample.label,
           state: answeringSample.state,
+          presenter_participant_id: answeringSample.presenter_participant_id ?? null,
         },
         mode: session.mode,
       });
@@ -121,7 +124,7 @@ export async function GET(request: NextRequest) {
     // grading状態のSampleを取得（採点中）
     const { data: gradingSample, error: gradingError } = await supabase
       .from('samples')
-      .select('id, label, state, sort_order')
+      .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)
       .eq('state', 'grading')
       .order('sort_order')
@@ -141,6 +144,7 @@ export async function GET(request: NextRequest) {
           id: gradingSample.id,
           label: gradingSample.label,
           state: gradingSample.state,
+          presenter_participant_id: gradingSample.presenter_participant_id ?? null,
         },
         mode: session.mode,
       });
@@ -151,7 +155,7 @@ export async function GET(request: NextRequest) {
     // answering状態（およびrevealed状態）のSampleがない場合、pending状態の最初のSampleを返す
     const { data: pendingSample, error: pendingError } = await supabase
       .from('samples')
-      .select('id, label, state, sort_order')
+      .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)
       .eq('state', 'pending')
       .order('sort_order')
@@ -171,6 +175,7 @@ export async function GET(request: NextRequest) {
           id: pendingSample.id,
           label: pendingSample.label,
           state: pendingSample.state,
+          presenter_participant_id: pendingSample.presenter_participant_id ?? null,
         },
         mode: session.mode,
       });
@@ -180,7 +185,7 @@ export async function GET(request: NextRequest) {
     // クライアントが「全ラウンド完了」と誤表示するのを防ぐ
     const { data: allSamplesFallback, error: fallbackError } = await supabase
       .from('samples')
-      .select('id, label, state, sort_order')
+      .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)
       .order('sort_order', { ascending: true });
 
@@ -197,6 +202,7 @@ export async function GET(request: NextRequest) {
             id: nonTerminal.id,
             label: nonTerminal.label,
             state: normalizedState,
+            presenter_participant_id: nonTerminal.presenter_participant_id ?? null,
           },
           mode: session.mode,
         });

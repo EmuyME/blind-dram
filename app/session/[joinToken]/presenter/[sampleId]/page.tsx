@@ -62,6 +62,20 @@ type ApiParticipantProgressRow = {
   is_correct?: boolean;
 };
 
+/** GET /api/round/status の JSON（抜粋） */
+type RoundStatusApiEnvelope = {
+  data?: {
+    state?: string;
+    participant_progress?: ApiParticipantProgressRow[];
+    all_graded?: boolean;
+    truth_entered?: boolean;
+    all_submitted?: boolean;
+    label?: string | null;
+    truth?: Truth;
+  };
+  error?: string;
+};
+
 const DEFAULT_CASK_OPTIONS = ['シェリー樽', 'バーボン樽', 'ワイン樽', 'その他'];
 const DEFAULT_REGION_OPTIONS = ['スコットランド', 'アイルランド', 'アメリカ', '日本', 'その他'];
 
@@ -198,33 +212,58 @@ export default function PresenterPage() {
     setParticipantToken(token);
   }, [joinToken, sampleId, router]);
 
-  const loadRoundStatus = useCallback(async () => {
-    if (!participantToken || !sampleId) return;
+  const loadRoundStatus = useCallback(
+    async (silentPoll = false) => {
+      if (!participantToken || !sampleId) return;
 
-    try {
-      const response = await fetch(
-        `/api/round/status?sample_id=${sampleId}&participant_token=${participantToken}`
-      );
-      const result = await response.json();
+      try {
+        const response = await fetch(
+          `/api/round/status?sample_id=${sampleId}&participant_token=${participantToken}`,
+        );
+        const text = await response.text();
+        let result: RoundStatusApiEnvelope = {};
+        try {
+          result = text ? (JSON.parse(text) as RoundStatusApiEnvelope) : {};
+        } catch {
+          if (!silentPoll) {
+            showToast(
+              `サーバーからの応答を解析できませんでした（HTTP ${response.status}）。`,
+              'error',
+            );
+          }
+          setIsLoading(false);
+          return;
+        }
 
-      if (!response.ok) {
-        showToast(result.error || 'Round状態取得に失敗しました', 'error');
-        setIsLoading(false);
-        return;
-      }
+        if (!response.ok) {
+          if (!silentPoll) {
+            showToast(result.error || 'Round状態取得に失敗しました', 'error');
+          }
+          setIsLoading(false);
+          return;
+        }
 
-      setRoundState(result.data.state);
-      const participantsData = (result.data.participant_progress || []) as ApiParticipantProgressRow[];
-      const allGradedValue = result.data.all_graded || false;
-      const truthEnteredValue = result.data.truth_entered || false;
-      const allSubmittedValue = result.data.all_submitted || false;
+        const payload = result.data;
+        if (!payload || typeof payload.state !== 'string') {
+          if (!silentPoll) {
+            showToast('Round状態の形式が不正です', 'error');
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        setRoundState(payload.state);
+        const participantsData = (payload.participant_progress || []) as ApiParticipantProgressRow[];
+        const allGradedValue = payload.all_graded || false;
+        const truthEnteredValue = payload.truth_entered || false;
+        const allSubmittedValue = payload.all_submitted || false;
       
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:91',message:'Round status loaded',data:{state:result.data.state,truth_entered:truthEnteredValue,all_submitted:allSubmittedValue,participants_count:participantsData.length,submitted_count:participantsData.filter((p) => p.status === 'submitted').length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:91',message:'Round status loaded',data:{state:payload.state,truth_entered:truthEnteredValue,all_submitted:allSubmittedValue,participants_count:participantsData.length,submitted_count:participantsData.filter((p) => p.status === 'submitted').length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
       // #endregion
       
       console.log('[DEBUG] Presenter panel - Loaded round status:', {
-        state: result.data.state,
+        state: payload.state,
         participants_count: participantsData.length,
         participants: participantsData.map((p) => ({
           id: p.participant_id,
@@ -258,28 +297,30 @@ export default function PresenterPage() {
         return updated;
       });
       setAllGraded(allGradedValue);
-      setSampleLabel(result.data.label || '');
+      setSampleLabel(payload.label || '');
       setTruthEntered(truthEnteredValue);
       setAllSubmitted(allSubmittedValue);
       
       // Truth情報を取得
-      if (result.data.truth) {
+      if (payload.truth) {
         setTruth({
-          true_cask: result.data.truth.true_cask || '',
-          true_region: result.data.truth.true_region || '',
-          true_age: result.data.truth.true_age,
-          true_abv: result.data.truth.true_abv,
-          true_distillery: result.data.truth.true_distillery || '',
-          notes: result.data.truth.notes || '',
-          bottle_image_url: result.data.truth.bottle_image_url || null,
+          true_cask: payload.truth.true_cask || '',
+          true_region: payload.truth.true_region || '',
+          true_age: payload.truth.true_age,
+          true_abv: payload.truth.true_abv,
+          true_distillery: payload.truth.true_distillery || '',
+          notes: payload.truth.notes || '',
+          bottle_image_url: payload.truth.bottle_image_url || null,
         });
-        if (result.data.truth.bottle_image_url) {
-          setImagePreview(result.data.truth.bottle_image_url);
+        if (payload.truth.bottle_image_url) {
+          setImagePreview(payload.truth.bottle_image_url);
         }
       }
     } catch (error) {
       console.error('Load error:', error);
-      showToast('ネットワークエラーが発生しました', 'error');
+      if (!silentPoll) {
+        showToast('ネットワークエラーが発生しました', 'error');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -287,7 +328,7 @@ export default function PresenterPage() {
 
   useEffect(() => {
     if (participantToken && sampleId) {
-      loadRoundStatus();
+      loadRoundStatus(false);
     }
   }, [participantToken, sampleId, loadRoundStatus]);
 
@@ -296,7 +337,7 @@ export default function PresenterPage() {
       // すべての状態で定期的に更新（ポーリング）
       // pending状態でも、他の参加者がRoundを開始した場合に更新が必要
       const interval = setInterval(() => {
-        loadRoundStatus();
+        loadRoundStatus(true);
       }, 2000); // 2秒ごとに更新
       
       return () => {

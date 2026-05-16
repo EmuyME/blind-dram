@@ -166,58 +166,116 @@ export default function RoundPage() {
     setParticipantToken(token);
   }, [joinToken, router]);
 
-  const loadSampleAndAnswer = useCallback(async (token: string) => {
-    if (!sampleId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      // Sampleの状態と自分の回答を並列で取得（遷移体感を改善）
-      const [statusResponse, answerResponse] = await Promise.all([
-        fetch(`/api/round/status?sample_id=${sampleId}&participant_token=${token}`),
-        fetch(`/api/answers/get?sample_id=${sampleId}&participant_token=${token}`),
-      ]);
-      const statusResult = await statusResponse.json();
-
-      if (!statusResponse.ok) {
-        showToast(statusResult.error || 'Sample情報の取得に失敗しました', 'error');
+  const loadSampleAndAnswer = useCallback(
+    async (token: string, silentPoll = false) => {
+      if (!sampleId) {
         setIsLoading(false);
         return;
       }
 
-      const state = statusResult.data?.state;
-      setSampleState(state);
+      try {
+        const [statusResponse, answerResponse] = await Promise.all([
+          fetch(`/api/round/status?sample_id=${sampleId}&participant_token=${token}`),
+          fetch(`/api/answers/get?sample_id=${sampleId}&participant_token=${token}`),
+        ]);
+        const [statusText, answerText] = await Promise.all([
+          statusResponse.text(),
+          answerResponse.text(),
+        ]);
 
-      // 既存回答を取得
-      if (answerResponse.ok) {
-        const answerResult = await answerResponse.json();
-        if (answerResult.data?.answer) {
+        let statusResult: { data?: { state?: string }; error?: string } = {};
+        try {
+          statusResult = statusText ? (JSON.parse(statusText) as typeof statusResult) : {};
+        } catch {
+          if (!silentPoll) {
+            showToast(
+              `Sample情報の応答を解析できませんでした（HTTP ${statusResponse.status}）。`,
+              'error',
+            );
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (!statusResponse.ok) {
+          if (!silentPoll) {
+            showToast(statusResult.error || 'Sample情報の取得に失敗しました', 'error');
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        const state = statusResult.data?.state;
+        if (state != null) {
+          setSampleState(state);
+        }
+
+        let answerResult: { data?: { answer?: Record<string, unknown> } } = {};
+        if (answerResponse.ok && answerText) {
+          try {
+            answerResult = JSON.parse(answerText) as typeof answerResult;
+          } catch {
+            if (!silentPoll) {
+              showToast('保存済み回答の読み込みに失敗しました（形式エラー）', 'error');
+            }
+          }
+        } else if (!answerResponse.ok && !silentPoll && answerText) {
+          try {
+            const errBody = JSON.parse(answerText) as { error?: string };
+            if (errBody.error) {
+              showToast(errBody.error, 'error');
+            }
+          } catch {
+            if (answerResponse.status === 429) {
+              showToast(
+                'アクセスが集中しています。少し待ってから再度お試しください。',
+                'error',
+              );
+            }
+          }
+        }
+
+        if (answerResponse.ok && answerResult.data?.answer) {
           const existingAnswer = answerResult.data.answer;
           const next: Answer = {
-            guessed_cask: existingAnswer.guessed_cask || '',
-            guessed_region: existingAnswer.guessed_region || '',
-            guessed_age: existingAnswer.guessed_age || undefined,
-            guessed_abv: existingAnswer.guessed_abv || undefined,
-            guessed_distillery: existingAnswer.guessed_distillery || '',
-            nose: existingAnswer.nose || { tier1_tags: [], tier2_terms: [], text: '' },
-            palate: existingAnswer.palate || { tier1_tags: [], tier2_terms: [], text: '' },
-            finish: existingAnswer.finish || { tier1_tags: [], tier2_terms: [], text: '' },
-            score_0_100: existingAnswer.score_0_100 || undefined,
-            status: existingAnswer.status,
+            guessed_cask: (existingAnswer.guessed_cask as string) || '',
+            guessed_region: (existingAnswer.guessed_region as string) || '',
+            guessed_age: (existingAnswer.guessed_age as number) || undefined,
+            guessed_abv: (existingAnswer.guessed_abv as number) || undefined,
+            guessed_distillery: (existingAnswer.guessed_distillery as string) || '',
+            nose: (existingAnswer.nose as Answer['nose']) || {
+              tier1_tags: [],
+              tier2_terms: [],
+              text: '',
+            },
+            palate: (existingAnswer.palate as Answer['palate']) || {
+              tier1_tags: [],
+              tier2_terms: [],
+              text: '',
+            },
+            finish: (existingAnswer.finish as Answer['finish']) || {
+              tier1_tags: [],
+              tier2_terms: [],
+              text: '',
+            },
+            score_0_100: (existingAnswer.score_0_100 as number) || undefined,
+            status: existingAnswer.status as Answer['status'],
           };
           setAnswer(next);
           serverAnswerSnapshotRef.current = JSON.stringify(normalizeAnswerForCompare(next));
         }
-      }
 
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Load sample error:', error);
-      showToast('ネットワークエラーが発生しました', 'error');
-      setIsLoading(false);
-    }
-  }, [sampleId, showToast]);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Load sample error:', error);
+        if (!silentPoll) {
+          showToast('ネットワークエラーが発生しました', 'error');
+        }
+        setIsLoading(false);
+      }
+    },
+    [sampleId, showToast],
+  );
 
   // Sessionから設定を読み込む
   useEffect(() => {
@@ -281,7 +339,7 @@ export default function RoundPage() {
 
   useEffect(() => {
     if (participantToken && sampleId) {
-      loadSampleAndAnswer(participantToken);
+      loadSampleAndAnswer(participantToken, false);
     }
   }, [participantToken, sampleId, loadSampleAndAnswer]);
 
@@ -302,7 +360,7 @@ export default function RoundPage() {
   useEffect(() => {
     if (participantToken && sampleId) {
       const interval = setInterval(() => {
-        loadSampleAndAnswer(participantToken);
+        loadSampleAndAnswer(participantToken, true);
       }, 3000); // 3秒ごとに状態をチェック
       return () => clearInterval(interval);
     }

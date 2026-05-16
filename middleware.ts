@@ -89,10 +89,14 @@ export async function middleware(req: NextRequest) {
 
   // ポーリング・同期用の読み取り系 GET と check-complete は同一 IP から短間隔で呼ばれるため
   // 汎用 API 枠（200/分/パス）に載せると 429 で画面が固まる。POST の非課金系のみ除外。
-  if (method === 'GET' &&
-      (path.startsWith('/api/session/') ||
-        path === '/api/round/status' ||
-        path === '/api/participants/me')) {
+  // 注: レート制限キーが IP+パス単位のため、同一 NAT 上の複数参加者で answers/get が共有されやすい
+  if (
+    method === 'GET' &&
+    (path.startsWith('/api/session/') ||
+      path === '/api/round/status' ||
+      path === '/api/participants/me' ||
+      path === '/api/answers/get')
+  ) {
     return NextResponse.next();
   }
   if (method === 'POST' && path === '/api/session/check-complete') {

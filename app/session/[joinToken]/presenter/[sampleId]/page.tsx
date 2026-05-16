@@ -325,7 +325,7 @@ export default function PresenterPage() {
         }),
       });
 
-      let result: { error?: string; code?: string } = {};
+      let result: { error?: string; code?: string; data?: { already_started?: boolean } } = {};
       try {
         const text = await response.text();
         result = text ? (JSON.parse(text) as typeof result) : {};
@@ -338,6 +338,7 @@ export default function PresenterPage() {
       }
 
       if (!response.ok) {
+        await loadRoundStatus();
         const msg =
           result.error ||
           (response.status === 429
@@ -347,7 +348,11 @@ export default function PresenterPage() {
         return;
       }
 
-      showToast('Roundを開始しました', 'success');
+      if (result.data?.already_started) {
+        showToast('すでにRoundが開始されています。画面を更新しました。', 'success');
+      } else {
+        showToast('Roundを開始しました', 'success');
+      }
       await loadRoundStatus();
     } catch (error) {
       console.error('Start round error:', error);

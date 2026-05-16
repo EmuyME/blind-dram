@@ -41,10 +41,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 状態チェック
+    // 既に回答受付中なら冪等に成功（start-next・別タブ・二重送信などで pending 表示と DB がずれるのを吸収）
+    if (sample.state === 'answering') {
+      return successResponse({
+        sample_id: sample_id,
+        state: 'answering',
+        already_started: true,
+      });
+    }
+
     if (sample.state !== 'pending') {
       return errorResponse(
-        'Round状態が不正です。pending状態の時のみ実行できます',
+        `Round状態が不正です（現在: ${sample.state}）。開始できるのは未開始（pending）のときだけです。`,
         'INVALID_STATE',
         400
       );

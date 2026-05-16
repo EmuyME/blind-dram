@@ -222,8 +222,13 @@ export default function SessionHomePage() {
       // #endregion
       // 現在のSampleを取得（participant_tokenは不要）
       const currentSampleResponse = await fetch(`/api/session/current-sample?join_token=${joinToken}`);
-      const currentSampleResult = await currentSampleResponse.json();
-      
+      let currentSampleResult: { data?: { current_sample?: Sample | null; mode?: string } };
+      try {
+        currentSampleResult = await currentSampleResponse.json();
+      } catch {
+        return;
+      }
+
       // #region agent log
       fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:120',message:'Current sample API response',data:{ok:currentSampleResponse.ok,has_data:!!currentSampleResult.data,has_current_sample:!!currentSampleResult.data?.current_sample,current_sample_id:currentSampleResult.data?.current_sample?.id,current_sample_state:currentSampleResult.data?.current_sample?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
       // #endregion
@@ -270,16 +275,28 @@ export default function SessionHomePage() {
         );
       };
 
-      // participant_tokenがある場合のみRound状態を取得
+      // participant_tokenがある場合のみRound状態を取得（失敗しても currentSample ベースで UI を進める）
       let statusResult: ApiResult<RoundStatusApiData> | null = null;
       if (participantToken) {
-        const statusResponse = await fetch(
-          `/api/round/status?sample_id=${currentSample.id}&participant_token=${participantToken}`
-        );
-        statusResult = (await statusResponse.json()) as ApiResult<RoundStatusApiData>;
-
-        if (!statusResponse.ok) {
-          // エラーでもcurrentSampleの情報は使用できるので、participant_tokenがない場合と同様に処理
+        try {
+          const statusResponse = await fetch(
+            `/api/round/status?sample_id=${currentSample.id}&participant_token=${participantToken}`
+          );
+          let parsed: unknown = null;
+          try {
+            parsed = await statusResponse.json();
+          } catch {
+            parsed = null;
+          }
+          if (
+            statusResponse.ok &&
+            parsed &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed)
+          ) {
+            statusResult = parsed as ApiResult<RoundStatusApiData>;
+          }
+        } catch {
           statusResult = null;
         }
       }

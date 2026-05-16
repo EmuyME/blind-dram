@@ -229,6 +229,9 @@ export default function SessionHomePage() {
       // #endregion
 
       if (!currentSampleResponse.ok || !currentSampleResult.data) {
+        if (currentSampleResponse.status === 429) {
+          setRunningGapReason('rate_limit');
+        }
         return;
       }
 
@@ -351,7 +354,7 @@ export default function SessionHomePage() {
       fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:206',message:'loadCurrentSampleAndStatus - Error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
       // #endregion
     }
-  }, [session, joinToken, participantToken, participantId, checkPendingSampleReady, mySamples]);
+  }, [session, joinToken, participantToken, participantId, checkPendingSampleReady, mySamples, setRunningGapReason]);
 
   useEffect(() => {
       // #region agent log
@@ -922,6 +925,8 @@ export default function SessionHomePage() {
         'サンプル（ボトル）が1件も登録されていない可能性があります。オーナーの「参加登録締切」前に、参加者が持ち込み本数を正しく登録したか確認してください。',
       incomplete_samples_pending:
         'サーバー上ではラウンド未完了と判断されています。プレゼンターが「Round開始」を済ませているか、しばらく待ってから更新してください。',
+      rate_limit:
+        '短時間にアクセスが集中し、一時的に制限されました。Blind Dram のタブを1つに減らすか、30〜60秒待ってから「状態を更新」を押してください。',
       samples_not_completed:
         'いずれかのサンプルがまだ最終状態（結果公開／クローズ）になっていません。表示の同期待ちの可能性があります。',
       error: 'サーバーとの通信に失敗しました。接続を確認してから更新してください。',

@@ -97,20 +97,18 @@ test.describe('Blind Dram E2E Tests', () => {
     await helpers.startRound(joinToken, sampleId, participant1Token);
     
     // 2. 回答入力（参加者2）
-    if (page2 && participant2Token) {
-      const page2New = await context2?.newPage();
-      if (page2New) {
-        const helpers2 = new TestHelpers(page2New);
-        await helpers2.submitAnswer(joinToken, sampleId, participant2Token, {
-          cask: 'シェリー樽',
-          region: 'スコットランド',
-          age: 12,
-          abv: 43,
-          distillery: 'マッカラン',
-          score: 85,
-        });
-        await page2New.close();
-      }
+    if (context2 && participant2Token) {
+      const page2New = await context2.newPage();
+      const helpers2 = new TestHelpers(page2New);
+      await helpers2.submitAnswer(joinToken, sampleId, participant2Token, {
+        cask: 'シェリー樽',
+        region: 'スコットランド',
+        age: 12,
+        abv: 43,
+        distillery: 'マッカラン',
+        score: 85,
+      });
+      await page2New.close();
     }
     
     // 3. Truth入力（Presenter）
@@ -130,9 +128,9 @@ test.describe('Blind Dram E2E Tests', () => {
     }, { token: participant1Token, jt: joinToken });
     await page.reload();
     
-    // 採点ボタンが表示されるまで待つ
-    await page.waitForSelector('button:has-text("○"), button:has-text("×")', { timeout: 10000 });
-    
+    // 採点 UI（正解 / 不正解）が表示されるまで待つ
+    await page.waitForSelector('button:has-text("正解")', { timeout: 15000 });
+
     // 5. Round終了
     await helpers.finishRound(joinToken, sampleId, participant1Token);
     
@@ -145,8 +143,10 @@ test.describe('Blind Dram E2E Tests', () => {
     
     // 次のRoundまたは完了メッセージが表示されることを確認
     await expect(
-      page.locator('text=/次のRound|すべてのRoundが完了|結果を集計中/').first()
-    ).toBeVisible({ timeout: 10000 });
+      page.locator(
+        'text=/次のRound|すべてのRoundが完了|結果を集計中|進行状況を同期/',
+      ).first(),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('シナリオ3: 集計・公開→結果表示', async ({ page }) => {

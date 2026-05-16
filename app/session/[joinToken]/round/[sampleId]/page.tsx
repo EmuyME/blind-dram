@@ -657,6 +657,7 @@ export default function RoundPage() {
             <div>
               <label className="block text-base font-medium text-stone-100 mb-2">カスク</label>
               <select
+                name="guessed_cask"
                 value={answer.guessed_cask || ''}
                 onChange={(e) => setAnswer({ ...answer, guessed_cask: e.target.value })}
                 className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
@@ -673,6 +674,7 @@ export default function RoundPage() {
             <div>
               <label className="block text-base font-medium text-stone-100 mb-2">地域</label>
               <select
+                name="guessed_region"
                 value={answer.guessed_region || ''}
                 onChange={(e) => setAnswer({ ...answer, guessed_region: e.target.value })}
                 className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
@@ -689,6 +691,7 @@ export default function RoundPage() {
             <div>
               <label className="block text-base font-medium text-stone-100 mb-2">熟成年数</label>
               <input
+                name="guessed_age"
                 type="number"
                 min="0"
                 value={answer.guessed_age || ''}
@@ -702,6 +705,7 @@ export default function RoundPage() {
             <div>
               <label className="block text-base font-medium text-stone-100 mb-2">度数（%）</label>
               <input
+                name="guessed_abv"
                 type="number"
                 min="0"
                 max="100"
@@ -717,6 +721,7 @@ export default function RoundPage() {
             <div>
               <label className="block text-base font-medium text-stone-100 mb-2">蒸留所名</label>
               <input
+                name="guessed_distillery"
                 type="text"
                 value={answer.guessed_distillery || ''}
                 onChange={(e) => setAnswer({ ...answer, guessed_distillery: e.target.value })}
@@ -886,6 +891,7 @@ export default function RoundPage() {
           <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
             <label className="block text-base font-medium text-stone-100 mb-2">点数（0-100、任意）</label>
             <input
+              name="score_0_100"
               type="number"
               min="0"
               max="100"

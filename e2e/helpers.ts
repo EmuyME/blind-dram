@@ -432,11 +432,11 @@ export class TestHelpers {
     }, { token: participantToken, jt: joinToken });
     await this.page.reload();
     
-    // 採点ボタンを探す（○または×）
+    // 採点ボタン（正解・不正解）
     if (isCorrect) {
-      await this.page.click(`button:has-text("○"), button[data-participant-id="${participantId}"]:has-text("正解")`);
+      await this.page.locator('button:has-text("正解")').first().click();
     } else {
-      await this.page.click(`button:has-text("×"), button[data-participant-id="${participantId}"]:has-text("不正解")`);
+      await this.page.locator('button:has-text("不正解")').first().click();
     }
     await this.page.waitForTimeout(1000);
   }

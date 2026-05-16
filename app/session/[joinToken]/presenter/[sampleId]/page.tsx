@@ -730,6 +730,7 @@ export default function PresenterPage() {
                 <div>
                   <label className="block text-sm font-semibold text-stone-100 mb-2">カスク</label>
                   <select
+                    name="true_cask"
                     value={truth.true_cask || ''}
                     onChange={(e) => setTruth({ ...truth, true_cask: e.target.value })}
                     className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
@@ -746,6 +747,7 @@ export default function PresenterPage() {
                 <div>
                   <label className="block text-sm font-semibold text-stone-100 mb-2">地域</label>
                   <select
+                    name="true_region"
                     value={truth.true_region || ''}
                     onChange={(e) => setTruth({ ...truth, true_region: e.target.value })}
                     className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
@@ -762,6 +764,7 @@ export default function PresenterPage() {
                 <div>
                   <label className="block text-sm font-semibold text-stone-100 mb-2">熟成年数</label>
                   <input
+                    name="true_age"
                     type="number"
                     min="0"
                     value={truth.true_age || ''}
@@ -775,6 +778,7 @@ export default function PresenterPage() {
                 <div>
                   <label className="block text-sm font-semibold text-stone-100 mb-2">度数（%）</label>
                   <input
+                    name="true_abv"
                     type="number"
                     min="0"
                     max="100"
@@ -790,6 +794,7 @@ export default function PresenterPage() {
                 <div>
                   <label className="block text-sm font-semibold text-stone-100 mb-2">蒸留所名</label>
                   <input
+                    name="true_distillery"
                     type="text"
                     value={truth.true_distillery || ''}
                     onChange={(e) => setTruth({ ...truth, true_distillery: e.target.value })}

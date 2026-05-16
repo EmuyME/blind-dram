@@ -12,18 +12,6 @@ export async function POST(request: NextRequest) {
       return errorResponse('participant_tokenとsample_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Participant認証
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('participant_token', participant_token)
-      .single();
-
-    if (participantError || !participant) {
-      return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
-    }
-
-    // Sample取得とPresenter権限チェック
     const { data: sample, error: sampleError } = await supabase
       .from('samples')
       .select('id, state, presenter_participant_id, session_id, sort_order')
@@ -32,6 +20,17 @@ export async function POST(request: NextRequest) {
 
     if (sampleError || !sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
+    }
+
+    const { data: participant, error: participantError } = await supabase
+      .from('participants')
+      .select('id')
+      .eq('participant_token', participant_token)
+      .eq('session_id', sample.session_id)
+      .single();
+
+    if (participantError || !participant) {
+      return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
     if (sample.presenter_participant_id !== participant.id) {

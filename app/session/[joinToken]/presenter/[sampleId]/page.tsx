@@ -325,10 +325,25 @@ export default function PresenterPage() {
         }),
       });
 
-      const result = await response.json();
+      let result: { error?: string; code?: string } = {};
+      try {
+        const text = await response.text();
+        result = text ? (JSON.parse(text) as typeof result) : {};
+      } catch {
+        showToast(
+          `サーバーからの応答を解析できませんでした（HTTP ${response.status}）。しばらく待って再度お試しください。`,
+          'error',
+        );
+        return;
+      }
 
       if (!response.ok) {
-        showToast(result.error || 'Round開始に失敗しました', 'error');
+        const msg =
+          result.error ||
+          (response.status === 429
+            ? 'アクセスが集中しています。少し待ってから再度お試しください。'
+            : `Round開始に失敗しました（HTTP ${response.status}）`);
+        showToast(msg, 'error');
         return;
       }
 

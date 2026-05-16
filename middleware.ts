@@ -99,6 +99,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // セッション進行の重要操作（1 クリック単位だが、CDN/共有 IP や 429 余韻で失敗しないよう汎用枠から除外）
+  if (
+    method === 'POST' &&
+    (path === '/api/round/start' ||
+      path === '/api/round/finish' ||
+      path === '/api/truths/upsert' ||
+      path === '/api/distillery/grade' ||
+      path === '/api/distillery/reject-submission' ||
+      path === '/api/round-result/click-next' ||
+      path === '/api/round-result/start-next')
+  ) {
+    return NextResponse.next();
+  }
+
   const { success } = await api.limit(`${ip}:${method}:${path}`);
   if (!success) {
     return NextResponse.json(

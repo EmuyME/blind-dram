@@ -8,21 +8,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, mode, flavor_chart_id, previous_session_id, previous_session_join_token } = body;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        location:'app/api/session/create/route.ts:10',
-        message:'Session create request received',
-        data:{has_title:!!title,mode,has_previous_session_id:!!previous_session_id,has_previous_session_join_token:!!previous_session_join_token},
-        timestamp:Date.now(),
-        sessionId:'debug-session',
-        runId:'run-create',
-        hypothesisId:'H_CREATE'
-      })
-    }).catch(()=>{});
-    // #endregion
 
     // バリデーション
     if (!title || typeof title !== 'string' || title.trim() === '') {
@@ -47,21 +32,6 @@ export async function POST(request: NextRequest) {
       const { data: previousSession, error: previousSessionError } = await previousSessionQuery;
 
       if (previousSessionError || !previousSession) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            location:'app/api/session/create/route.ts:33',
-            message:'Previous session not found',
-            data:{previous_session_id:previous_session_id,previous_session_join_token:previous_session_join_token,error:previousSessionError},
-            timestamp:Date.now(),
-            sessionId:'debug-session',
-            runId:'run-create',
-            hypothesisId:'H_CREATE'
-          })
-        }).catch(()=>{});
-        // #endregion
         return errorResponse('前のセッションが見つかりません', 'PREVIOUS_SESSION_NOT_FOUND', 404);
       }
 
@@ -69,21 +39,6 @@ export async function POST(request: NextRequest) {
 
       // 前のセッションの状態をチェック（publishedまたはclosedでない場合はエラー）
       if (previousSession.state !== 'published' && previousSession.state !== 'closed') {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            location:'app/api/session/create/route.ts:40',
-            message:'Previous session not completed',
-            data:{previous_session_state:previousSession.state},
-            timestamp:Date.now(),
-            sessionId:'debug-session',
-            runId:'run-create',
-            hypothesisId:'H_CREATE'
-          })
-        }).catch(()=>{});
-        // #endregion
         return errorResponse(
           `前のセッションが完了していません。現在の状態: ${previousSession.state}。結果が公開されるまで新しいセッションを開始できません`,
           'PREVIOUS_SESSION_NOT_COMPLETED',
@@ -143,39 +98,9 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Session creation error:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          location:'app/api/session/create/route.ts:87',
-          message:'Session creation error',
-          data:{error},
-          timestamp:Date.now(),
-          sessionId:'debug-session',
-          runId:'run-create',
-          hypothesisId:'H_CREATE'
-        })
-      }).catch(()=>{});
-      // #endregion
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        location:'app/api/session/create/route.ts:92',
-        message:'Session created successfully',
-        data:{session_id:session.id,mode,state:session.state},
-        timestamp:Date.now(),
-        sessionId:'debug-session',
-        runId:'run-create',
-        hypothesisId:'H_CREATE'
-      })
-    }).catch(()=>{});
-    // #endregion
 
     return successResponse({
       session_id: session.id,

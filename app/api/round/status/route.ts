@@ -46,9 +46,6 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/status/route.ts:42',message:'Presenter check result',data:{has_participant_token:!!participantToken,has_participant:!!participant,participant_id:participant?.id,presenter_participant_id:sample.presenter_participant_id,is_presenter:isPresenter},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H6'})}).catch(()=>{});
-    // #endregion
 
     // 参加者進捗取得
     const { data: participants, error: participantsError } = await supabase
@@ -270,9 +267,6 @@ export async function GET(request: NextRequest) {
       label: sample.label, // Sampleのラベルを追加
     };
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/status/route.ts:201',message:'Round status response data',data:{sample_id:sampleId,state:sample.state,is_presenter:isPresenter,participant_progress_count:participantProgress.length,non_presenter_progress_count:nonPresenterProgress.length,all_submitted:allSubmitted,all_graded:allGraded,truth_entered:truthEntered,participant_statuses:nonPresenterProgress.map((p) => ({id:p.participant_id,status:p.status}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H7'})}).catch(()=>{});
-    // #endregion
 
     // Presenterの場合、またはrevealed状態の場合はTruth情報も含める
     if ((isPresenter || isRevealed) && truth) {
@@ -287,9 +281,6 @@ export async function GET(request: NextRequest) {
       };
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/status/route.ts:229',message:'Round status response',data:{sample_id:sampleId,state:sample.state,is_presenter:isPresenter,is_revealed:isRevealed,participant_id:participant?.id,truth_included:!!truth,answers_count:answers?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
 
     // ログは重要な変更時のみ記録（ポーリングで頻繁に呼ばれるため）
     // 状態が変わった時のみ記録する場合は、前回の状態を保存して比較する必要がある

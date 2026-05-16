@@ -5,21 +5,12 @@ import { successResponse, errorResponse } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:7',message:'start-next API entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
   try {
     const body = await request.json();
     const { participant_token, sample_id } = body;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:12',message:'start-next - Request body parsed',data:{has_participant_token:!!participant_token,has_sample_id:!!sample_id,sample_id:sample_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
 
     if (!participant_token || !sample_id) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:15',message:'start-next - Missing parameter',data:{has_participant_token:!!participant_token,has_sample_id:!!sample_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       return errorResponse('participant_tokenとsample_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
@@ -97,9 +88,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (activeSample) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:active-check',message:'Active sample found - returning existing round',data:{active_sample_id:activeSample.id,active_sample_state:activeSample.state},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       // 既に進行中のラウンドがある場合は、それをクライアントに通知する
       return successResponse({
         next_sample_id: activeSample.id,
@@ -110,9 +98,6 @@ export async function POST(request: NextRequest) {
     // 次のサンプルを取得
     // sort_orderの乱れで次サンプルが見つからないケースを避けるため、
     // 「同じセッション内の、自分以外のpendingサンプル」を単純に1件取得する
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:63',message:'Fetching next sample',data:{current_sample_id:sample.id,current_sort_order:sample.sort_order},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     const { data: nextSample, error: nextSampleError } = await supabase
       .from('samples')
       .select('id, state')
@@ -125,23 +110,14 @@ export async function POST(request: NextRequest) {
 
     if (nextSampleError) {
       console.error('Next sample fetch error:', nextSampleError);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:74',message:'Next sample fetch error',data:{error:nextSampleError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:78',message:'Next sample result',data:{has_next_sample:!!nextSample,next_sample_id:nextSample?.id,next_sample_state:nextSample?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
 
     let nextSampleId: string | null = null;
     
     if (nextSample && nextSample.state === 'pending') {
       // 次のサンプルをanswering状態に変更
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:82',message:'Updating next sample to answering',data:{next_sample_id:nextSample.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       const { error: nextSampleUpdateError } = await supabase
         .from('samples')
         .update({ state: 'answering' })
@@ -149,21 +125,12 @@ export async function POST(request: NextRequest) {
 
       if (nextSampleUpdateError) {
         console.error('Next sample update error:', nextSampleUpdateError);
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:87',message:'Next sample update error',data:{next_sample_id:nextSample.id,error:nextSampleUpdateError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         return errorResponse('次のラウンドの開始に失敗しました', 'SERVER_ERROR', 500);
       }
       
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:92',message:'Next sample updated to answering',data:{next_sample_id:nextSample.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       nextSampleId = nextSample.id;
     } else if (!nextSample) {
       // 次のサンプルがない場合のみ、セッションをaggregating状態に遷移
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:132',message:'No next sample - transitioning to aggregating',data:{session_id:participant.session_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       const { error: sessionUpdateError } = await supabase
         .from('sessions')
         .update({ state: 'aggregating' })
@@ -171,9 +138,6 @@ export async function POST(request: NextRequest) {
       
       if (sessionUpdateError) {
         console.error('Session update to aggregating error:', sessionUpdateError);
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/start-next/route.ts:138',message:'Session update to aggregating error',data:{session_id:participant.session_id,error:sessionUpdateError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         return errorResponse('セッション状態の更新に失敗しました', 'SERVER_ERROR', 500);
       }
     }

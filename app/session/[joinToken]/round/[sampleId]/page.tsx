@@ -282,23 +282,14 @@ export default function RoundPage() {
     if (!joinToken) return;
 
     const loadSessionSettings = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round/[sampleId]/page.tsx:158',message:'loadSessionSettings - Entry',data:{join_token:joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       try {
         const response = await fetch(`/api/session/get?join_token=${joinToken}`);
         const result = await response.json();
 
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round/[sampleId]/page.tsx:163',message:'loadSessionSettings - API response',data:{ok:response.ok,has_data:!!result.data,has_error:!!result.error,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
 
         if (response.ok && result.data) {
           const session = result.data;
           
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round/[sampleId]/page.tsx:169',message:'loadSessionSettings - Processing session data',data:{has_cask_options:!!session.cask_options_snapshot,has_region_options:!!session.region_options_snapshot,has_flavor_chart:!!session.flavor_chart_snapshot},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
           
           // カスク選択肢
           if (session.cask_options_snapshot && Array.isArray(session.cask_options_snapshot)) {
@@ -321,14 +312,8 @@ export default function RoundPage() {
             }
           }
           
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round/[sampleId]/page.tsx:190',message:'loadSessionSettings - Settings processed',data:{cask_options_count:session.cask_options_snapshot?.length||0,region_options_count:session.region_options_snapshot?.length||0,tier1_count:session.flavor_chart_snapshot?.tier1?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
         }
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round/[sampleId]/page.tsx:194',message:'loadSessionSettings - Error',data:{error:String(error),error_stack:error instanceof Error ? error.stack : undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         console.error('Load session settings error:', error);
         // エラー時はデフォルト値を使用
       }

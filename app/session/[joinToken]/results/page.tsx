@@ -160,9 +160,6 @@ export default function ResultsPage() {
     }
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/results/page.tsx:74',message:'Fetching results',data:{join_token:joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H10'})}).catch(()=>{});
-      // #endregion
       const ownerQs = (() => {
         const ot = getOwnerToken(joinToken);
         return ot ? `&owner_token=${encodeURIComponent(ot)}` : '';
@@ -170,9 +167,6 @@ export default function ResultsPage() {
       const response = await fetch(`/api/results/get?join_token=${joinToken}${ownerQs}`);
       const result = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/results/page.tsx:78',message:'Results API response',data:{ok:response.ok,has_data:!!result.data,has_session:!!result.data?.session,session_id:result.data?.session?.id,session_state:result.data?.session?.state,rankings_count:result.data?.rankings?.length,sample_details_count:result.data?.sample_details?.length,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H10'})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         showToast(result.error || '結果取得に失敗しました', 'error');
@@ -181,18 +175,12 @@ export default function ResultsPage() {
       }
 
       if (result.data) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/results/page.tsx:130',message:'Results data loaded',data:{sample_details_count:(result.data as Results)?.sample_details?.length,sample_details_with_images:(result.data as Results)?.sample_details?.map((s) => ({sample_label:s.sample_label,has_image:!!s.truth?.bottle_image_url,image_url:s.truth?.bottle_image_url}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         setResults(result.data);
       } else {
         showToast('結果データが見つかりません', 'error');
       }
     } catch (error) {
       console.error('Load error:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/results/page.tsx:95',message:'Results load error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H10'})}).catch(()=>{});
-      // #endregion
       showToast('ネットワークエラーが発生しました', 'error');
     } finally {
       setIsLoading(false);

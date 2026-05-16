@@ -118,50 +118,16 @@ export default function PresenterPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  // #region agent log
-  useEffect(() => {
-    const submittedCount = participants.filter((p) => p.status === 'submitted').length;
-    const gradingVisible = roundState === 'grading';
-
-    // NOTE: tokenなどの秘匿情報はログに出さない
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'app/session/[joinToken]/presenter/[sampleId]/page.tsx:dbg-grade-ui-dup',
-        message: 'Presenter grading UI visibility',
-        data: {
-          round_state: roundState,
-          truth_entered: truthEntered,
-          all_submitted: allSubmitted,
-          participants_total: participants.length,
-          submitted_count: submittedCount,
-          grading_visible: gradingVisible,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'run-grade-ui-dup',
-        hypothesisId: 'H_UI',
-      }),
-    }).catch(() => {});
-  }, [roundState, truthEntered, allSubmitted, participants]);
-  // #endregion
 
   // Sessionから設定を読み込む
   useEffect(() => {
     if (!joinToken) return;
 
     const loadSessionSettings = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:105',message:'loadSessionSettings - Entry',data:{join_token:joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       try {
         const response = await fetch(`/api/session/get?join_token=${joinToken}`);
         const result = await response.json();
 
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:110',message:'loadSessionSettings - API response',data:{ok:response.ok,has_data:!!result.data,has_error:!!result.error,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
 
         if (response.ok && result.data) {
           const session = result.data;
@@ -171,9 +137,6 @@ export default function PresenterPage() {
             setSessionMode(session.mode);
           }
           
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:116',message:'loadSessionSettings - Processing session data',data:{has_cask_options:!!session.cask_options_snapshot,has_region_options:!!session.region_options_snapshot},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
           
           // カスク選択肢
           if (session.cask_options_snapshot && Array.isArray(session.cask_options_snapshot)) {
@@ -185,14 +148,8 @@ export default function PresenterPage() {
             setRegionOptions(session.region_options_snapshot);
           }
           
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:128',message:'loadSessionSettings - Settings processed',data:{cask_options_count:session.cask_options_snapshot?.length||0,region_options_count:session.region_options_snapshot?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
         }
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:133',message:'loadSessionSettings - Error',data:{error:String(error),error_stack:error instanceof Error ? error.stack : undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         console.error('Load session settings error:', error);
         // エラー時はデフォルト値を使用
       }
@@ -258,9 +215,6 @@ export default function PresenterPage() {
         const truthEnteredValue = payload.truth_entered || false;
         const allSubmittedValue = payload.all_submitted || false;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:91',message:'Round status loaded',data:{state:payload.state,truth_entered:truthEnteredValue,all_submitted:allSubmittedValue,participants_count:participantsData.length,submitted_count:participantsData.filter((p) => p.status === 'submitted').length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       
       console.log('[DEBUG] Presenter panel - Loaded round status:', {
         state: payload.state,
@@ -278,9 +232,6 @@ export default function PresenterPage() {
         truth_entered: truthEnteredValue,
       });
       
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:149',message:'Setting participants with grades',data:{participants_count:participantsData.length,participants:participantsData.map((p) => ({id:p.participant_id,status:p.status,is_correct:p.is_correct}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run-grade-click',hypothesisId:'H_GRADE'})}).catch(()=>{});
-      // #endregion
       
       // 採点結果を保持するため、既存のparticipantsのis_correctを保持
       setParticipants((prevParticipants) => {
@@ -478,9 +429,6 @@ export default function PresenterPage() {
   const handleSaveTruth = async () => {
     if (!participantToken) return;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:373',message:'handleSaveTruth called',data:{has_bottle_image_url:!!truth.bottle_image_url,bottle_image_url:truth.bottle_image_url,truth_keys:Object.keys(truth)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
 
     try {
       const requestBody = {
@@ -489,9 +437,6 @@ export default function PresenterPage() {
         ...truth,
       };
       
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:380',message:'Sending truth to API',data:{request_body_keys:Object.keys(requestBody),has_bottle_image_url:!!requestBody.bottle_image_url,bottle_image_url:requestBody.bottle_image_url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
 
       const response = await fetch('/api/truths/upsert', {
         method: 'POST',
@@ -531,29 +476,6 @@ export default function PresenterPage() {
     if (!participantToken) return;
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'app/session/[joinToken]/presenter/[sampleId]/page.tsx:handleGradeDistillery:entry',
-          message: 'Grade click (distillery)',
-          data: {
-            round_state: roundState,
-            truth_entered: truthEntered,
-            all_submitted: allSubmitted,
-            target_participant_id: participantId,
-            is_correct: isCorrect,
-            has_participant_token: !!participantToken,
-            has_sample_id: !!sampleId,
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run-grade-click',
-          hypothesisId: 'H_GRADE',
-        }),
-      }).catch(() => {});
-      // #endregion
 
       const response = await fetch('/api/distillery/grade', {
         method: 'POST',
@@ -571,45 +493,10 @@ export default function PresenterPage() {
         const text = await response.text();
         result = text ? JSON.parse(text) : {};
       } catch {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            location: 'app/session/[joinToken]/presenter/[sampleId]/page.tsx:handleGradeDistillery:parseError',
-            message: 'Grade API response parse error',
-            data: { status: response.status, ok: response.ok },
-            timestamp: Date.now(),
-            sessionId: 'debug-session',
-            runId: 'run-grade-click',
-            hypothesisId: 'H_GRADE',
-          }),
-        }).catch(() => {});
-        // #endregion
         showToast('サーバーからの応答の解析に失敗しました', 'error');
         return;
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: 'app/session/[joinToken]/presenter/[sampleId]/page.tsx:handleGradeDistillery:response',
-          message: 'Grade API response',
-          data: {
-            status: response.status,
-            ok: response.ok,
-            has_error: !!result?.error,
-            error_code: result?.code,
-          },
-          timestamp: Date.now(),
-          sessionId: 'debug-session',
-          runId: 'run-grade-click',
-          hypothesisId: 'H_GRADE',
-        }),
-      }).catch(() => {});
-      // #endregion
 
       if (!response.ok) {
         showToast(result.error || `採点に失敗しました（${response.status}）`, 'error');
@@ -689,9 +576,6 @@ export default function PresenterPage() {
     if (!participantToken) return;
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:299',message:'handleFinishRound - Calling API',data:{sample_id:sampleId,current_state:roundState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
       const response = await fetch('/api/round/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -703,9 +587,6 @@ export default function PresenterPage() {
 
       const result = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:312',message:'handleFinishRound - API response',data:{ok:response.ok,new_state:result.data?.state,next_sample_id:result.data?.next_sample_id,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         showToast(result.error || 'Round終了に失敗しました', 'error');
@@ -715,9 +596,6 @@ export default function PresenterPage() {
       showToast('Roundを終了しました', 'success');
       // 状態を更新してから遷移
       await loadRoundStatus();
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:319',message:'handleFinishRound - Navigating',data:{join_token:joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
       setTimeout(() => {
         if (joinToken) {
           router.push(`/session/${joinToken}`);
@@ -725,9 +603,6 @@ export default function PresenterPage() {
       }, 1000);
     } catch (error) {
       console.error('Finish round error:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/presenter/[sampleId]/page.tsx:325',message:'handleFinishRound - Error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
       showToast('ネットワークエラーが発生しました', 'error');
     }
   };

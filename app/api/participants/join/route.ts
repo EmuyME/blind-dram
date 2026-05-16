@@ -7,9 +7,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { join_token, display_name, is_attending, brought_count, bottle_labels, owner_token } = body;
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/participants/join/route.ts:9',message:'Join request received',data:{join_token,display_name,is_attending,brought_count,bottle_labels_count:Array.isArray(bottle_labels)?bottle_labels.length:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run-owners-join',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
 
     // バリデーション
     if (!join_token) {
@@ -42,9 +39,6 @@ export async function POST(request: NextRequest) {
       .select('id, state, owner_token')
       .eq('join_token', join_token)
       .single();
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/participants/join/route.ts:41',message:'Session lookup',data:{join_token,session_id:session?.id,session_state:session?.state,session_error:sessionError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run-owners-join',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
 
     if (sessionError || !session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
@@ -83,9 +77,6 @@ export async function POST(request: NextRequest) {
       .eq('session_id', session.id)
       .eq('display_name', display_name.trim())
       .single();
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/participants/join/route.ts:63',message:'Existing participant check',data:{session_id:session.id,display_name:display_name.trim(),exists:!!existingParticipant},timestamp:Date.now(),sessionId:'debug-session',runId:'run-owners-join',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
 
     const participantToken = generateUUID();
 
@@ -269,9 +260,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/participants/join/route.ts:128',message:'Participant created successfully',data:{participantId:newParticipant.id,sessionId:session.id,broughtCount:brought_count},timestamp:Date.now(),sessionId:'debug-session',runId:'run-owners-join',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
 
       return successResponse({
         participant_id: newParticipant.id,

@@ -136,9 +136,6 @@ export async function POST(request: NextRequest) {
     // Round状態をrevealed（逐次）またはclosed（一斉）に変更
     // modeが不明な場合は逐次扱いとしてrevealedにする
     const newState = session?.mode === 'simultaneous' ? 'closed' : 'revealed';
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/finish/route.ts:98',message:'Round finish - BEFORE state update',data:{sample_id,session_mode:session?.mode,new_state:newState,all_graded:allGraded},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-    // #endregion
     const { error: updateError } = await supabase
       .from('samples')
       .update({ state: newState })
@@ -146,14 +143,8 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Sample update error:', updateError);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/finish/route.ts:104',message:'Round finish - State update ERROR',data:{sample_id,error:updateError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-      // #endregion
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/finish/route.ts:108',message:'Round finish - State update SUCCESS',data:{sample_id,new_state:newState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-    // #endregion
 
     // 次のSample取得
     const { data: nextSample } = await supabase
@@ -165,9 +156,6 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle();
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/finish/route.ts:127',message:'Round finish - Next sample fetched',data:{has_next_sample:!!nextSample,next_sample_id:nextSample?.id,next_sample_state:nextSample?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-    // #endregion
 
     // 逐次モードでは次のラウンドを自動開始しない
     // 参加者全員が結果確認後に「次へ」操作で開始する
@@ -182,9 +170,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Unexpected error:', error);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round/finish/route.ts:153',message:'Round finish - Unexpected error',data:{error:String(error),stack:error instanceof Error ? error.stack : undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H8'})}).catch(()=>{});
-    // #endregion
     writeErrorLog('ROUND_FINISH_ERROR', error);
     return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
   }

@@ -107,9 +107,6 @@ export async function GET(request: NextRequest) {
       .select('sample_id, true_cask, true_region, true_age, true_abv, true_distillery, bottle_image_url')
       .eq('session_id', session.id);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/results/get/route.ts:63',message:'Truths fetched from DB',data:{truths_count:truths?.length,truths_with_images:truths?.map((t)=>({sample_id:t.sample_id,has_image:!!t.bottle_image_url,image_url:t.bottle_image_url})),error:truthsError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
 
     if (truthsError) {
       console.error('Truths fetch error:', truthsError);
@@ -354,9 +351,6 @@ export async function GET(request: NextRequest) {
         };
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/results/get/route.ts:340',message:'Building sample detail with truth',data:{sample_id:sample.id,sample_label:sample.label,truth_bottle_image_url:truth.bottle_image_url,truth_has_image:!!truth.bottle_image_url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
 
       return {
         sample_id: sample.id,
@@ -391,9 +385,6 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/results/get/route.ts:320',message:'Results API response',data:{session_id:session.id,session_state:session.state,rankings_count:rankingsWithScores.length,sample_details_count:sampleDetailsWithTruth.length,has_session:!!responseData.session},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H10'})}).catch(()=>{});
-    // #endregion
 
     return successResponse(responseData);
   } catch (error) {

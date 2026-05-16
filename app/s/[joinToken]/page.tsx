@@ -127,9 +127,6 @@ export default function JoinPage() {
 
     setIsSubmitting(true);
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/s/[joinToken]/page.tsx:94',message:'Submitting join request',data:{joinToken:joinToken,displayName:displayName,broughtCount:broughtCount,bottleLabels:bottleLabels.filter(label => label.trim())},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       
       const response = await fetch('/api/participants/join', {
         method: 'POST',
@@ -145,9 +142,6 @@ export default function JoinPage() {
 
       const result = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/s/[joinToken]/page.tsx:107',message:'Join API response',data:{ok:response.ok,error:result.error,hasParticipantToken:!!result.data?.participant_token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         showToast(result.error || '参加登録に失敗しました', 'error');
@@ -158,17 +152,11 @@ export default function JoinPage() {
       const { participant_token } = result.data;
       setParticipantToken(joinToken, participant_token);
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/s/[joinToken]/page.tsx:116',message:'Participant token saved, redirecting',data:{joinToken:joinToken,hasToken:!!participant_token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       
       showToast('参加登録が完了しました', 'success');
       
       // 参加者ホームに即座にリダイレクト（setTimeoutを削除して即座に遷移）
       if (joinToken) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/s/[joinToken]/page.tsx:123',message:'Router push called',data:{targetPath:`/session/${joinToken}`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         router.push(`/session/${joinToken}`);
       }
     } catch (error) {

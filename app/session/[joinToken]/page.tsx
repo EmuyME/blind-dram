@@ -212,16 +212,10 @@ export default function SessionHomePage() {
 
   const loadCurrentSampleAndStatus = useCallback(async () => {
     if (!session || !joinToken) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:112',message:'loadCurrentSampleAndStatus - Early return',data:{has_participant_token:!!participantToken,has_session:!!session,has_join_token:!!joinToken,session_state:session?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       return;
     }
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:117',message:'Fetching current sample',data:{join_token:joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       // 現在のSampleを取得（participant_tokenは不要）
       const currentSampleResponse = await fetch(`/api/session/current-sample?join_token=${joinToken}`);
       let currentSampleResult: { data?: { current_sample?: Sample | null; mode?: string } };
@@ -231,9 +225,6 @@ export default function SessionHomePage() {
         return;
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:120',message:'Current sample API response',data:{ok:currentSampleResponse.ok,has_data:!!currentSampleResult.data,has_current_sample:!!currentSampleResult.data?.current_sample,current_sample_id:currentSampleResult.data?.current_sample?.id,current_sample_state:currentSampleResult.data?.current_sample?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
 
       if (!currentSampleResponse.ok || !currentSampleResult.data) {
         if (currentSampleResponse.status === 429) {
@@ -245,9 +236,6 @@ export default function SessionHomePage() {
       const currentSample = currentSampleResult.data.current_sample;
 
       if (!currentSample) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:138',message:'No current sample found',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
         setRoundStatus(null);
         return;
       }
@@ -361,9 +349,6 @@ export default function SessionHomePage() {
       //   participants_count: participantProgress.length,
       // });
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:154',message:'Round status loaded',data:{sample_id:currentSample?.id,sample_state:currentSample?.state,participants_count:participantProgress.length,truth_entered:statusResult?.data?.truth_entered ?? false,has_truth:!!statusResult?.data?.truth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       setRoundStatus({
         current_sample: currentSample,
         participants: participantProgress,
@@ -383,21 +368,12 @@ export default function SessionHomePage() {
       }
     } catch (error) {
       console.error('Load current sample and status error:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:206',message:'loadCurrentSampleAndStatus - Error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
     }
   }, [session, joinToken, participantToken, participantId, checkPendingSampleReady, mySamples, setRunningGapReason]);
 
   useEffect(() => {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:199',message:'useEffect for loadCurrentSampleAndStatus',data:{has_session:!!session,session_state:session?.state,has_participant_token:!!participantToken,has_join_token:!!joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
     // participantTokenがなくても、逐次モードでrevealed状態のサンプルを表示するためにloadCurrentSampleAndStatusを呼び出す
     if (session && session.state === 'running' && joinToken) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:201',message:'Calling loadCurrentSampleAndStatus',data:{session_state:session.state,has_participant_token:!!participantToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       loadCurrentSampleAndStatus();
       const interval = setInterval(() => {
         loadCurrentSampleAndStatus();
@@ -496,23 +472,14 @@ export default function SessionHomePage() {
 
   const loadSession = async () => {
     if (!joinToken) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:227',message:'loadSession - No joinToken',data:{has_join_token:!!joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       setIsLoading(false);
       return;
     }
     
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:233',message:'loadSession - Fetching session',data:{join_token:joinToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       const response = await fetch(`/api/session/get?join_token=${joinToken}`);
       const result = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:237',message:'loadSession - API response',data:{ok:response.ok,has_data:!!result.data,session_state:result.data?.state,session_id:result.data?.id,error:result.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         showToast(result.error || 'Session取得に失敗しました', 'error');
@@ -521,24 +488,15 @@ export default function SessionHomePage() {
       }
 
       setSession(result.data);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:243',message:'loadSession - Session set',data:{session_state:result.data?.state,session_id:result.data?.id,has_participant_id:!!participantId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       // 参加者情報が既に読み込まれている場合、自分のSampleを取得
       if (participantId && result.data.id) {
         loadMySamples();
       }
     } catch (error) {
       console.error('Load error:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:248',message:'loadSession - Error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       showToast('ネットワークエラーが発生しました', 'error');
     } finally {
       setIsLoading(false);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:251',message:'loadSession - Finally, isLoading set to false',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
     }
   };
 
@@ -578,9 +536,6 @@ export default function SessionHomePage() {
   }, [ownerToken, isPublishingResults, showToast, router, joinToken]);
 
   if (isLoading || !session) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:256',message:'Rendering loading state',data:{is_loading:isLoading,has_session:!!session,session_state:session?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     return (
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <div className="max-w-md mx-auto mt-8">
@@ -997,9 +952,6 @@ export default function SessionHomePage() {
     );
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/page.tsx:478',message:'Rendering fallback loading state',data:{session_state:session?.state,has_round_status:!!roundStatus,round_status_sample_id:roundStatus?.current_sample?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
   return (
     <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
       <PhaseBanner

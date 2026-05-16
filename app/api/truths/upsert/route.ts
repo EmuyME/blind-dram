@@ -7,9 +7,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/truths/upsert/route.ts:7',message:'Truths upsert API entry',data:{request_body_keys:Object.keys(body),has_bottle_image_url:!!body.bottle_image_url,bottle_image_url:body.bottle_image_url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     
     const {
       participant_token,
@@ -66,9 +63,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/truths/upsert/route.ts:52',message:'Before truth upsert',data:{sample_id,session_id:sample.session_id,has_bottle_image_url:!!bottle_image_url,bottle_image_url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
 
     // Truth upsert
     const { data: truth, error: upsertError } = await supabase
@@ -94,9 +88,6 @@ export async function POST(request: NextRequest) {
       .select('id, sample_id, updated_at')
       .single();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/truths/upsert/route.ts:75',message:'After truth upsert',data:{truth_id:truth?.id,sample_id:truth?.sample_id,upsert_error:upsertError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
 
     if (upsertError) {
       console.error('Truth upsert error:', upsertError);

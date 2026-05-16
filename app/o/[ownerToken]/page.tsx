@@ -143,9 +143,6 @@ export default function OwnerPage() {
   }, [joinToken]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:61',message:'useEffect for loadParticipants',data:{ownerToken:ownerToken,sessionId:session?.id,sessionState:session?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1_H3'})}).catch(()=>{});
-    // #endregion
     
     if (ownerToken && session?.id) {
       loadParticipants(session.id);
@@ -218,28 +215,16 @@ export default function OwnerPage() {
   };
 
   const loadParticipants = async (sessionId: string) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:99',message:'loadParticipants called',data:{ownerToken:ownerToken,sessionId:sessionId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     
     if (!ownerToken) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:100',message:'loadParticipants early return - no ownerToken',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       return;
     }
     
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:103',message:'Fetching participants API',data:{ownerToken:ownerToken},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       
       const response = await fetch(`/api/owner/get-participants?owner_token=${ownerToken}`);
       const result = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:106',message:'Participants API response',data:{ok:response.ok,error:result.error,participantsCount:result.data?.participants?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         console.error('Load participants error:', result.error);
@@ -248,13 +233,7 @@ export default function OwnerPage() {
 
       setParticipants(result.data.participants || []);
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:111',message:'Participants state updated',data:{participantsCount:result.data.participants?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/o/[ownerToken]/page.tsx:113',message:'loadParticipants error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       console.error('Load participants error:', error);
     }
   };

@@ -41,16 +41,10 @@ export async function POST(request: NextRequest) {
 
     if (samplesError) {
       console.error('Samples fetch error:', samplesError);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:42',message:'Samples fetch error',data:{session_id:session.id,error:samplesError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
     if (!allSamples || allSamples.length === 0) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:47',message:'No samples found',data:{session_id:session.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       return successResponse({
         session_id: session.id,
         state: session.state,
@@ -59,23 +53,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:54',message:'All samples fetched',data:{session_id:session.id,session_mode:session.mode,samples_count:allSamples.length,samples_states:allSamples.map(s=>({id:s.id,state:s.state}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
 
     if (session.mode === 'sequential') {
       // 逐次モードの場合、pending、answering、またはgrading状態のサンプルがある場合は完了していない
       const hasIncompleteSamples = allSamples.some(
         (s) => s.state === 'pending' || s.state === 'answering' || s.state === 'grading'
       );
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:68',message:'Sequential mode check for incomplete samples',data:{has_incomplete_samples:hasIncompleteSamples,samples_states:allSamples.map(s=>s.state)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       // pending/answering/grading状態のサンプルがある場合は完了していない
       if (hasIncompleteSamples) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:71',message:'Returning early - incomplete samples found',data:{session_id:session.id,state:session.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         return successResponse({
           session_id: session.id,
           state: session.state,
@@ -91,14 +76,8 @@ export async function POST(request: NextRequest) {
       (s) => s.state === 'revealed' || s.state === 'closed'
     );
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:68',message:'All completed check',data:{all_completed:allCompleted},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
 
     if (!allCompleted) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:72',message:'Samples not completed',data:{session_id:session.id,state:session.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       return successResponse({
         session_id: session.id,
         state: session.state,
@@ -108,9 +87,6 @@ export async function POST(request: NextRequest) {
     }
 
     // セッションをaggregating状態に遷移
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:81',message:'Transitioning to aggregating',data:{session_id:session.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     const { error: updateError } = await supabase
       .from('sessions')
       .update({ state: 'aggregating' })
@@ -118,9 +94,6 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Session update error:', updateError);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/session/check-complete/route.ts:87',message:'Session update error',data:{session_id:session.id,error:updateError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 

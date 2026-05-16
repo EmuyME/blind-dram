@@ -292,9 +292,6 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/get/route.ts:269',message:'Next sample check',data:{current_sample_id:sample.id,current_sort_order:sample.sort_order,has_next_sample:!!nextSample,next_sample_id:nextSample?.id,next_sample_state:nextSample?.state},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
 
     // 「次へ」ボタンの状態を取得
     const { data: nextClicks, error: nextClicksError } = await supabase
@@ -314,9 +311,6 @@ export async function GET(request: NextRequest) {
       .filter((p) => !clickedParticipantIds.has(p.id))
       .map((p) => ({ participant_id: p.id, display_name: p.display_name }));
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/round-result/get/route.ts:286',message:'Next clicks check',data:{participants_count:totalCount,clicked_count:clickedCount,all_clicked:allClicked,clicked_ids:Array.from(clickedParticipantIds)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
 
     const responseData = {
       session: {

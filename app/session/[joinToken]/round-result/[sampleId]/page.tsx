@@ -202,9 +202,6 @@ export default function RoundResultPage() {
       }
 
       if (resultData.data) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'round-result/page.tsx:loadResult',message:'Result data loaded',data:{all_clicked_next:resultData.data.all_clicked_next,has_next_sample:resultData.data.has_next_sample,next_sample_id:resultData.data.next_sample?.id||null,next_sample_presenter_id:resultData.data.next_sample?.presenter_participant_id||null,session_state:resultData.data.session?.state,current_sample_id:resultData.data.current_sample?.id||null},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         setResult(resultData.data);
         setLastUpdatedAt(Date.now());
       } else {
@@ -325,42 +322,12 @@ export default function RoundResultPage() {
 
     const loadParticipant = async () => {
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            location:'app/session/[joinToken]/round-result/[sampleId]/page.tsx:150',
-            message:'Loading participant for round-result',
-            data:{has_join_token:!!joinToken,has_participant_token:!!participantToken},
-            timestamp:Date.now(),
-            sessionId:'debug-session',
-            runId:'run1',
-            hypothesisId:'H_NEXT_PRESENTER'
-          })
-        }).catch(()=>{});
-        // #endregion
         const response = await fetch(
           `/api/participants/me?join_token=${joinToken}&participant_token=${participantToken}`,
         );
         const result = await response.json();
         if (response.ok && result.data?.id) {
           setParticipantId(result.data.id);
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              location:'app/session/[joinToken]/round-result/[sampleId]/page.tsx:166',
-              message:'Participant loaded for round-result',
-              data:{participant_id:result.data.id},
-              timestamp:Date.now(),
-              sessionId:'debug-session',
-              runId:'run1',
-              hypothesisId:'H_NEXT_PRESENTER'
-            })
-          }).catch(()=>{});
-          // #endregion
         }
       } catch (error) {
         console.error('Load participant error:', error);
@@ -377,9 +344,6 @@ export default function RoundResultPage() {
 
     setIsClickingNext(true);
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round-result/[sampleId]/page.tsx:204',message:'handleClickNext - called',data:{has_participant_token:!!participantToken,sample_id:sampleId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_CLICK_NEXT'})}).catch(()=>{});
-      // #endregion
       const response = await fetch('/api/round-result/click-next', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -391,9 +355,6 @@ export default function RoundResultPage() {
 
       const resultData = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/session/[joinToken]/round-result/[sampleId]/page.tsx:214',message:'handleClickNext - API response',data:{ok:response.ok,all_clicked:resultData?.data?.all_clicked,error:resultData?.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H_CLICK_NEXT'})}).catch(()=>{});
-      // #endregion
 
       if (!response.ok) {
         showToast(resultData.error || 'エラーが発生しました', 'error');
@@ -900,9 +861,6 @@ export default function RoundResultPage() {
           {result.all_clicked_next ? (
             <div className="text-center">
               {/* 参加者（participantTokenあり）かつ次ラウンドのPresenterのみ、自分から次へ進める */}
-              {/* #region agent log */}
-              {(() => { fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'round-result/page.tsx:button-render',message:'Button display decision',data:{all_clicked_next:result.all_clicked_next,has_next_sample:result.has_next_sample,next_sample_id:result.next_sample?.id||null,next_sample_presenter_id:result.next_sample?.presenter_participant_id||null,participantId:participantId,participantToken_exists:!!participantToken,match:participantId&&result.next_sample?result.next_sample.presenter_participant_id===participantId:false,session_state:result.session?.state},timestamp:Date.now()})}).catch(()=>{}); return null; })()}
-              {/* #endregion */}
               {participantToken ? (
                 // 既に次ラウンドが開始されている場合（start-next済み）は、待機UIではなくセッションへ誘導
                 result.active_sample && result.active_sample.id !== sampleId ? (

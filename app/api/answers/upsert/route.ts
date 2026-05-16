@@ -8,9 +8,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:7',message:'Answers upsert API entry',data:{request_body_keys:Object.keys(body),has_participant_token:!!body.participant_token,has_sample_id:!!body.sample_id,status:body.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     
     const {
       participant_token,
@@ -123,9 +120,6 @@ export async function POST(request: NextRequest) {
     console.log('[DEBUG] Answer upsert - Saving answer:', saveLogData);
     writeLog('ANSWER_UPSERT_SAVE', saveLogData);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:106',message:'Before answer upsert',data:{answer_data_keys:Object.keys(answerData),sample_id,participant_id:participant.id,status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     const { data: answer, error: upsertError } = await supabase
       .from('answers')
@@ -135,9 +129,6 @@ export async function POST(request: NextRequest) {
       .select('id, status, version, submitted_at')
       .single();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:114',message:'After answer upsert',data:{has_answer:!!answer,answer_id:answer?.id,has_error:!!upsertError,error_code:upsertError?.code,error_message:upsertError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     if (upsertError) {
       console.error('Answer upsert error:', upsertError);
@@ -223,9 +214,6 @@ export async function POST(request: NextRequest) {
           to: 'grading',
           reason: 'all_submitted_and_truth_entered'
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:208',message:'State transition check - BEFORE update',data:{sample_id,current_state:sample.state,all_submitted:allSubmitted,truth_entered:truthEntered,non_presenter_count:nonPresenterParticipants.length,submitted_count:submittedAnswers?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         
         // 状態遷移を試みる（競合を避けるため、状態が'answering'のままの場合のみ更新）
         const { data: updatedSample, error: stateUpdateError } = await supabase
@@ -239,25 +227,16 @@ export async function POST(request: NextRequest) {
         if (stateUpdateError) {
           console.error('[DEBUG] Answer upsert - State update error:', stateUpdateError);
           writeErrorLog('ANSWER_UPSERT_STATE_UPDATE_ERROR', stateUpdateError);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:199',message:'State transition ERROR',data:{sample_id,error:stateUpdateError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
           // エラーをログに記録するが、回答保存は成功しているので続行
         } else if (updatedSample) {
           console.log('[DEBUG] Answer upsert - State transitioned successfully to grading');
           writeLog('ANSWER_UPSERT_STATE_TRANSITION_SUCCESS', { sample_id, new_state: 'grading' });
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:204',message:'State transition SUCCESS',data:{sample_id,new_state:'grading'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
         } else {
           // 状態が既に変更されていた場合（競合状態、おそらくtruths/upsertが先に実行された）
           console.log('[DEBUG] Answer upsert - State was already changed by another request (likely truths/upsert)');
           writeLog('ANSWER_UPSERT_STATE_ALREADY_CHANGED', { sample_id, expected_state: 'answering' });
         }
       } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/01e2fc3d-3da6-4ac5-b2d7-55efdca98905',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:230',message:'State transition NOT triggered',data:{sample_id,current_state:sample.state,all_submitted:allSubmitted,truth_entered:truthEntered,non_presenter_count:nonPresenterParticipants.length,submitted_count:submittedAnswers?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
       }
     }
 
@@ -268,9 +247,6 @@ export async function POST(request: NextRequest) {
       submitted_at: answer.submitted_at,
     });
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/699882dd-cd61-413c-8229-b42b014179ee',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/answers/upsert/route.ts:230',message:'Unexpected error in answers upsert',data:{error:String(error),error_stack:error instanceof Error?error.stack:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     console.error('Unexpected error:', error);
     return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
   }

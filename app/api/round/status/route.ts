@@ -25,6 +25,16 @@ export async function GET(request: NextRequest) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
+    const { data: sessionRow } = await supabase
+      .from('sessions')
+      .select('mode')
+      .eq('id', sample.session_id)
+      .maybeSingle();
+    const sessionMode =
+      sessionRow?.mode === 'sequential' || sessionRow?.mode === 'simultaneous'
+        ? sessionRow.mode
+        : null;
+
     // Presenter権限チェック（participant_tokenがある場合）
     let isPresenter = false;
     let participant: { id: string } | null = null;
@@ -241,6 +251,7 @@ export async function GET(request: NextRequest) {
     const response: {
       sample_id: string;
       state: string;
+      session_mode: typeof sessionMode;
       participant_progress: typeof participantProgress;
       truth_entered: boolean;
       all_submitted: boolean;
@@ -259,6 +270,7 @@ export async function GET(request: NextRequest) {
     } = {
       sample_id: sampleId,
       state: sample.state,
+      session_mode: sessionMode,
       participant_progress: participantProgress,
       truth_entered: truthEntered,
       all_submitted: allSubmitted,

@@ -74,6 +74,7 @@ export default function RoundPage() {
     finish: { tier1_tags: [], tier2_terms: [] },
   });
   const [sampleState, setSampleState] = useState<string | null>(null);
+  const [sessionMode, setSessionMode] = useState<'sequential' | 'simultaneous' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,7 +184,10 @@ export default function RoundPage() {
           answerResponse.text(),
         ]);
 
-        let statusResult: { data?: { state?: string }; error?: string } = {};
+        let statusResult: {
+          data?: { state?: string; session_mode?: string | null };
+          error?: string;
+        } = {};
         try {
           statusResult = statusText ? (JSON.parse(statusText) as typeof statusResult) : {};
         } catch {
@@ -208,6 +212,10 @@ export default function RoundPage() {
         const state = statusResult.data?.state;
         if (state != null) {
           setSampleState(state);
+        }
+        const sm = statusResult.data?.session_mode;
+        if (sm === 'sequential' || sm === 'simultaneous') {
+          setSessionMode(sm);
         }
 
         let answerResult: { data?: { answer?: Record<string, unknown> } } = {};
@@ -328,17 +336,42 @@ export default function RoundPage() {
     }
   }, [participantToken, sampleId, loadSampleAndAnswer]);
 
-  // revealed状態になった時に自動的にホームに戻る
+  // revealed/closed: 逐次は結果ページへ直接遷移。セッションホーム経由のみだと roundStatus の同期が遅れ、
+  // プレゼンターが先に「次へ」するまで参加者が結果に進めないことがあった。
   useEffect(() => {
-    if (sampleState === 'revealed' || sampleState === 'closed') {
-      const timer = setTimeout(() => {
-        if (joinToken) {
-          router.push(`/session/${joinToken}`);
+    if (!joinToken || !sampleId) return;
+    const terminal = sampleState === 'revealed' || sampleState === 'closed';
+    if (!terminal) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      let mode = sessionMode;
+      if (!mode) {
+        try {
+          const r = await fetch(`/api/session/get?join_token=${joinToken}`);
+          const j = (await r.json()) as { data?: { mode?: string } };
+          const m = j.data?.mode;
+          if (m === 'sequential' || m === 'simultaneous') mode = m;
+        } catch {
+          /* fall through to session home */
         }
-      }, 2000); // 2秒後に自動的にホームに戻る
-      return () => clearTimeout(timer);
-    }
-  }, [sampleState, joinToken, router]);
+      }
+      if (cancelled) return;
+      if (mode === 'sequential') {
+        router.push(`/session/${joinToken}/round-result/${sampleId}`);
+        return;
+      }
+      router.push(`/session/${joinToken}`);
+    };
+
+    const delay = sessionMode === 'simultaneous' ? 2000 : 400;
+    const t = window.setTimeout(() => void run(), delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [sampleState, sessionMode, joinToken, sampleId, router]);
 
   // すべての状態で定期的に状態をチェック（ポーリング）
   // pending状態でも、Roundが開始された場合に更新が必要

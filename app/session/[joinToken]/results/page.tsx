@@ -281,6 +281,10 @@ export default function ResultsPage() {
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
+      await new Promise<void>((r) => setTimeout(r, 80));
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await document.fonts.ready.catch(() => undefined);
+      }
 
       const el = rankingCaptureRef.current;
       if (!el) {
@@ -288,37 +292,39 @@ export default function ResultsPage() {
         return;
       }
 
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(el, {
-        backgroundColor: '#262626',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-      });
       const base = sanitizeDownloadBasename(results.session.title, 'ranking');
       const day = new Date().toISOString().split('T')[0];
       const filename = `${base}_ranking_${day}.png`;
 
-      const blob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), 'image/png', 1));
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = filename;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+      let pngDataUrl: string;
+      try {
+        const { toPng } = await import('html-to-image');
+        pngDataUrl = await toPng(el, {
+          backgroundColor: '#262626',
+          pixelRatio: 2,
+          cacheBust: true,
+        });
+      } catch (pngErr) {
+        console.warn('html-to-image failed, falling back to html2canvas', pngErr);
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(el, {
+          backgroundColor: '#262626',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          foreignObjectRendering: true,
+        });
+        pngDataUrl = canvas.toDataURL('image/png');
       }
+
+      const a = document.createElement('a');
+      a.href = pngDataUrl;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       showToast('順位表の画像をダウンロードしました', 'success');
     } catch (e) {
       console.error(e);

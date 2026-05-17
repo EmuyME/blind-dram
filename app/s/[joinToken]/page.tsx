@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
 import { setParticipantToken, getParticipantToken, getOwnerToken } from '@/lib/utils';
+import { defaultBottleLabel } from '@/lib/default-bottle-label';
 
 interface Session {
   id: string;
@@ -125,7 +126,8 @@ function JoinPageContent() {
           );
           setBottleLabels(sorted.map((s) => s.label));
         } else if (count > 0) {
-          const defaults = Array.from({ length: count }, (_, i) => `Sample ${String.fromCharCode(65 + i)}`);
+          const name = (me.display_name || '').trim();
+          const defaults = Array.from({ length: count }, (_, i) => defaultBottleLabel(name, i));
           setBottleLabels(defaults);
         } else {
           setBottleLabels([]);
@@ -161,12 +163,11 @@ function JoinPageContent() {
 
   const handleBroughtCountChange = (count: number) => {
     setBroughtCount(count);
-    // bottleLabels配列を調整（デフォルト値としてSample A, B, C...を設定）
+    // bottleLabels配列を調整（デフォルトは「表示名 + 連番」）
     const newLabels = [...bottleLabels];
     while (newLabels.length < count) {
       const index = newLabels.length;
-      const defaultLabel = `Sample ${String.fromCharCode(65 + index)}`; // A, B, C, ...
-      newLabels.push(defaultLabel);
+      newLabels.push(defaultBottleLabel(displayName, index));
     }
     while (newLabels.length > count) {
       newLabels.pop();
@@ -413,7 +414,7 @@ function JoinPageContent() {
                     setBottleLabels(newLabels);
                   }}
                   className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base md:text-lg min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                  placeholder={`Sample ${String.fromCharCode(65 + index)}`}
+                  placeholder={defaultBottleLabel(displayName, index)}
                   required
                 />
               ))}

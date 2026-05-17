@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { getParticipantToken, setParticipantToken } from '@/lib/utils';
+import { defaultBottleLabel } from '@/lib/default-bottle-label';
 
 type Props = {
   joinToken: string;
@@ -73,9 +74,8 @@ export function OwnerSelfJoinForm({ joinToken, showToast, onRegistered }: Props)
           );
           setBottleLabels(sorted.map((s) => s.label));
         } else if (count > 0) {
-          setBottleLabels(
-            Array.from({ length: count }, (_, i) => `Sample ${String.fromCharCode(65 + i)}`),
-          );
+          const name = (me.display_name || '').trim();
+          setBottleLabels(Array.from({ length: count }, (_, i) => defaultBottleLabel(name, i)));
         } else {
           setBottleLabels([]);
         }
@@ -99,7 +99,7 @@ export function OwnerSelfJoinForm({ joinToken, showToast, onRegistered }: Props)
     const newLabels = [...bottleLabels];
     while (newLabels.length < count) {
       const index = newLabels.length;
-      newLabels.push(`Sample ${String.fromCharCode(65 + index)}`);
+      newLabels.push(defaultBottleLabel(displayName, index));
     }
     while (newLabels.length > count) {
       newLabels.pop();
@@ -230,7 +230,7 @@ export function OwnerSelfJoinForm({ joinToken, showToast, onRegistered }: Props)
                   setBottleLabels(next);
                 }}
                 className="w-full px-4 py-3 bg-neutral-700 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder={`Sample ${String.fromCharCode(65 + index)}`}
+                placeholder={defaultBottleLabel(displayName, index)}
                 required
               />
             ))}

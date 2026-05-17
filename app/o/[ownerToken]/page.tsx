@@ -15,6 +15,7 @@ import { DEFAULT_FLAVOR_CHART, ensureTier1NightingaleVisibleMap } from '@/lib/de
 import { ScoringSettingsPanel } from '@/components/settings/ScoringSettingsPanel';
 import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
+import { defaultBottleLabel } from '@/lib/default-bottle-label';
 
 /** settings/save 前までの旧フラット配点（正規化して保存される） */
 const LEGACY_DEFAULT_SCORING_FLAT = {
@@ -907,7 +908,9 @@ export default function OwnerPage() {
                             join_token: joinToken,
                             display_name: displayName,
                             brought_count: bottleCount,
-                            bottle_labels: Array.from({ length: bottleCount }, (_, i) => `Sample ${String.fromCharCode(65 + i)}`),
+                            bottle_labels: Array.from({ length: bottleCount }, (_, i) =>
+                              defaultBottleLabel(displayName, i),
+                            ),
                           }),
                         });
 

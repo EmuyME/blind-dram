@@ -1,6 +1,7 @@
 // POST /api/participants/join
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse, generateUUID } from '@/lib/api-utils';
+import { defaultBottleLabel } from '@/lib/default-bottle-label';
 import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -187,7 +188,7 @@ export async function POST(request: NextRequest) {
 
         // 先頭から必要数だけ更新/追加
         for (let i = 0; i < desiredLabels.length; i++) {
-          const label = desiredLabels[i] || `Sample ${String.fromCharCode(65 + i)}`;
+          const label = desiredLabels[i] || defaultBottleLabel(displayNameTrimmed, i);
           const existing = samples[i];
           if (existing) {
             const { error: updateSampleError } = await supabase
@@ -295,7 +296,7 @@ export async function POST(request: NextRequest) {
       if (brought_count > 0) {
         const samples = bottle_labels.map((label: string, index: number) => ({
           session_id: session.id,
-          label: label.trim(),
+          label: label.trim() || defaultBottleLabel(displayNameTrimmed, index),
           presenter_participant_id: newParticipant.id,
           sort_order: index,
           state: 'pending',

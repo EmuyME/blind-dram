@@ -6,8 +6,10 @@ import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
+import { BroughtCountInput } from '@/components/common/BroughtCountInput';
 import { setParticipantToken, getParticipantToken, getOwnerToken } from '@/lib/utils';
 import { defaultBottleLabel } from '@/lib/default-bottle-label';
+import { displayBottleCount } from '@/lib/display-count';
 
 interface Session {
   id: string;
@@ -113,7 +115,7 @@ function JoinPageContent() {
         }
         const me = meJson.data as { display_name: string; brought_count: number };
         setDisplayName(me.display_name || '');
-        const count = typeof me.brought_count === 'number' ? me.brought_count : 0;
+        const count = displayBottleCount(me.brought_count);
         setBroughtCount(count);
 
         const samplesRes = await fetch(
@@ -388,12 +390,10 @@ function JoinPageContent() {
             <label htmlFor="broughtCount" className="block text-base md:text-lg font-medium text-stone-100 mb-2">
               持参するボトル数
             </label>
-            <input
+            <BroughtCountInput
               id="broughtCount"
-              type="number"
-              min="0"
               value={broughtCount}
-              onChange={(e) => handleBroughtCountChange(parseInt(e.target.value) || 0)}
+              onChange={handleBroughtCountChange}
               className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base md:text-lg min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
             />
           </div>

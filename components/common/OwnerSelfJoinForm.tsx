@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { BroughtCountInput } from '@/components/common/BroughtCountInput';
 import { getParticipantToken, setParticipantToken } from '@/lib/utils';
 import { defaultBottleLabel } from '@/lib/default-bottle-label';
+import { displayBottleCount } from '@/lib/display-count';
 
 type Props = {
   joinToken: string;
@@ -60,7 +62,7 @@ export function OwnerSelfJoinForm({ joinToken, showToast, onRegistered }: Props)
         const me = meJson.data as { display_name: string; brought_count: number };
         if (cancelled) return;
         setDisplayName(me.display_name || '');
-        const count = typeof me.brought_count === 'number' ? me.brought_count : 0;
+        const count = displayBottleCount(me.brought_count);
         setBroughtCount(count);
 
         const samplesRes = await fetch(
@@ -206,12 +208,10 @@ export function OwnerSelfJoinForm({ joinToken, showToast, onRegistered }: Props)
           <label htmlFor="owner-self-brought" className="block text-sm font-medium text-stone-200 mb-1.5">
             持参するボトル数
           </label>
-          <input
+          <BroughtCountInput
             id="owner-self-brought"
-            type="number"
-            min={0}
             value={broughtCount}
-            onChange={(e) => handleBroughtCountChange(parseInt(e.target.value, 10) || 0)}
+            onChange={handleBroughtCountChange}
             className="w-full px-4 py-3 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
           />
         </div>

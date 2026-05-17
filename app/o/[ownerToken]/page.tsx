@@ -16,6 +16,7 @@ import { ScoringSettingsPanel } from '@/components/settings/ScoringSettingsPanel
 import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { defaultBottleLabel } from '@/lib/default-bottle-label';
+import { displayBottleCount } from '@/lib/display-count';
 
 /** settings/save 前までの旧フラット配点（正規化して保存される） */
 const LEGACY_DEFAULT_SCORING_FLAT = {
@@ -958,7 +959,7 @@ export default function OwnerPage() {
                         </span>
                         {participant.brought_count > 0 && (
                           <span className="ml-2 text-sm text-stone-400">
-                            (持ち込み: {participant.brought_count}本)
+                            (持ち込み: {displayBottleCount(participant.brought_count)}本)
                           </span>
                         )}
                       </div>

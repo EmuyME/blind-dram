@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
@@ -267,22 +268,57 @@ export default function ResultsPage() {
   };
 
   const handleDownloadRankingImage = async () => {
-    if (!rankingCaptureRef.current || !results) return;
+    if (!results?.rankings?.length) {
+      showToast('順位データがありません', 'error');
+      return;
+    }
+
     setIsRankingImageBusy(true);
     try {
+      if (activeTab !== 'ranking') {
+        flushSync(() => setActiveTab('ranking'));
+      }
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
+      const el = rankingCaptureRef.current;
+      if (!el) {
+        showToast('順位表を撮影できませんでした。しばらくして再度お試しください。', 'error');
+        return;
+      }
+
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(rankingCaptureRef.current, {
+      const canvas = await html2canvas(el, {
         backgroundColor: '#262626',
         scale: 2,
         logging: false,
         useCORS: true,
       });
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
       const base = sanitizeDownloadBasename(results.session.title, 'ranking');
       const day = new Date().toISOString().split('T')[0];
-      a.download = `${base}_ranking_${day}.png`;
-      a.click();
+      const filename = `${base}_ranking_${day}.png`;
+
+      const blob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), 'image/png', 1));
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
       showToast('順位表の画像をダウンロードしました', 'success');
     } catch (e) {
       console.error(e);
@@ -436,7 +472,7 @@ export default function ResultsPage() {
         {/* 順位表 */}
         {activeTab === 'ranking' && (
           <div className="space-y-6">
-            <div className="ui-card p-6">
+            <div ref={rankingCaptureRef} className="ui-card p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">順位表</h2>
               <div className="overflow-x-auto">
                 <table className="ui-table">

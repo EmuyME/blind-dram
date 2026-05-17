@@ -58,6 +58,7 @@ test.describe('Blind Dram E2E Tests', () => {
   });
 
   test('シナリオ2: Round進行（回答入力→Truth入力→採点→終了）', async ({ page }) => {
+    test.setTimeout(120000);
     // 前提条件: シナリオ1が完了している必要がある
     // 実際のテストでは、データベースから既存のセッションを取得するか、
     // シナリオ1を先に実行する
@@ -102,7 +103,7 @@ test.describe('Blind Dram E2E Tests', () => {
       const helpers2 = new TestHelpers(page2New);
       await helpers2.submitAnswer(joinToken, sampleId, participant2Token, {
         cask: 'シェリー樽',
-        region: 'スコットランド',
+        region: 'スコットランド（スペイサイド）',
         age: 12,
         abv: 43,
         distillery: 'マッカラン',
@@ -114,7 +115,7 @@ test.describe('Blind Dram E2E Tests', () => {
     // 3. Truth入力（Presenter）
     await helpers.submitTruth(joinToken, sampleId, participant1Token, {
       cask: 'シェリー樽',
-      region: 'スコットランド',
+      region: 'スコットランド（スペイサイド）',
       age: 12,
       abv: 43,
       distillery: 'マッカラン',

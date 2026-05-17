@@ -1,3 +1,5 @@
+import { disambiguatedDisplayName } from '@/lib/participant-display';
+
 export type RankingSampleScore = {
   sample_id: string;
   sample_label: string;
@@ -42,7 +44,14 @@ export function formatRankingMatrixText(captionLine: string, rankings: RankingMa
   const lines: string[] = [];
   lines.push(captionLine);
   lines.push('');
-  lines.push(['ラウンド', ...participants.map((p) => p.display_name)].join(sep));
+  const peerList = participants.map((p) => ({
+    participant_id: p.participant_id,
+    display_name: p.display_name,
+  }));
+  lines.push([
+    'ラウンド',
+    ...participants.map((p) => disambiguatedDisplayName(p.display_name, p.participant_id, peerList)),
+  ].join(sep));
   for (const s of samples) {
     lines.push(
       [

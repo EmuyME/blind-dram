@@ -71,6 +71,8 @@ export async function GET(request: NextRequest) {
         guessed_age: answer.guessed_age,
         guessed_abv: answer.guessed_abv,
         guessed_distillery: answer.guessed_distillery,
+        guessed_other1: answer.guessed_other1 ?? null,
+        guessed_other2: answer.guessed_other2 ?? null,
         nose: answer.nose,
         palate: answer.palate,
         finish: answer.finish,

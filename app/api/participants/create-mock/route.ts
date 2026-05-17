@@ -54,108 +54,80 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 模擬参加者を作成
-    const participantToken = generateUUID();
+    const displayNameTrimmed = display_name.trim();
 
-    // 既存参加者チェック（同じdisplay_nameで既に登録済みか）
-    const { data: existingParticipant } = await supabase
+    const { data: takenRows, error: takenErr } = await supabase
       .from('participants')
       .select('id')
       .eq('session_id', session.id)
-      .eq('display_name', display_name.trim())
-      .single();
+      .eq('display_name', displayNameTrimmed)
+      .limit(1);
 
-    let participantId: string;
-
-    if (existingParticipant) {
-      // 既存参加者の更新
-      const { data: updatedParticipant, error: updateError } = await supabase
-        .from('participants')
-        .update({
-          is_attending: true,
-          brought_count: brought_count,
-          participant_token: participantToken,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingParticipant.id)
-        .select('id')
-        .single();
-
-      if (updateError) {
-        console.error('Participant update error:', updateError);
-        return NextResponse.json(
-          { error: '参加者の更新に失敗しました', details: updateError.message },
-          { status: 500 }
-        );
-      }
-
-      participantId = updatedParticipant.id;
-    } else {
-      // 新規参加者登録
-      const { data: newParticipant, error: insertError } = await supabase
-        .from('participants')
-        .insert({
-          session_id: session.id,
-          display_name: display_name.trim(),
-          is_attending: true,
-          brought_count: brought_count,
-          participant_token: participantToken,
-        })
-        .select('id')
-        .single();
-
-      if (insertError) {
-        console.error('Participant creation error:', insertError);
-        return NextResponse.json(
-          { error: '参加者の作成に失敗しました', details: insertError.message },
-          { status: 500 }
-        );
-      }
-
-      participantId = newParticipant.id;
-
-      // Sample自動生成（持ち込み本数分）
-      if (brought_count > 0 && bottle_labels.length > 0) {
-        const samples = bottle_labels
-          .filter((label: string) => label.trim())
-          .map((label: string, index: number) => ({
-            session_id: session.id,
-            label: label.trim(),
-            presenter_participant_id: participantId,
-            sort_order: index,
-            state: 'pending',
-          }));
-
-        const { error: samplesError } = await supabase
-          .from('samples')
-          .insert(samples);
-
-        if (samplesError) {
-          console.error('Sample creation error:', samplesError);
-          // Sample作成失敗はログのみ（参加者作成は成功とする）
-        }
-      }
+    if (takenErr) {
+      console.error('Display name conflict check error:', takenErr);
+      return NextResponse.json(
+        { error: '参加者の作成に失敗しました', details: takenErr.message },
+        { status: 500 }
+      );
+    }
+    if (takenRows && takenRows.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'この表示名は既に別の参加者が使用しています。別の名前を入力してください',
+          code: 'DISPLAY_NAME_TAKEN',
+        },
+        { status: 409 }
+      );
     }
 
-    // 既存参加者の場合は更新後のトークンを取得
-    let finalToken = participantToken;
-    if (existingParticipant) {
-      // 更新後のトークンを取得
-      const { data: updatedParticipant } = await supabase
-        .from('participants')
-        .select('participant_token')
-        .eq('id', participantId)
-        .single();
-      if (updatedParticipant) {
-        finalToken = updatedParticipant.participant_token;
+    // 模擬参加者を新規登録
+    const participantToken = generateUUID();
+
+    const { data: newParticipant, error: insertError } = await supabase
+      .from('participants')
+      .insert({
+        session_id: session.id,
+        display_name: displayNameTrimmed,
+        is_attending: true,
+        brought_count: brought_count,
+        participant_token: participantToken,
+      })
+      .select('id')
+      .single();
+
+    if (insertError) {
+      console.error('Participant creation error:', insertError);
+      return NextResponse.json(
+        { error: '参加者の作成に失敗しました', details: insertError.message },
+        { status: 500 }
+      );
+    }
+
+    const participantId = newParticipant.id;
+
+    if (brought_count > 0 && bottle_labels.length > 0) {
+      const samples = bottle_labels
+        .filter((label: string) => label.trim())
+        .map((label: string, index: number) => ({
+          session_id: session.id,
+          label: label.trim(),
+          presenter_participant_id: participantId,
+          sort_order: index,
+          state: 'pending',
+        }));
+
+      const { error: samplesError } = await supabase.from('samples').insert(samples);
+
+      if (samplesError) {
+        console.error('Sample creation error:', samplesError);
       }
     }
 
     return NextResponse.json({
       data: {
         participant_id: participantId,
-        participant_token: finalToken,
-        display_name: display_name.trim(),
+        participant_token: participantToken,
+        display_name: displayNameTrimmed,
       },
     });
   } catch (error) {

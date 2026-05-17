@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { NextActionCard } from '@/components/common/NextActionCard';
@@ -9,6 +9,29 @@ import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
 import { copyToClipboard, openLineJoinInviteShare } from '@/lib/utils';
+import { normalizeScoringConfig, mergeLegacyOptionColumnsIntoScoring, type FullScoringConfig, DEFAULT_CASK_CHOICE_OPTIONS, DEFAULT_REGION_CHOICE_OPTIONS } from '@/lib/scoring-schema';
+import { resolvedTier1NightingaleColors, type Tier1NightingaleRgb } from '@/lib/flavor-chart-colors';
+import { DEFAULT_FLAVOR_CHART, ensureTier1NightingaleVisibleMap } from '@/lib/default-flavor-chart';
+import { ScoringSettingsPanel } from '@/components/settings/ScoringSettingsPanel';
+import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
+import { disambiguatedDisplayName } from '@/lib/participant-display';
+
+/** settings/save 前までの旧フラット配点（正規化して保存される） */
+const LEGACY_DEFAULT_SCORING_FLAT = {
+  cask: 5,
+  region: 2,
+  age: 3,
+  abv: 3,
+  distillery: 5,
+  age_penalty_per_year: 1,
+  abv_penalty_per_percent: 2,
+};
+
+const DEFAULT_OWNER_SCORING = mergeLegacyOptionColumnsIntoScoring(
+  LEGACY_DEFAULT_SCORING_FLAT,
+  [...DEFAULT_CASK_CHOICE_OPTIONS],
+  [...DEFAULT_REGION_CHOICE_OPTIONS],
+);
 
 interface Session {
   id: string;
@@ -46,17 +69,26 @@ interface AppSettings {
     version: string;
     tier1: string[];
     tier2_suggestions: Record<string, string[]>;
+    /** フレーバー・ナイチンゲール・ローズ・チャートの Tier1 ベース色 */
+    tier1_nightingale_colors?: Record<string, Tier1NightingaleRgb>;
+    /** Tier1 ごとにナイチンゲール・チャートへ載せるか（false＝集計のみ・チャート軸から除外） */
+    tier1_nightingale_visible?: Record<string, boolean>;
+    /** レガシー: tier1_nightingale_visible が無いとき「その他」だけに効く */
+    include_other_in_nightingale_chart?: boolean;
   };
-  scoring?: {
-    cask: number;
-    region: number;
-    age: number;
-    abv: number;
-    distillery: number;
-    age_penalty_per_year?: number; // 年数の誤差は1年ごとに1点減点（デフォルト）
-    abv_penalty_per_percent?: number; // 度数の誤差は1%ごとに1点減点（デフォルト）
-  };
+  scoring?: FullScoringConfig;
 }
+
+const defaultOwnerFlavorChart = (): AppSettings['flavor_chart'] => {
+  const base: AppSettings['flavor_chart'] = {
+    ...DEFAULT_FLAVOR_CHART,
+    tier1_nightingale_colors: resolvedTier1NightingaleColors(DEFAULT_FLAVOR_CHART),
+  };
+  return {
+    ...base,
+    tier1_nightingale_visible: ensureTier1NightingaleVisibleMap(base),
+  };
+};
 
 interface SettingsTemplate {
   id: string;
@@ -116,6 +148,10 @@ export default function OwnerPage() {
   const { toast, showToast, hideToast } = useToast();
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const ownerParticipantPeers = useMemo(
+    () => participants.map((p) => ({ participant_id: p.id, display_name: p.display_name })),
+    [participants],
+  );
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -142,10 +178,19 @@ export default function OwnerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSession を依存に入れるとポーリングが毎レンダーでリセットされる
   }, [joinToken]);
 
+  // Session 開始後は設定タブへ誘導しない（セッション進行に集中）
+  useEffect(() => {
+    if (!session) return;
+    const settingsAllowed = session.state === 'registering' || session.state === 'ordering';
+    if (!settingsAllowed && activeTab === 'settings') {
+      setActiveTab('session');
+    }
+  }, [session, activeTab]);
+
   useEffect(() => {
     
     if (ownerToken && session?.id) {
-      loadParticipants(session.id);
+      loadParticipants();
       
       // Sample一覧も読み込む（registering状態以外）
       if (session.state !== 'registering') {
@@ -155,7 +200,7 @@ export default function OwnerPage() {
       // すべての状態で定期的に参加者一覧とSample一覧を更新（ポーリング）
       // Round終了などの状態変更を自動的に反映
       const interval = setInterval(() => {
-        loadParticipants(session.id);
+        loadParticipants();
         if (session.state !== 'registering') {
           loadSamples();
         }
@@ -214,7 +259,7 @@ export default function OwnerPage() {
     }
   };
 
-  const loadParticipants = async (sessionId: string) => {
+  const loadParticipants = async () => {
     
     if (!ownerToken) {
       return;
@@ -255,6 +300,13 @@ export default function OwnerPage() {
   };
 
   const handleCloseRegistration = async () => {
+    if (typeof window !== 'undefined') {
+      const ok = window.confirm(
+        '参加登録を締め切り、順番決めに進みますか？\n\n' +
+          'このページの「あなた（オーナー）の参加登録」をまだ行っていない場合、あなたは不参加（進行・操作のみ）として扱われます。',
+      );
+      if (!ok) return;
+    }
     try {
       // 最新のセッション状態を再取得して検証
       const sessionCheckResponse = await fetch(`/api/session/get?join_token=${joinToken}`);
@@ -451,9 +503,24 @@ export default function OwnerPage() {
         return;
       }
 
-      setEditedSettings(result.data);
-      setSettingName(result.data.name || 'デフォルト設定');
-      setSelectedTemplateId(result.data.id || null);
+      const data = result.data as AppSettings;
+      const scoring = mergeLegacyOptionColumnsIntoScoring(
+        data.scoring ?? LEGACY_DEFAULT_SCORING_FLAT,
+        data.cask_options,
+        data.region_options,
+      );
+      setEditedSettings({
+        ...data,
+        scoring,
+        cask_options: scoring.items.cask.options ?? [],
+        region_options: scoring.items.region.options ?? [],
+        flavor_chart: {
+          ...data.flavor_chart,
+          tier1_nightingale_visible: ensureTier1NightingaleVisibleMap(data.flavor_chart),
+        },
+      });
+      setSettingName(data.name || 'デフォルト設定');
+      setSelectedTemplateId(data.id || null);
     } catch (error) {
       console.error('Load settings error:', error);
       showToast('ネットワークエラーが発生しました', 'error');
@@ -471,6 +538,19 @@ export default function OwnerPage() {
 
     setIsSavingSettings(true);
     try {
+      const scoringNorm = normalizeScoringConfig(
+        editedSettings.scoring ?? LEGACY_DEFAULT_SCORING_FLAT,
+      );
+      const cask_options = scoringNorm.items.cask.options ?? [];
+      const region_options = scoringNorm.items.region.options ?? [];
+      const fc = editedSettings.flavor_chart;
+      const visSynced = ensureTier1NightingaleVisibleMap(fc);
+      const flavor_chart = {
+        ...fc,
+        tier1_nightingale_visible: visSynced,
+        include_other_in_nightingale_chart: fc.tier1.includes('その他') ? visSynced['その他'] === true : false,
+      };
+
       const response = await fetch('/api/settings/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -478,18 +558,10 @@ export default function OwnerPage() {
           owner_token: ownerToken,
           id: selectedTemplateId || undefined,
           name: settingName.trim(),
-          cask_options: editedSettings.cask_options,
-          region_options: editedSettings.region_options,
-          flavor_chart: editedSettings.flavor_chart,
-          scoring: editedSettings.scoring || {
-            cask: 3,
-            region: 3,
-            age: 3,
-            abv: 3,
-            distillery: 6,
-            age_penalty_per_year: 1,
-            abv_penalty_per_percent: 2,
-          },
+          cask_options,
+          region_options,
+          flavor_chart,
+          scoring: scoringNorm,
         }),
       });
 
@@ -506,7 +578,22 @@ export default function OwnerPage() {
       
       // 保存されたデータを即座に反映
       if (result.data) {
-        setEditedSettings(result.data);
+        const data = result.data as AppSettings;
+        const scoring = mergeLegacyOptionColumnsIntoScoring(
+          data.scoring ?? LEGACY_DEFAULT_SCORING_FLAT,
+          data.cask_options,
+          data.region_options,
+        );
+        setEditedSettings({
+          ...data,
+          scoring,
+          cask_options: scoring.items.cask.options ?? [],
+          region_options: scoring.items.region.options ?? [],
+          flavor_chart: {
+            ...data.flavor_chart,
+            tier1_nightingale_visible: ensureTier1NightingaleVisibleMap(data.flavor_chart),
+          },
+        });
         setSettingName(result.data.name);
         setSelectedTemplateId(result.data.id);
       }
@@ -558,98 +645,10 @@ export default function OwnerPage() {
       const defaultSettings: AppSettings = {
         id: null,
         name: 'デフォルト設定',
-        cask_options: ['シェリー樽', 'バーボン樽', 'ワイン樽', 'その他'],
-        region_options: ['スコットランド', 'アイルランド', 'アメリカ', '日本', 'その他'],
-        flavor_chart: {
-          version: 'v1',
-          tier1: [
-            'フルーティ',
-            'フローラル・ハーブ系',
-            'シリアル',
-            'テール',
-            '硫黄系',
-            'サリファリー',
-            'ピート・薫香',
-            '樽熟成',
-            'その他',
-          ],
-          tier2_suggestions: {
-            'フルーティ': [
-              'レモン',
-              'ライム',
-              'オレンジ',
-              'グレープフルーツ',
-              '青リンゴ',
-              '赤リンゴ',
-              '洋梨',
-              '桃',
-              'さくらんぼ',
-              'プラム',
-              'いちご',
-              'ラズベリー',
-              'ブラックベリー',
-              'カシス',
-              'マンゴー',
-              'パイナップル',
-              'バナナ',
-              'メロン',
-              'ドライレーズン',
-              'ドライイチジク',
-              'ドライアプリコット',
-            ],
-            'フローラル・ハーブ系': [
-              'バラ',
-              '白い花',
-              'スミレ',
-              'ラベンダー',
-              'ヒース（ヘザー）',
-              'ミント',
-              'タイム',
-              'ローズマリー',
-              '芝生',
-              '干し草',
-              '甘草',
-            ],
-            'シリアル': ['麦芽', '穀草', 'パン', 'ビスケット', 'クッキー', 'クレープ'],
-            'テール': ['タバコ', '紅茶', 'バター', '皮革', 'うろこ'],
-            '硫黄系': ['硫黄', 'マッチ', 'ゴム', 'ゆで卵', 'キャベツ'],
-            'サリファリー': ['なめし革', 'ゴム', '油', '肉', 'ブロス'],
-            'ピート・薫香': ['煙', '焚き火', 'タール', 'ヨード', '海藻', 'ベーコン', 'スモーク', '焦げ'],
-            '樽熟成': [
-              'バニラ',
-              'キャラメル',
-              'ハチミツ',
-              'メープル',
-              'ココナッツ',
-              'クルミ',
-              'アーモンド',
-              'ヘーゼルナッツ',
-              'オーク',
-              'セダー',
-              'サンダルウッド',
-              '杉',
-              '黒胡椒',
-              '白胡椒',
-              'ジンジャー',
-              'ナツメグ',
-              'クローブ',
-              'シナモン',
-              'シェリー',
-              'マデイラ',
-              'ワイン',
-            ],
-            その他: [],
-          },
-        },
-        scoring: {
-          cask: 3,
-          region: 3,
-          age: 3,
-          abv: 3,
-          distillery: 6,
-          age_penalty_per_year: 1,
-          abv_penalty_per_percent: 2,
-        },
+        cask_options: DEFAULT_OWNER_SCORING.items.cask.options ?? [],
+        region_options: DEFAULT_OWNER_SCORING.items.region.options ?? [],
+        flavor_chart: defaultOwnerFlavorChart(),
+        scoring: DEFAULT_OWNER_SCORING,
       };
       setEditedSettings(defaultSettings);
       setSettingName('デフォルト設定');
@@ -710,6 +709,8 @@ export default function OwnerPage() {
   }
 
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/s/${joinToken}` : '';
+  const settingsTabAllowed =
+    session.state === 'registering' || session.state === 'ordering';
 
   return (
     <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
@@ -726,6 +727,7 @@ export default function OwnerPage() {
         {/* タブ */}
         <div className="flex gap-2 border-b border-white/10">
           <button
+            type="button"
             onClick={() => setActiveTab('session')}
             className={`px-4 py-2 font-medium transition-colors ${
               activeTab === 'session'
@@ -735,16 +737,19 @@ export default function OwnerPage() {
           >
             セッション管理
           </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'settings'
-                ? 'text-[#C88A2B] border-b-2 border-[#C88A2B]'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            設定
-          </button>
+          {settingsTabAllowed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'settings'
+                  ? 'text-[#C88A2B] border-b-2 border-[#C88A2B]'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              設定
+            </button>
+          )}
         </div>
 
         {/* セッション管理タブ */}
@@ -753,18 +758,14 @@ export default function OwnerPage() {
 
         {session.state === 'registering' && (
           <>
-            <NextActionCard
-              title="参加登録URLを共有してください"
-              description={`以下のURLを参加者に共有してください。\n${joinUrl}`}
-              primaryAction={{
-                label: '参加登録を締め切る',
-                onClick: handleCloseRegistration,
-                disabled: participants.length === 0,
-                disabledReason: '参加者がいません',
+            <OwnerSelfJoinForm
+              joinToken={joinToken}
+              showToast={showToast}
+              onRegistered={() => {
+                if (session.id) void loadParticipants();
               }}
-              note="参加登録が終わったら、締め切って順番決めに進みます"
             />
-            
+
             {/* URLコピーボタン */}
             <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加URL</h2>
@@ -811,6 +812,20 @@ export default function OwnerPage() {
                 「LINEで送る」は公式の共有画面を開きます。LINE未ログインの場合はログイン後に相手を選んで送信してください。
               </p>
             </div>
+
+            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+              <Button
+                variant="primary"
+                onClick={handleCloseRegistration}
+                disabled={participants.length === 0}
+                className="w-full"
+              >
+                {participants.length === 0 ? '参加者がいません' : '参加登録を締め切る'}
+              </Button>
+              <p className="text-stone-500 text-sm mt-3 leading-relaxed">
+                他の参加者の参加が終わったら締め切ってください。オーナー本人は上のフォームで登録しないまま締め切ると不参加（進行のみ）です。
+              </p>
+            </div>
             
             {/* 参加コード表示 */}
             {session?.join_code && (
@@ -844,24 +859,6 @@ export default function OwnerPage() {
               </div>
             )}
             
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-              <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">オーナーも参加登録できます</h2>
-              <p className="text-stone-400 mb-4 leading-relaxed">
-                オーナーもゲームに参加できます。以下のリンクから参加登録を行ってください。
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    window.open(`/s/${joinToken}`, '_blank');
-                  }
-                }}
-                className="w-full"
-              >
-                参加登録ページを開く
-              </Button>
-            </div>
-
             {/* デバッグ用：模擬参加者（開発環境のみ） */}
             {process.env.NODE_ENV !== 'production' && (
               <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 border-amber-500/30">
@@ -924,7 +921,7 @@ export default function OwnerPage() {
                         showToast(`模擬参加者「${displayName}」を作成しました`, 'success');
                         
                         // 参加者一覧を更新
-                        await loadParticipants(session!.id);
+                        await loadParticipants();
                         
                         // 入力フィールドをクリア
                         nameInput.value = '';
@@ -949,7 +946,13 @@ export default function OwnerPage() {
                   {participants.map((participant) => (
                     <div key={participant.id} className="flex items-center justify-between py-3 border-b border-white/10">
                       <div>
-                        <span className="font-medium text-stone-100">{participant.display_name}</span>
+                        <span className="font-medium text-stone-100">
+                          {disambiguatedDisplayName(
+                            participant.display_name,
+                            participant.id,
+                            ownerParticipantPeers,
+                          )}
+                        </span>
                         {participant.brought_count > 0 && (
                           <span className="ml-2 text-sm text-stone-400">
                             (持ち込み: {participant.brought_count}本)
@@ -1047,6 +1050,29 @@ export default function OwnerPage() {
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">Session進行中</h2>
               <p className="text-stone-400 leading-relaxed">現在、回答入力フェーズです。</p>
             </div>
+
+            {joinToken && (
+              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-[#C88A2B]/30 p-6">
+                <h3 className="text-lg font-semibold text-stone-100 mb-2 tracking-tight">回答・プレゼン（参加者側）</h3>
+                <p className="text-sm text-stone-400 mb-4 leading-relaxed">
+                  この画面は進行管理用です。オーナー本人もゲームに参加する場合は、セッション参加者画面で回答入力やPresenterパネルへ進んでください（同じブラウザなら参加トークンを共有します）。
+                </p>
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  onClick={() => router.push(`/session/${joinToken}`)}
+                >
+                  このタブでセッションを開く
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full mt-2"
+                  onClick={() => window.open(`/session/${joinToken}`, '_blank', 'noopener,noreferrer')}
+                >
+                  別タブで開く
+                </Button>
+              </div>
+            )}
 
             {/* 逐次モードでrevealed状態のサンプルがある場合、結果ページへのリンクを表示 */}
             {session.mode === 'sequential' && samples.some((s) => s.state === 'revealed') && (
@@ -1265,98 +1291,10 @@ export default function OwnerPage() {
                               const defaultSettings: AppSettings = {
                                 id: null,
                                 name: 'デフォルト設定',
-                                cask_options: ['シェリー樽', 'バーボン樽', 'ワイン樽', 'その他'],
-                                region_options: ['スコットランド', 'アイルランド', 'アメリカ', '日本', 'その他'],
-                                flavor_chart: {
-                                  version: 'v1',
-                                  tier1: [
-                                    'フルーティ',
-                                    'フローラル・ハーブ系',
-                                    'シリアル',
-                                    'テール',
-                                    '硫黄系',
-                                    'サリファリー',
-                                    'ピート・薫香',
-                                    '樽熟成',
-                                    'その他',
-                                  ],
-                                  tier2_suggestions: {
-                                    'フルーティ': [
-                                      'レモン',
-                                      'ライム',
-                                      'オレンジ',
-                                      'グレープフルーツ',
-                                      '青リンゴ',
-                                      '赤リンゴ',
-                                      '洋梨',
-                                      '桃',
-                                      'さくらんぼ',
-                                      'プラム',
-                                      'いちご',
-                                      'ラズベリー',
-                                      'ブラックベリー',
-                                      'カシス',
-                                      'マンゴー',
-                                      'パイナップル',
-                                      'バナナ',
-                                      'メロン',
-                                      'ドライレーズン',
-                                      'ドライイチジク',
-                                      'ドライアプリコット',
-                                    ],
-                                    'フローラル・ハーブ系': [
-                                      'バラ',
-                                      '白い花',
-                                      'スミレ',
-                                      'ラベンダー',
-                                      'ヒース（ヘザー）',
-                                      'ミント',
-                                      'タイム',
-                                      'ローズマリー',
-                                      '芝生',
-                                      '干し草',
-                                      '甘草',
-                                    ],
-                                    'シリアル': ['麦芽', '穀草', 'パン', 'ビスケット', 'クッキー', 'クレープ'],
-                                    'テール': ['タバコ', '紅茶', 'バター', '皮革', 'うろこ'],
-                                    '硫黄系': ['硫黄', 'マッチ', 'ゴム', 'ゆで卵', 'キャベツ'],
-                                    'サリファリー': ['なめし革', 'ゴム', '油', '肉', 'ブロス'],
-                                    'ピート・薫香': ['煙', '焚き火', 'タール', 'ヨード', '海藻', 'ベーコン', 'スモーク', '焦げ'],
-                                    '樽熟成': [
-                                      'バニラ',
-                                      'キャラメル',
-                                      'ハチミツ',
-                                      'メープル',
-                                      'ココナッツ',
-                                      'クルミ',
-                                      'アーモンド',
-                                      'ヘーゼルナッツ',
-                                      'オーク',
-                                      'セダー',
-                                      'サンダルウッド',
-                                      '杉',
-                                      '黒胡椒',
-                                      '白胡椒',
-                                      'ジンジャー',
-                                      'ナツメグ',
-                                      'クローブ',
-                                      'シナモン',
-                                      'シェリー',
-                                      'マデイラ',
-                                      'ワイン',
-                                    ],
-                                    その他: [],
-                                  },
-                                },
-                                scoring: {
-                                  cask: 3,
-                                  region: 3,
-                                  age: 3,
-                                  abv: 3,
-                                  distillery: 6,
-                                  age_penalty_per_year: 1,
-                                  abv_penalty_per_percent: 2,
-                                },
+                                cask_options: DEFAULT_OWNER_SCORING.items.cask.options ?? [],
+                                region_options: DEFAULT_OWNER_SCORING.items.region.options ?? [],
+                                flavor_chart: defaultOwnerFlavorChart(),
+                                scoring: DEFAULT_OWNER_SCORING,
                               };
                               setEditedSettings(defaultSettings);
                               setSettingName('デフォルト設定');
@@ -1397,234 +1335,19 @@ export default function OwnerPage() {
                   </div>
                 </div>
 
-                {/* 配点設宁E*/}
                 <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
                   <h2 className="text-xl font-semibold text-stone-100 tracking-tight">配点設定</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {/* カスク */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-300 mb-2">カスク</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editedSettings.scoring?.cask ?? 3}
-                        onChange={(e) => {
-                          setEditedSettings({
-                            ...editedSettings,
-                            scoring: {
-                              ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                              cask: Math.max(0, parseInt(e.target.value) || 0),
-                            },
-                          });
-                        }}
-                        className="w-full px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                      />
-                    </div>
-
-                    {/* 地域 */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-300 mb-2">地域</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editedSettings.scoring?.region ?? 3}
-                        onChange={(e) => {
-                          setEditedSettings({
-                            ...editedSettings,
-                            scoring: {
-                              ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                              region: Math.max(0, parseInt(e.target.value) || 0),
-                            },
-                          });
-                        }}
-                        className="w-full px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                      />
-                    </div>
-
-                    {/* 年数 */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-300 mb-2">年数の配点</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editedSettings.scoring?.age ?? 3}
-                        onChange={(e) => {
-                          setEditedSettings({
-                            ...editedSettings,
-                            scoring: {
-                              ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                              age: Math.max(0, parseInt(e.target.value) || 0),
-                            },
-                          });
-                        }}
-                        className="w-full px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                      />
-                      <label className="block text-xs font-medium text-stone-400 mt-2">誤差設定</label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-stone-400 whitespace-nowrap">誤差</span>
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          value={editedSettings.scoring?.age_penalty_per_year ?? 1}
-                          onChange={(e) => {
-                            setEditedSettings({
-                              ...editedSettings,
-                              scoring: {
-                                ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                                age_penalty_per_year: Math.max(0.1, parseFloat(e.target.value) || 1),
-                              },
-                            });
-                          }}
-                          className="flex-1 px-2 py-1 text-sm bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                        />
-                        <span className="text-xs text-stone-400 whitespace-nowrap">年ごとに1点減点</span>
-                      </div>
-                    </div>
-
-                    {/* 度数 */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-300 mb-2">度数の配点</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editedSettings.scoring?.abv ?? 3}
-                        onChange={(e) => {
-                          setEditedSettings({
-                            ...editedSettings,
-                            scoring: {
-                              ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                              abv: Math.max(0, parseInt(e.target.value) || 0),
-                            },
-                          });
-                        }}
-                        className="w-full px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                      />
-                      <label className="block text-xs font-medium text-stone-400 mt-2">誤差設定</label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-stone-400 whitespace-nowrap">誤差</span>
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          value={editedSettings.scoring?.abv_penalty_per_percent ?? 2}
-                          onChange={(e) => {
-                            setEditedSettings({
-                              ...editedSettings,
-                              scoring: {
-                                ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                                abv_penalty_per_percent: Math.max(0.1, parseFloat(e.target.value) || 2),
-                              },
-                            });
-                          }}
-                          className="flex-1 px-2 py-1 text-sm bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                        />
-                        <span className="text-xs text-stone-400 whitespace-nowrap">%ごとに1点減点</span>
-                      </div>
-                    </div>
-
-                    {/* 蒸留所 */}
-                    <div>
-                      <label className="block text-sm font-medium text-stone-300 mb-2">蒸留所</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editedSettings.scoring?.distillery ?? 6}
-                        onChange={(e) => {
-                          setEditedSettings({
-                            ...editedSettings,
-                            scoring: {
-                              ...(editedSettings.scoring || { cask: 3, region: 3, age: 3, abv: 3, distillery: 6, age_penalty_per_year: 1, abv_penalty_per_percent: 2 }),
-                              distillery: Math.max(0, parseInt(e.target.value) || 0),
-                            },
-                          });
-                        }}
-                        className="w-full px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* カスク選択肢 */}
-                <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
-                  <h2 className="text-xl font-semibold text-stone-100 tracking-tight">カスクタイプ選択肢</h2>
-                  <div className="space-y-2">
-                    {editedSettings.cask_options.map((option, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={option}
-                          onChange={(e) => {
-                            const newOptions = [...editedSettings.cask_options];
-                            newOptions[index] = e.target.value;
-                            setEditedSettings({ ...editedSettings, cask_options: newOptions });
-                          }}
-                          className="flex-1 px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                        />
-                        <button
-                          onClick={() => {
-                            const newOptions = editedSettings.cask_options.filter((_, i) => i !== index);
-                            setEditedSettings({ ...editedSettings, cask_options: newOptions });
-                          }}
-                          className="px-3 py-2 bg-red-500/15 text-red-300 border border-red-400/30 rounded-lg hover:bg-red-500/25 transition-colors"
-                        >
-                          削除
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => {
-                        setEditedSettings({
-                          ...editedSettings,
-                          cask_options: [...editedSettings.cask_options, ''],
-                        });
-                      }}
-                      className="w-full px-4 py-2 bg-neutral-700 text-stone-200 border border-white/10 rounded-lg hover:bg-neutral-600 transition-colors"
-                    >
-                      + 追加
-                    </button>
-                  </div>
-                </div>
-
-                {/* 地域選択肢 */}
-                <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
-                  <h2 className="text-xl font-semibold text-stone-100 tracking-tight">地域選択肢</h2>
-                  <div className="space-y-2">
-                    {editedSettings.region_options.map((option, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={option}
-                          onChange={(e) => {
-                            const newOptions = [...editedSettings.region_options];
-                            newOptions[index] = e.target.value;
-                            setEditedSettings({ ...editedSettings, region_options: newOptions });
-                          }}
-                          className="flex-1 px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                        />
-                        <button
-                          onClick={() => {
-                            const newOptions = editedSettings.region_options.filter((_, i) => i !== index);
-                            setEditedSettings({ ...editedSettings, region_options: newOptions });
-                          }}
-                          className="px-3 py-2 bg-red-500/15 text-red-300 border border-red-400/30 rounded-lg hover:bg-red-500/25 transition-colors"
-                        >
-                          削除
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => {
-                        setEditedSettings({
-                          ...editedSettings,
-                          region_options: [...editedSettings.region_options, ''],
-                        });
-                      }}
-                      className="w-full px-4 py-2 bg-neutral-700 text-stone-200 border border-white/10 rounded-lg hover:bg-neutral-600 transition-colors"
-                    >
-                      + 追加
-                    </button>
-                  </div>
+                  <ScoringSettingsPanel
+                    value={normalizeScoringConfig(editedSettings.scoring ?? LEGACY_DEFAULT_SCORING_FLAT)}
+                    onChange={(scoring) =>
+                      setEditedSettings({
+                        ...editedSettings,
+                        scoring,
+                        cask_options: scoring.items.cask.options ?? [],
+                        region_options: scoring.items.region.options ?? [],
+                      })
+                    }
+                  />
                 </div>
 
                 {/* フレーバーチャート */}
@@ -1634,64 +1357,181 @@ export default function OwnerPage() {
                   {/* Tier1 */}
                   <div>
                     <h3 className="text-lg font-medium text-stone-100 mb-3">Tier1（第1階層）</h3>
+                    <p className="text-sm text-stone-500 mb-3 leading-relaxed">
+                      Tier1 ごとのナイチンゲール・ローズ・チャートのベース色を RGB（0〜255）で調整できます。セッション開始時のスナップショットが結果チャートに使われます。各 Tier1 の「チャートに表示」で、ローズ・チャートの軸への掲載の有無を切り替えられます（オフでも回答・集計の Tier1 はそのままです）。
+                    </p>
                     <div className="space-y-2">
-                      {editedSettings.flavor_chart.tier1.map((tier1, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={tier1}
-                            onChange={(e) => {
-                              const newTier1 = [...editedSettings.flavor_chart.tier1];
-                              newTier1[index] = e.target.value;
-                              const newTier2Suggestions = { ...editedSettings.flavor_chart.tier2_suggestions };
-                              // 名前が変更された場合、tier2_suggestionsのキーも更新
-                              if (newTier2Suggestions[tier1] !== undefined) {
-                                newTier2Suggestions[e.target.value] = newTier2Suggestions[tier1];
-                                delete newTier2Suggestions[tier1];
-                              } else if (!newTier2Suggestions[e.target.value]) {
-                                newTier2Suggestions[e.target.value] = [];
-                              }
-                              setEditedSettings({
-                                ...editedSettings,
-                                flavor_chart: {
-                                  ...editedSettings.flavor_chart,
-                                  tier1: newTier1,
-                                  tier2_suggestions: newTier2Suggestions,
-                                },
-                              });
-                            }}
-                            className="flex-1 px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                          />
-                          <button
-                            onClick={() => {
-                              const newTier1 = editedSettings.flavor_chart.tier1.filter((_, i) => i !== index);
-                              const newTier2Suggestions = { ...editedSettings.flavor_chart.tier2_suggestions };
-                              delete newTier2Suggestions[tier1];
-                              setEditedSettings({
-                                ...editedSettings,
-                                flavor_chart: {
-                                  ...editedSettings.flavor_chart,
-                                  tier1: newTier1,
-                                  tier2_suggestions: newTier2Suggestions,
-                                },
-                              });
-                            }}
-                            className="px-3 py-2 bg-red-500/15 text-red-300 border border-red-400/30 rounded-lg hover:bg-red-500/25 transition-colors"
+                      {editedSettings.flavor_chart.tier1.map((tier1, index) => {
+                        const colorMap = editedSettings.flavor_chart.tier1_nightingale_colors || {};
+                        const rgb =
+                          colorMap[tier1] ||
+                          resolvedTier1NightingaleColors({
+                            tier1: editedSettings.flavor_chart.tier1,
+                            tier1_nightingale_colors: colorMap,
+                          })[tier1] || { r: 128, g: 128, b: 128 };
+
+                        return (
+                          <div
+                            key={index}
+                            className="rounded-lg border border-white/5 bg-neutral-800/30 p-3 space-y-2"
                           >
-                            削除
-                          </button>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={tier1}
+                                onChange={(e) => {
+                                  const newTier1 = [...editedSettings.flavor_chart.tier1];
+                                  const oldName = tier1;
+                                  newTier1[index] = e.target.value;
+                                  const newTier2Suggestions = { ...editedSettings.flavor_chart.tier2_suggestions };
+                                  if (newTier2Suggestions[oldName] !== undefined) {
+                                    newTier2Suggestions[e.target.value] = newTier2Suggestions[oldName];
+                                    delete newTier2Suggestions[oldName];
+                                  } else if (!newTier2Suggestions[e.target.value]) {
+                                    newTier2Suggestions[e.target.value] = [];
+                                  }
+                                  const prevColors = editedSettings.flavor_chart.tier1_nightingale_colors || {};
+                                  const newColors = { ...prevColors };
+                                  if (oldName !== e.target.value && newColors[oldName] !== undefined) {
+                                    newColors[e.target.value] = newColors[oldName];
+                                    delete newColors[oldName];
+                                  }
+                                  const prevVis = editedSettings.flavor_chart.tier1_nightingale_visible || {};
+                                  const newVis = { ...prevVis };
+                                  if (oldName !== e.target.value && oldName in newVis) {
+                                    newVis[e.target.value] = newVis[oldName];
+                                    delete newVis[oldName];
+                                  }
+                                  const nextTier1List = newTier1;
+                                  const includeOtherSync = nextTier1List.includes('その他')
+                                    ? newVis['その他'] === true
+                                    : false;
+                                  setEditedSettings({
+                                    ...editedSettings,
+                                    flavor_chart: {
+                                      ...editedSettings.flavor_chart,
+                                      tier1: newTier1,
+                                      tier2_suggestions: newTier2Suggestions,
+                                      tier1_nightingale_colors: newColors,
+                                      tier1_nightingale_visible: newVis,
+                                      include_other_in_nightingale_chart: includeOtherSync,
+                                    },
+                                  });
+                                }}
+                                className="flex-1 px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextTier1 = editedSettings.flavor_chart.tier1.filter((_, i) => i !== index);
+                                  const newTier2Suggestions = { ...editedSettings.flavor_chart.tier2_suggestions };
+                                  delete newTier2Suggestions[tier1];
+                                  const newColors = { ...(editedSettings.flavor_chart.tier1_nightingale_colors || {}) };
+                                  delete newColors[tier1];
+                                  const newVis = { ...(editedSettings.flavor_chart.tier1_nightingale_visible || {}) };
+                                  delete newVis[tier1];
+                                  const includeOtherSync = nextTier1.includes('その他')
+                                    ? newVis['その他'] === true
+                                    : false;
+                                  setEditedSettings({
+                                    ...editedSettings,
+                                    flavor_chart: {
+                                      ...editedSettings.flavor_chart,
+                                      tier1: nextTier1,
+                                      tier2_suggestions: newTier2Suggestions,
+                                      tier1_nightingale_colors: newColors,
+                                      tier1_nightingale_visible: newVis,
+                                      include_other_in_nightingale_chart: includeOtherSync,
+                                    },
+                                  });
+                                }}
+                                className="px-3 py-2 bg-red-500/15 text-red-300 border border-red-400/30 rounded-lg hover:bg-red-500/25 transition-colors"
+                              >
+                                削除
+                              </button>
+                            </div>
+                            <label className="flex items-center gap-2 text-xs text-stone-400">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  ensureTier1NightingaleVisibleMap(editedSettings.flavor_chart)[tier1]
+                                }
+                                onChange={(e) => {
+                                  const vis = { ...(editedSettings.flavor_chart.tier1_nightingale_visible || {}) };
+                                  vis[tier1] = e.target.checked;
+                                  const includeOtherSync = editedSettings.flavor_chart.tier1.includes('その他')
+                                    ? vis['その他'] === true
+                                    : false;
+                                  setEditedSettings({
+                                    ...editedSettings,
+                                    flavor_chart: {
+                                      ...editedSettings.flavor_chart,
+                                      tier1_nightingale_visible: vis,
+                                      include_other_in_nightingale_chart: includeOtherSync,
+                                    },
+                                  });
+                                }}
+                                className="h-4 w-4 rounded border-white/20 bg-neutral-700 text-[#C88A2B] focus:ring-[#C88A2B]/40 shrink-0"
+                              />
+                              <span>ナイチンゲール・チャートに表示</span>
+                            </label>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
+                              <span className="text-stone-500 shrink-0">RGB</span>
+                              {(['r', 'g', 'b'] as const).map((ch) => (
+                                <label key={ch} className="flex items-center gap-1.5 text-stone-400">
+                                  <span className="uppercase w-3 font-mono">{ch}</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={255}
+                                    value={rgb[ch]}
+                                    onChange={(e) => {
+                                      const n = Math.min(255, Math.max(0, parseInt(e.target.value, 10) || 0));
+                                      const base = { ...(editedSettings.flavor_chart.tier1_nightingale_colors || {}) };
+                                      setEditedSettings({
+                                        ...editedSettings,
+                                        flavor_chart: {
+                                          ...editedSettings.flavor_chart,
+                                          tier1_nightingale_colors: {
+                                            ...base,
+                                            [tier1]: { ...rgb, [ch]: n },
+                                          },
+                                        },
+                                      });
+                                    }}
+                                    className="w-16 px-2 py-1 bg-neutral-900 border border-white/10 text-stone-100 rounded-md font-mono"
+                                  />
+                                </label>
+                              ))}
+                              <span
+                                className="inline-block h-7 w-12 rounded border border-white/15 shrink-0"
+                                style={{
+                                  backgroundColor: `rgb(${rgb.r},${rgb.g},${rgb.b})`,
+                                }}
+                                title="プレビュー"
+                                aria-hidden
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                       <button
                         onClick={() => {
                           const newTier1 = [...editedSettings.flavor_chart.tier1, ''];
                           const newTier2Suggestions = { ...editedSettings.flavor_chart.tier2_suggestions, '': [] };
+                          const newVis: Record<string, boolean> = {
+                            ...(editedSettings.flavor_chart.tier1_nightingale_visible || {}),
+                            '': true,
+                          };
+                          const includeOtherSync = newTier1.includes('その他') ? newVis['その他'] === true : false;
                           setEditedSettings({
                             ...editedSettings,
                             flavor_chart: {
                               ...editedSettings.flavor_chart,
                               tier1: newTier1,
                               tier2_suggestions: newTier2Suggestions,
+                              tier1_nightingale_visible: newVis,
+                              include_other_in_nightingale_chart: includeOtherSync,
                             },
                           });
                         }}

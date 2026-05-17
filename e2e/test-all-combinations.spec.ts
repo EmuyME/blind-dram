@@ -236,7 +236,7 @@ test.describe('完全フロー: 組み合わせ', () => {
           });
           const regionSelect = targetPage.locator('select[name="guessed_region"]');
           await regionSelect.selectOption({ index: 1 }).catch(async () => {
-            await regionSelect.selectOption({ label: 'スコットランド' });
+            await regionSelect.selectOption({ label: 'スコットランド（スペイサイド）' });
           });
           
           // 追加の待機：ページの状態更新を待つ
@@ -331,29 +331,33 @@ test.describe('完全フロー: 組み合わせ', () => {
         if (statusCheck.state === 'grading') {
           await presenterPage.reload();
           await presenterPage.waitForLoadState('domcontentloaded');
-          
-          // 採点UIが表示されるまで待つ（「○」ボタンが表示されるまで）
-          await presenterPage.waitForSelector('button:has-text("○")', { timeout: 20000 });
+
+          const stRes = await page.request.get(
+            `/api/round/status?sample_id=${sampleId}&participant_token=${samplePresenterToken}`,
+          );
+          const stJson = await stRes.json().catch(() => ({}));
+          const progress = (stJson?.data?.participant_progress || []) as Array<{ participant_id: string }>;
+          for (const row of progress) {
+            const gRes = await page.request.post('/api/distillery/grade', {
+              data: {
+                participant_token: samplePresenterToken,
+                sample_id: sampleId,
+                target_participant_id: row.participant_id,
+                is_correct: true,
+              },
+            });
+            if (!gRes.ok()) {
+              const ge = await gRes.json().catch(() => ({}));
+              throw new Error(`採点API失敗: ${ge?.error || gRes.status()}`);
+            }
+          }
+
+          await presenterPage.waitForSelector('button:has-text("Roundを終了する")', { timeout: 20000 });
         } else {
           throw new Error(`Round状態がgradingになりませんでした。現在の状態: ${statusCheck.state}, allSubmitted: ${statusCheck.allSubmitted}, truthEntered: ${statusCheck.truthEntered}`);
         }
       
-      // 各参加者の回答を採点（「○」ボタンをクリック）
-      const correctButtons = presenterPage.locator('button:has-text("○")');
-      const correctCount = await correctButtons.count();
-      
-      for (let i = 0; i < correctCount; i++) {
-        const correctButton = correctButtons.nth(i);
-        await correctButton.waitFor({ state: 'visible', timeout: 10000 });
-        // ボタンが安定するまで待機
-        await presenterPage.waitForTimeout(500);
-        // ボタンが有効になるまで待機
-        await correctButton.waitFor({ state: 'attached', timeout: 5000 });
-        await correctButton.click({ timeout: 10000 });
-        await presenterPage.waitForTimeout(500);
-      }
-      
-      // 全参加者の採点が完了するまで待機
+      // 8. Roundを終了（採点は API 済み）
       const allGradedWaitStart = Date.now();
       while (Date.now() - allGradedWaitStart < 20000) {
         statusCheck = await checkState();

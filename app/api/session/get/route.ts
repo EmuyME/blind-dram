@@ -60,16 +60,18 @@ export async function GET(request: NextRequest) {
     // オプショナルカラムを別途取得（存在する場合のみ）
     let caskOptionsSnapshot: unknown = null;
     let regionOptionsSnapshot: unknown = null;
+    let scoringSnapshot: unknown = null;
     if (session && !error) {
       try {
         const optionalResult = await supabase
           .from('sessions')
-          .select('cask_options_snapshot, region_options_snapshot')
+          .select('cask_options_snapshot, region_options_snapshot, scoring_snapshot')
           .eq(joinToken ? 'join_token' : 'owner_token', joinToken ?? ownerToken)
           .single();
         if (!optionalResult.error && optionalResult.data) {
           caskOptionsSnapshot = optionalResult.data.cask_options_snapshot;
           regionOptionsSnapshot = optionalResult.data.region_options_snapshot;
+          scoringSnapshot = optionalResult.data.scoring_snapshot;
         }
       } catch {
         // カラムが存在しない場合は無視
@@ -90,6 +92,7 @@ export async function GET(request: NextRequest) {
       flavor_chart_snapshot: session.flavor_chart_snapshot,
       cask_options_snapshot: caskOptionsSnapshot,
       region_options_snapshot: regionOptionsSnapshot,
+      scoring_snapshot: scoringSnapshot,
       join_code:
         session && typeof session === 'object' && 'join_code' in session
           ? (session as { join_code?: string | null }).join_code ?? null

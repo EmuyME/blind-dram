@@ -6,7 +6,15 @@ import { supabase } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { join_token, display_name, is_attending, brought_count, bottle_labels, owner_token } = body;
+    const {
+      join_token,
+      display_name,
+      is_attending,
+      brought_count,
+      bottle_labels,
+      owner_token,
+      rejoin_participant_token: existingParticipantTokenRaw,
+    } = body;
 
     // バリデーション
     if (!join_token) {
@@ -44,6 +52,8 @@ export async function POST(request: NextRequest) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
+    const displayNameTrimmed = display_name.trim();
+
     // registering 以外は原則参加不可。ただし Owner は owner_token で認証できるため、
     // 参加者としての参加（持ち込み0本のみ）を許可する。
     if (session.state !== 'registering') {
@@ -70,21 +80,62 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 既存参加者チェック（同じjoin_tokenで既に登録済みか）
-    const { data: existingParticipant } = await supabase
+    const existingToken =
+      typeof existingParticipantTokenRaw === 'string' ? existingParticipantTokenRaw.trim() : '';
+
+    let existingParticipant: { id: string } | null = null;
+    if (existingToken) {
+      const { data: byToken, error: byTokenErr } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('session_id', session.id)
+        .eq('participant_token', existingToken)
+        .maybeSingle();
+      if (byTokenErr) {
+        console.error('Participant token lookup error:', byTokenErr);
+        return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
+      }
+      if (byToken) existingParticipant = byToken;
+      else {
+        return errorResponse(
+          '参加登録の更新用トークンが無効です。参加登録ページからやり直してください',
+          'INVALID_PARTICIPANT_TOKEN',
+          401,
+        );
+      }
+    }
+
+    // 同一セッション内で表示名の重複を禁止（新規登録・他参加者と同名への変更）
+    let nameTakenQuery = supabase
       .from('participants')
       .select('id')
       .eq('session_id', session.id)
-      .eq('display_name', display_name.trim())
-      .single();
+      .eq('display_name', displayNameTrimmed)
+      .limit(1);
+    if (existingParticipant) {
+      nameTakenQuery = nameTakenQuery.neq('id', existingParticipant.id);
+    }
+    const { data: nameTakenRows, error: nameTakenErr } = await nameTakenQuery;
+    if (nameTakenErr) {
+      console.error('Display name conflict check error:', nameTakenErr);
+      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
+    }
+    if (nameTakenRows && nameTakenRows.length > 0) {
+      return errorResponse(
+        'この表示名は既に別の参加者が使用しています。別の名前を入力してください',
+        'DISPLAY_NAME_TAKEN',
+        409,
+      );
+    }
 
     const participantToken = generateUUID();
 
     if (existingParticipant) {
-      // 既存参加者の更新
+      // 既存参加者の更新（participant_token で特定。表示名の重複ではマージしない）
       const { data: updatedParticipant, error: updateError } = await supabase
         .from('participants')
         .update({
+          display_name: displayNameTrimmed,
           is_attending,
           brought_count,
           participant_token: participantToken,
@@ -227,7 +278,7 @@ export async function POST(request: NextRequest) {
         .from('participants')
         .insert({
           session_id: session.id,
-          display_name: display_name.trim(),
+          display_name: displayNameTrimmed,
           is_attending,
           brought_count,
           participant_token: participantToken,

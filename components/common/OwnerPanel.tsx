@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SampleOrderList } from '@/components/common/SampleOrderList';
+import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
 import { copyToClipboard, openLineJoinInviteShare } from '@/lib/utils';
 
 interface OwnerPanelProps {
@@ -77,6 +78,13 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
   };
 
   const handleCloseRegistration = async () => {
+    if (typeof window !== 'undefined') {
+      const ok = window.confirm(
+        '参加登録を締め切り、順番決めに進みますか？\n\n' +
+          'このパネル内の「あなた（オーナー）の参加登録」をまだ行っていない場合、あなたは不参加（進行・操作のみ）として扱われます。',
+      );
+      if (!ok) return;
+    }
     setIsLoading(true);
     try {
       // 最新のセッション状態を再取得して検証
@@ -329,9 +337,21 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
 
       {isExpanded && (
         <div className="p-6 space-y-4 border-t border-white/10">
-          {/* 参加URLと参加コード */}
+          {session.state === 'registering' && (
+            <OwnerSelfJoinForm
+              joinToken={joinToken}
+              showToast={showToast}
+              onRegistered={() => {
+                void loadParticipants();
+              }}
+            />
+          )}
+
+          {/* 参加URL・参加コード（登録中は「参加URL」見出しでオーナーページと揃える） */}
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-stone-300">共有情報</h3>
+            <h3 className="text-sm font-semibold text-stone-300">
+              {session.state === 'registering' ? '参加URL' : '共有情報'}
+            </h3>
             <div className="flex flex-col sm:flex-row flex-wrap gap-2">
               <Button
                 variant="secondary"
@@ -359,30 +379,25 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
                 </Button>
               )}
             </div>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (joinToken) {
-                  window.open(`/s/${joinToken}`, '_blank');
-                }
-              }}
-              className="w-full text-sm"
-            >
-              参加登録ページを開く
-            </Button>
           </div>
 
-          {/* 参加登録を締め切る */}
           {session.state === 'registering' && (
             <div>
               <Button
                 variant="primary"
                 onClick={handleCloseRegistration}
-                disabled={isLoading}
+                disabled={isLoading || participants.length === 0}
                 className="w-full"
               >
-                {isLoading ? '処理中...' : '参加登録を締め切る'}
+                {isLoading
+                  ? '処理中...'
+                  : participants.length === 0
+                    ? '参加者がいません'
+                    : '参加登録を締め切る'}
               </Button>
+              <p className="text-xs text-stone-400 mt-2 leading-relaxed">
+                他の参加者の参加が終わったら締め切ってください。オーナー本人は上のフォームで登録しないまま締め切ると不参加（進行のみ）です。
+              </p>
               {participants.length > 0 && (
                 <p className="text-xs text-stone-400 mt-2">
                   参加者数: {participants.length}人

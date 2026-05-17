@@ -331,6 +331,12 @@ export class TestHelpers {
       abv?: number;
       distillery?: string;
       score?: number;
+      /** API/型エイリアス（古いテスト互換） */
+      guessed_cask?: string;
+      guessed_region?: string;
+      guessed_age?: number;
+      guessed_abv?: number;
+      guessed_distillery?: string;
     }
   ) {
     // Roundがansweringになるまで待機（遷移遅延対策）
@@ -351,21 +357,41 @@ export class TestHelpers {
       localStorage.setItem(`bd:participant_token:${jt}`, token);
     }, { token: participantToken, jt: joinToken });
     await this.page.reload();
-    
-    if (answer.cask) {
-      await this.page.selectOption('select[name*="cask"]', answer.cask);
+
+    const cask = answer.cask ?? answer.guessed_cask;
+    const region = answer.region ?? answer.guessed_region;
+    const age = answer.age ?? answer.guessed_age;
+    const abv = answer.abv ?? answer.guessed_abv;
+    const distillery = answer.distillery ?? answer.guessed_distillery;
+
+    await this.page.waitForSelector('select[name="guessed_cask"], input[name="guessed_cask"]', { timeout: 30000 });
+
+    if (cask) {
+      const caskLoc = this.page.locator('select[name="guessed_cask"], input[name="guessed_cask"]').first();
+      const tag = await caskLoc.evaluate((el) => el.tagName.toLowerCase());
+      if (tag === 'select') {
+        await caskLoc.selectOption({ label: cask });
+      } else {
+        await caskLoc.fill(cask);
+      }
     }
-    if (answer.region) {
-      await this.page.selectOption('select[name*="region"]', answer.region);
+    if (region) {
+      const regionLoc = this.page.locator('select[name="guessed_region"], input[name="guessed_region"]').first();
+      const tag = await regionLoc.evaluate((el) => el.tagName.toLowerCase());
+      if (tag === 'select') {
+        await regionLoc.selectOption({ label: region });
+      } else {
+        await regionLoc.fill(region);
+      }
     }
-    if (answer.age) {
-      await this.page.fill('input[name*="age"]', answer.age.toString());
+    if (age != null) {
+      await this.page.fill('input[name="guessed_age"]', String(age));
     }
-    if (answer.abv) {
-      await this.page.fill('input[name*="abv"]', answer.abv.toString());
+    if (abv != null) {
+      await this.page.fill('input[name="guessed_abv"]', String(abv));
     }
-    if (answer.distillery) {
-      await this.page.fill('input[name*="distillery"]', answer.distillery);
+    if (distillery) {
+      await this.page.fill('input[name="guessed_distillery"]', distillery);
     }
     if (answer.score) {
       await this.page.fill('input[name*="score"]', answer.score.toString());
@@ -373,6 +399,177 @@ export class TestHelpers {
     
     await this.page.click('button:has-text("提出する")');
     await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * Round 画面で推測＋Nose の Tier1 を UI で選択し、下書き保存はせず
+   * サイレントポーリング（約3秒）を踏んだ後に提出する。
+   * ※一般参加者向け Round の退行防止用。プレゼンターの本番フローは Presenter パネルでのテイスティング保存。
+   */
+  async submitAnswerWithNoseTier1AfterPoll(
+    joinToken: string,
+    sampleId: string,
+    participantToken: string,
+    answer: {
+      guessed_cask?: string;
+      guessed_region?: string;
+      guessed_age?: number;
+      guessed_abv?: number;
+      guessed_distillery?: string;
+    },
+    noseTier1Label: string,
+    /** ポーリングを挟む待機 ms（デフォルト 4000） */
+    waitBeforeSubmitMs = 4000,
+  ) {
+    const waitStart = Date.now();
+    while (Date.now() - waitStart < 20000) {
+      const statusResponse = await this.page.request.get(
+        `/api/round/status?sample_id=${sampleId}&participant_token=${participantToken}`,
+      );
+      const statusResult = await statusResponse.json().catch(() => ({}));
+      if (statusResult?.data?.state === 'answering') {
+        break;
+      }
+      await this.page.waitForTimeout(1000);
+    }
+
+    await this.page.goto(`/session/${joinToken}/round/${sampleId}`);
+    await this.page.evaluate(({ token, jt }) => {
+      localStorage.setItem(`bd:participant_token:${jt}`, token);
+    }, { token: participantToken, jt: joinToken });
+    await this.page.reload();
+
+    await this.page.waitForSelector('select[name="guessed_cask"], input[name="guessed_cask"]', {
+      timeout: 30000,
+    });
+
+    const cask = answer.guessed_cask;
+    const region = answer.guessed_region;
+    const age = answer.guessed_age;
+    const abv = answer.guessed_abv;
+    const distillery = answer.guessed_distillery;
+
+    if (cask) {
+      const caskLoc = this.page.locator('select[name="guessed_cask"], input[name="guessed_cask"]').first();
+      const tag = await caskLoc.evaluate((el) => el.tagName.toLowerCase());
+      if (tag === 'select') {
+        await caskLoc.selectOption({ label: cask });
+      } else {
+        await caskLoc.fill(cask);
+      }
+    }
+    if (region) {
+      const regionLoc = this.page.locator('select[name="guessed_region"], input[name="guessed_region"]').first();
+      const tag = await regionLoc.evaluate((el) => el.tagName.toLowerCase());
+      if (tag === 'select') {
+        await regionLoc.selectOption({ label: region });
+      } else {
+        await regionLoc.fill(region);
+      }
+    }
+    if (age != null) {
+      await this.page.fill('input[name="guessed_age"]', String(age));
+    }
+    if (abv != null) {
+      await this.page.fill('input[name="guessed_abv"]', String(abv));
+    }
+    if (distillery) {
+      await this.page.fill('input[name="guessed_distillery"]', distillery);
+    }
+
+    const noseSection = this.page.locator('#section-nose');
+    await noseSection.getByRole('button', { name: noseTier1Label, exact: true }).click();
+
+    await this.page.waitForTimeout(waitBeforeSubmitMs);
+
+    await this.page.click('button:has-text("提出する")');
+    await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * Presenterパネルで「テイスティング（任意）」を開き、Nose の Tier1 を選んで「テイスティングを保存」する。
+   * 想定: grading かつプレゼンター本人が提出済み（正解保存後など）。
+   */
+  async savePresenterNoseTier1ViaPresenterPanel(
+    joinToken: string,
+    sampleId: string,
+    participantToken: string,
+    noseTier1Label: string,
+    waitBeforeSaveMs = 4000,
+  ) {
+    const deadline = Date.now() + 25000;
+    while (Date.now() < deadline) {
+      const statusResponse = await this.page.request.get(
+        `/api/round/status?sample_id=${sampleId}&participant_token=${participantToken}`,
+      );
+      const statusResult = await statusResponse.json().catch(() => ({}));
+      if (statusResult?.data?.state === 'grading') break;
+      await this.page.waitForTimeout(800);
+    }
+
+    await this.page.goto(`/session/${joinToken}/presenter/${sampleId}`);
+    await this.page.evaluate(({ token, jt }) => {
+      localStorage.setItem(`bd:participant_token:${jt}`, token);
+    }, { token: participantToken, jt: joinToken });
+    await this.page.reload();
+
+    await this.page.getByRole('heading', { name: 'Presenterパネル' }).waitFor({ timeout: 30000 });
+
+    await this.page.locator('#presenter-tasting-toggle').click();
+
+    const noseSection = this.page.locator('#section-presenter-nose');
+    await noseSection.getByRole('button', { name: noseTier1Label, exact: true }).click();
+
+    await this.page.waitForTimeout(waitBeforeSaveMs);
+
+    await this.page.getByRole('button', { name: 'テイスティングを保存' }).click();
+    await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * 提出済み回答にテイスティング（nose/palate/finish）だけを API でマージ
+   */
+  async mergeAnswerTastingViaApi(
+    sampleId: string,
+    participantToken: string,
+    tasting: {
+      nose?: Record<string, unknown>;
+      palate?: Record<string, unknown>;
+      finish?: Record<string, unknown>;
+    },
+  ) {
+    const getRes = await this.page.request.get(
+      `/api/answers/get?sample_id=${encodeURIComponent(sampleId)}&participant_token=${encodeURIComponent(participantToken)}`,
+    );
+    const body = await getRes.json().catch(() => ({}));
+    if (!getRes.ok()) {
+      throw new Error(`answers/get: ${(body as { error?: string })?.error || getRes.status()}`);
+    }
+    const a = (body as { data?: { answer?: Record<string, unknown> } })?.data?.answer;
+    if (!a) throw new Error('mergeAnswerTastingViaApi: 回答が見つかりません');
+
+    const postRes = await this.page.request.post('/api/answers/upsert', {
+      data: {
+        participant_token: participantToken,
+        sample_id: sampleId,
+        status: a.status,
+        guessed_cask: a.guessed_cask,
+        guessed_region: a.guessed_region,
+        guessed_age: a.guessed_age,
+        guessed_abv: a.guessed_abv,
+        guessed_distillery: a.guessed_distillery,
+        guessed_other1: a.guessed_other1 ?? null,
+        guessed_other2: a.guessed_other2 ?? null,
+        nose: tasting.nose ?? a.nose ?? null,
+        palate: tasting.palate ?? a.palate ?? null,
+        finish: tasting.finish ?? a.finish ?? null,
+        score_0_100: a.score_0_100 ?? null,
+      },
+    });
+    if (!postRes.ok()) {
+      const err = await postRes.json().catch(() => ({}));
+      throw new Error(`answers/upsert: ${(err as { error?: string })?.error || postRes.status()}`);
+    }
   }
 
   /**
@@ -388,6 +585,11 @@ export class TestHelpers {
       age?: number;
       abv?: number;
       distillery?: string;
+      true_cask?: string;
+      true_region?: string;
+      true_age?: number;
+      true_abv?: number;
+      true_distillery?: string;
     }
   ) {
     await this.page.goto(`/session/${joinToken}/presenter/${sampleId}`);
@@ -395,25 +597,68 @@ export class TestHelpers {
       localStorage.setItem(`bd:participant_token:${jt}`, token);
     }, { token: participantToken, jt: joinToken });
     await this.page.reload();
-    
-    if (truth.cask) {
-      await this.page.selectOption('select[name*="cask"]', truth.cask);
+
+    const cask = truth.cask ?? truth.true_cask;
+    const region = truth.region ?? truth.true_region;
+    const age = truth.age ?? truth.true_age;
+    const abv = truth.abv ?? truth.true_abv;
+    const distillery = truth.distillery ?? truth.true_distillery;
+
+    await this.page.waitForSelector('select[name="true_cask"], input[name="true_cask"]', { timeout: 30000 });
+
+    if (cask) {
+      const caskLoc = this.page.locator('select[name="true_cask"], input[name="true_cask"]').first();
+      const tag = await caskLoc.evaluate((el) => el.tagName.toLowerCase());
+      if (tag === 'select') {
+        await caskLoc.selectOption({ label: cask });
+      } else {
+        await caskLoc.fill(cask);
+      }
     }
-    if (truth.region) {
-      await this.page.selectOption('select[name*="region"]', truth.region);
+    if (region) {
+      const regionLoc = this.page.locator('select[name="true_region"], input[name="true_region"]').first();
+      const tag = await regionLoc.evaluate((el) => el.tagName.toLowerCase());
+      if (tag === 'select') {
+        await regionLoc.selectOption({ label: region });
+      } else {
+        await regionLoc.fill(region);
+      }
     }
-    if (truth.age) {
-      await this.page.fill('input[name*="age"]', truth.age.toString());
+    if (age != null) {
+      await this.page.fill('input[name="true_age"]', String(age));
     }
-    if (truth.abv) {
-      await this.page.fill('input[name*="abv"]', truth.abv.toString());
+    if (abv != null) {
+      await this.page.fill('input[name="true_abv"]', String(abv));
     }
-    if (truth.distillery) {
-      await this.page.fill('input[name*="distillery"]', truth.distillery);
+    if (distillery) {
+      await this.page.fill('input[name="true_distillery"]', distillery);
     }
-    
+
     await this.page.click('button:has-text("正解情報を保存")');
     await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * 蒸留所など手採点を API で記録する（grading 中のみ）
+   */
+  async postDistilleryGrade(
+    presenterToken: string,
+    sampleId: string,
+    targetParticipantId: string,
+    isCorrect: boolean
+  ) {
+    const response = await this.page.request.post('/api/distillery/grade', {
+      data: {
+        participant_token: presenterToken,
+        sample_id: sampleId,
+        target_participant_id: targetParticipantId,
+        is_correct: isCorrect,
+      },
+    });
+    if (!response.ok()) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(`採点API失敗: ${err?.error || response.status()}`);
+    }
   }
 
   /**

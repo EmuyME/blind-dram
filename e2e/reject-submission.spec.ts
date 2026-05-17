@@ -34,14 +34,14 @@ test.describe('Presenter: 差し戻し（提出を解除）', () => {
     await helpers.startRound(joinToken, sampleId!, presenter.participantToken);
     await helpers.submitAnswer(joinToken, sampleId!, answerer.participantToken, {
       guessed_cask: 'バーボン樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'D-OLD',
     });
     await helpers.submitTruth(joinToken, sampleId!, presenter.participantToken, {
       true_cask: 'バーボン樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'D-TRUE',

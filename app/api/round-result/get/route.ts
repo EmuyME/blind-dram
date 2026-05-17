@@ -4,7 +4,17 @@ import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
 import { calculateScore } from '@/lib/score-calculator';
-import { getAnswerSectionFlavor, tier1ListFromFlavorChart, toScoringConfig } from '@/lib/json-helpers';
+import {
+  getAnswerSectionFlavor,
+  tier1ListForSessionRadar,
+  addAnswerMaxFlavorIntensitiesToTotals,
+  mergeSubmittedAndPresenterDraftsForFlavorRadar,
+  flavorCommentsFromAnswer,
+  tier1CountsForAnswerFlavor,
+  mergePresenterTastingTier2FromAnswers,
+} from '@/lib/json-helpers';
+import { resolvedTier1NightingaleColors } from '@/lib/flavor-chart-colors';
+import type { ItemGradesMap } from '@/lib/scoring-schema';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Session取得
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('id, title, mode, state, flavor_chart_snapshot, scoring_snapshot')
+      .select('id, title, mode, state, flavor_chart_snapshot, scoring_snapshot, cask_options_snapshot, region_options_snapshot')
       .eq('join_token', joinToken)
       .single();
 
@@ -44,6 +54,9 @@ export async function GET(request: NextRequest) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
+    /** このラウンドの持ち込み主。参加者回答画面には出ない前提のため、途中結果の順位・プレーヤー向け一覧から除く */
+    const hideFromParticipantUiId: string | null = sample.presenter_participant_id ?? null;
+
     // 結果表示の対象となる状態かチェック
     // - 逐次モードでは、基本的に`revealed`状態で結果を表示する
     // - ただし、将来的な仕様変更や集計処理の都合で`closed`になるケースも考慮しておく
@@ -66,7 +79,7 @@ export async function GET(request: NextRequest) {
     // 完了したサンプル一覧取得（現段階での順位表用）
     const { data: completedSamples, error: completedSamplesError } = await supabase
       .from('samples')
-      .select('id, label')
+      .select('id, label, presenter_participant_id')
       .eq('session_id', session.id)
       .in('state', ['revealed', 'closed'])
       .order('sort_order');
@@ -80,7 +93,9 @@ export async function GET(request: NextRequest) {
     const completedSampleIds = completedSamples?.map((s) => s.id) || [];
     const { data: truths, error: truthsError } = await supabase
       .from('truths')
-      .select('sample_id, true_cask, true_region, true_age, true_abv, true_distillery, bottle_image_url')
+      .select(
+        'sample_id, true_cask, true_region, true_age, true_abv, true_distillery, true_other1, true_other2, true_bottler_name, true_distillation_year, true_bottling_year, notes, bottle_image_url',
+      )
       .eq('session_id', session.id)
       .in('sample_id', completedSampleIds);
 
@@ -92,7 +107,9 @@ export async function GET(request: NextRequest) {
     // 回答一覧取得（完了したサンプルのみ）
     const { data: answers, error: answersError } = await supabase
       .from('answers')
-      .select('sample_id, participant_id, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, nose, palate, finish')
+      .select(
+        'sample_id, participant_id, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2, nose, palate, finish',
+      )
       .eq('session_id', session.id)
       .eq('status', 'submitted')
       .in('sample_id', completedSampleIds);
@@ -102,10 +119,27 @@ export async function GET(request: NextRequest) {
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
+    const { data: draftAnswers, error: draftAnswersError } = await supabase
+      .from('answers')
+      .select('sample_id, participant_id, status, nose, palate, finish')
+      .eq('session_id', session.id)
+      .eq('status', 'draft')
+      .in('sample_id', completedSampleIds);
+
+    if (draftAnswersError) {
+      console.error('Draft answers fetch error (flavor radar):', draftAnswersError);
+    }
+
+    const answersForFlavorRadar = mergeSubmittedAndPresenterDraftsForFlavorRadar(
+      answers || [],
+      draftAnswers || [],
+      completedSamples || [],
+    );
+
     // 採点結果取得（完了したサンプルのみ）
     const { data: grades, error: gradesError } = await supabase
       .from('distillery_grades')
-      .select('sample_id, participant_id, is_correct')
+      .select('sample_id, participant_id, is_correct, item_grades')
       .eq('session_id', session.id)
       .in('sample_id', completedSampleIds);
 
@@ -121,11 +155,21 @@ export async function GET(request: NextRequest) {
       participantScores.set(p.id, { total: 0, samples: new Map() });
     });
 
+    const caskOpts = Array.isArray(session.cask_options_snapshot)
+      ? (session.cask_options_snapshot as string[])
+      : [];
+    const regionOpts = Array.isArray(session.region_options_snapshot)
+      ? (session.region_options_snapshot as string[])
+      : [];
+
     (completedSamples || []).forEach((completedSample) => {
       const truth = truths?.find((t) => t.sample_id === completedSample.id);
       if (!truth) return;
 
       (participants || []).forEach((participant) => {
+        if (completedSample.presenter_participant_id === participant.id) {
+          return;
+        }
         const answer = answers?.find(
           (a) => a.sample_id === completedSample.id && a.participant_id === participant.id
         );
@@ -142,6 +186,8 @@ export async function GET(request: NextRequest) {
             guessed_age: answer.guessed_age,
             guessed_abv: answer.guessed_abv,
             guessed_distillery: answer.guessed_distillery,
+            guessed_other1: (answer as { guessed_other1?: string | null }).guessed_other1,
+            guessed_other2: (answer as { guessed_other2?: string | null }).guessed_other2,
           },
           {
             true_cask: truth.true_cask,
@@ -149,9 +195,18 @@ export async function GET(request: NextRequest) {
             true_age: truth.true_age,
             true_abv: truth.true_abv,
             true_distillery: truth.true_distillery,
+            true_other1: (truth as { true_other1?: string | null }).true_other1,
+            true_other2: (truth as { true_other2?: string | null }).true_other2,
           },
-          grade ? { is_correct: grade.is_correct } : null,
-          toScoringConfig(session.scoring_snapshot)
+          grade
+            ? {
+                is_correct: grade.is_correct,
+                item_grades: (grade.item_grades || null) as ItemGradesMap | null,
+              }
+            : null,
+          session.scoring_snapshot,
+          caskOpts,
+          regionOpts
         );
 
         const participantScore = participantScores.get(participant.id);
@@ -183,6 +238,14 @@ export async function GET(request: NextRequest) {
         })),
       }));
 
+    const rankingsForClient = hideFromParticipantUiId
+      ? ranking.filter((r) => r.participant_id !== hideFromParticipantUiId)
+      : ranking;
+    const rankingsRenumbered = rankingsForClient.map((item, index) => ({
+      ...item,
+      rank: index + 1,
+    }));
+
     // プレゼンター情報を取得
     const presenter = sample.presenter_participant_id
       ? participants?.find((p) => p.id === sample.presenter_participant_id)
@@ -195,60 +258,72 @@ export async function GET(request: NextRequest) {
     }
 
     const currentAnswers = answers?.filter((a) => a.sample_id === sampleId) || [];
-    const participantAnswers = currentAnswers.map((answer) => {
+    const participantAnswers = currentAnswers
+      .filter((answer) => !hideFromParticipantUiId || answer.participant_id !== hideFromParticipantUiId)
+      .map((answer) => {
+        const participant = participants?.find((p) => p.id === answer.participant_id);
+        const grade = grades?.find(
+          (g) => g.sample_id === sampleId && g.participant_id === answer.participant_id,
+        );
+        const score = participantScores.get(answer.participant_id)?.samples.get(sampleId) || 0;
+        return {
+          participant_id: answer.participant_id,
+          display_name: participant?.display_name || '',
+          guessed_cask: answer.guessed_cask || '',
+          guessed_region: answer.guessed_region || '',
+          guessed_age: answer.guessed_age ?? null,
+          guessed_abv: answer.guessed_abv ?? null,
+          guessed_distillery: answer.guessed_distillery || '',
+          guessed_other1: answer.guessed_other1 ?? null,
+          guessed_other2: answer.guessed_other2 ?? null,
+          is_correct_distillery: grade?.is_correct || false,
+          is_correct: grade?.is_correct ?? null,
+          item_grades: grade?.item_grades ?? null,
+          score,
+        };
+      });
+
+    const tier1List = tier1ListForSessionRadar(session.flavor_chart_snapshot);
+    const currentAnswersForRadar = answersForFlavorRadar.filter((a) => a.sample_id === sampleId);
+    const guesserAnswersForRadar = currentAnswersForRadar.filter(
+      (a) => !hideFromParticipantUiId || a.participant_id !== hideFromParticipantUiId,
+    );
+
+    // フレーバーコメント（レーダーと同一ソース＝提出＋プレゼンターdraftだが、当ラウンドの回答者分のみ＝UIは参加者向け）
+    const comments = guesserAnswersForRadar.map((answer) => {
       const participant = participants?.find((p) => p.id === answer.participant_id);
-      const grade = grades?.find(
-        (g) => g.sample_id === sampleId && g.participant_id === answer.participant_id
-      );
-      const score = participantScores.get(answer.participant_id)?.samples.get(sampleId) || 0;
       return {
         participant_id: answer.participant_id,
         display_name: participant?.display_name || '',
-        guessed_cask: answer.guessed_cask || '',
-        guessed_region: answer.guessed_region || '',
-        guessed_age: answer.guessed_age || null,
-        guessed_abv: answer.guessed_abv || null,
-        guessed_distillery: answer.guessed_distillery || '',
-        is_correct_distillery: grade?.is_correct || false,
-        score,
+        ...flavorCommentsFromAnswer(answer),
       };
     });
 
-    // フレーバーコメント
-    const comments = currentAnswers.map((answer) => {
-      const participant = participants?.find((p) => p.id === answer.participant_id);
-      return {
-        participant_id: answer.participant_id,
-        display_name: participant?.display_name || '',
-        nose: answer.nose || { tier1_tags: [], tier2_terms: [], text: null },
-        palate: answer.palate || { tier1_tags: [], tier2_terms: [], text: null },
-        finish: answer.finish || { tier1_tags: [], tier2_terms: [], text: null },
-      };
-    });
+    const per_participant_radar = guesserAnswersForRadar.map((answer) => ({
+      participant_id: answer.participant_id,
+      tier1_counts: tier1CountsForAnswerFlavor(answer, tier1List),
+    }));
 
     // サンプル別レーダーチャート
-    const tier1List = tier1ListFromFlavorChart(session.flavor_chart_snapshot);
     const sampleTier1Counts: Record<string, number> = {};
     tier1List.forEach((tier1) => {
       sampleTier1Counts[tier1] = 0;
     });
 
-    currentAnswers.forEach((answer) => {
-      (['nose', 'palate', 'finish'] as const).forEach((section) => {
-        const flavor = getAnswerSectionFlavor(answer, section);
-        if (flavor?.tier1_tags && Array.isArray(flavor.tier1_tags)) {
-          flavor.tier1_tags.forEach((tag) => {
-            if (sampleTier1Counts[tag] !== undefined) {
-              sampleTier1Counts[tag] = (sampleTier1Counts[tag] || 0) + 1;
-            }
-          });
-        }
-      });
+    const presenterIdForRadar = sample.presenter_participant_id;
+    const presenterAnswersForSampleRadar =
+      presenterIdForRadar != null
+        ? currentAnswersForRadar.filter((a) => a.participant_id === presenterIdForRadar)
+        : [];
+    presenterAnswersForSampleRadar.forEach((answer) => {
+      addAnswerMaxFlavorIntensitiesToTotals(answer, sampleTier1Counts, tier1List);
     });
+
+    const presenter_tasting_tier2 = mergePresenterTastingTier2FromAnswers(presenterAnswersForSampleRadar);
 
     // 「その他」Tier2用語の頻度集計
     const otherTermsCount: Record<string, number> = {};
-    currentAnswers.forEach((answer) => {
+    guesserAnswersForRadar.forEach((answer) => {
       (['nose', 'palate', 'finish'] as const).forEach((section) => {
         const flavor = getAnswerSectionFlavor(answer, section);
         if (flavor?.tier1_tags && Array.isArray(flavor.tier1_tags)) {
@@ -323,7 +398,7 @@ export async function GET(request: NextRequest) {
         id: sample.id,
         label: sample.label,
       },
-      rankings: ranking,
+      rankings: rankingsRenumbered,
       sample_detail: {
         sample_id: sample.id,
         sample_label: sample.label,
@@ -335,14 +410,23 @@ export async function GET(request: NextRequest) {
           true_age: currentTruth.true_age,
           true_abv: currentTruth.true_abv,
           true_distillery: currentTruth.true_distillery,
+          true_other1: currentTruth.true_other1 ?? null,
+          true_other2: currentTruth.true_other2 ?? null,
+          true_bottler_name: currentTruth.true_bottler_name ?? null,
+          true_distillation_year: currentTruth.true_distillation_year ?? null,
+          true_bottling_year: currentTruth.true_bottling_year ?? null,
+          notes: currentTruth.notes ?? null,
           bottle_image_url: currentTruth.bottle_image_url || null,
         },
         participant_answers: participantAnswers,
+        scoring_snapshot: session.scoring_snapshot ?? null,
         comments,
         radar: {
           tier1_counts: sampleTier1Counts,
         },
         other_terms: otherTerms,
+        presenter_tasting_tier2,
+        per_participant_radar,
       },
       active_sample: activeSample
         ? {
@@ -366,6 +450,8 @@ export async function GET(request: NextRequest) {
         total_count: totalCount,
         not_clicked_participants: notClickedParticipants,
       },
+      tier1_nightingale_colors: resolvedTier1NightingaleColors(session.flavor_chart_snapshot),
+      flavor_chart_snapshot: session.flavor_chart_snapshot,
     };
 
     return successResponse(responseData);

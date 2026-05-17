@@ -6,7 +6,17 @@ import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
-import { getParticipantToken } from '@/lib/utils';
+import { getParticipantToken, setParticipantToken as persistParticipantToken } from '@/lib/utils';
+import {
+  SCORING_ITEM_KEYS,
+  normalizeScoringConfig,
+  type FullScoringConfig,
+  type ScoringItemKey,
+} from '@/lib/scoring-schema';
+import { ScoringFieldBlock } from '@/components/scoring/ScoringFieldBlock';
+import { FlavorTastingSections } from '@/components/flavor/FlavorTastingSections';
+import { clampTier1Intensity } from '@/lib/json-helpers';
+import { DEFAULT_FLAVOR_CHART } from '@/lib/default-flavor-chart';
 
 interface Answer {
   guessed_cask?: string;
@@ -14,18 +24,23 @@ interface Answer {
   guessed_age?: number;
   guessed_abv?: number;
   guessed_distillery?: string;
+  guessed_other1?: string;
+  guessed_other2?: string;
   nose?: {
     tier1_tags: string[];
+    tier1_intensity?: Record<string, number>;
     tier2_terms: string[];
     text?: string;
   };
   palate?: {
     tier1_tags: string[];
+    tier1_intensity?: Record<string, number>;
     tier2_terms: string[];
     text?: string;
   };
   finish?: {
     tier1_tags: string[];
+    tier1_intensity?: Record<string, number>;
     tier2_terms: string[];
     text?: string;
   };
@@ -33,18 +48,147 @@ interface Answer {
   status?: 'draft' | 'submitted';
 }
 
+type FlavorSection = NonNullable<Answer['nose']>;
+
+const emptyFlavorSection = (): FlavorSection => ({
+  tier1_tags: [],
+  tier2_terms: [],
+  text: '',
+});
+
+const cloneFlavorSection = (s: FlavorSection): FlavorSection => ({
+  tier1_tags: [...(s.tier1_tags || [])],
+  tier2_terms: [...(s.tier2_terms || [])],
+  text: s.text || '',
+  tier1_intensity: s.tier1_intensity ? { ...s.tier1_intensity } : undefined,
+});
+
+/** ポーリング用: 未保存の入力がサーバーの遅れで消えないよう、ローカルが手前なら保持する */
+const flavorSectionPollScore = (sec?: FlavorSection): number => {
+  if (!sec) return 0;
+  const tags = sec.tier1_tags?.filter(Boolean).length ?? 0;
+  const terms = sec.tier2_terms?.filter(Boolean).length ?? 0;
+  const text = (sec.text || '').trim().length > 0 ? 1 : 0;
+  const intKeys = sec.tier1_intensity ? Object.keys(sec.tier1_intensity).length : 0;
+  return tags * 10 + terms + text * 5 + intKeys;
+};
+
+const normalizeFlavorSectionKey = (sec: FlavorSection): string => {
+  const clean = (x: unknown) => (typeof x === 'string' ? x.trim() : x);
+  const sortStrs = (arr?: string[]) =>
+    Array.isArray(arr) ? [...arr].filter(Boolean).map((x) => x.trim()).sort() : [];
+  const tags = sortStrs(sec.tier1_tags);
+  const o: Record<string, number> = {};
+  for (const t of tags) {
+    o[t] = clampTier1Intensity(sec.tier1_intensity?.[t]);
+  }
+  return JSON.stringify({
+    tier1_tags: tags,
+    tier1_intensity: o,
+    tier2_terms: sortStrs(sec.tier2_terms),
+    text: clean(sec.text || ''),
+  });
+};
+
+const mergeFlavorSectionForSilentPoll = (
+  local: FlavorSection | undefined,
+  server: FlavorSection | undefined,
+): FlavorSection => {
+  const loc = local ?? emptyFlavorSection();
+  const srv = server ?? emptyFlavorSection();
+  const ls = flavorSectionPollScore(loc);
+  const ss = flavorSectionPollScore(srv);
+  if (ss === 0 && ls > 0) return cloneFlavorSection(loc);
+  if (ls > ss) return cloneFlavorSection(loc);
+  if (ls === ss && ls > 0 && normalizeFlavorSectionKey(loc) !== normalizeFlavorSectionKey(srv)) {
+    return cloneFlavorSection(loc);
+  }
+  return cloneFlavorSection(srv);
+};
+
+const mergeLooseTrimmedText = (local?: string, remote?: string): string => {
+  const l = (local ?? '').trim();
+  const r = (remote ?? '').trim();
+  if (!r) return local ?? '';
+  if (!l) return remote ?? '';
+  if (r !== l) return local ?? '';
+  return remote ?? '';
+};
+
+const mergeOptionalNumber = (local?: number, remote?: number): number | undefined => {
+  if (typeof remote === 'number' && Number.isFinite(remote)) return remote;
+  if (typeof local === 'number' && Number.isFinite(local)) return local;
+  return undefined;
+};
+
+const mergeAnswerFromSilentPoll = (prev: Answer, server: Answer): Answer => {
+  const next: Answer = {
+    guessed_cask: mergeLooseTrimmedText(prev.guessed_cask, server.guessed_cask),
+    guessed_region: mergeLooseTrimmedText(prev.guessed_region, server.guessed_region),
+    guessed_age: mergeOptionalNumber(prev.guessed_age, server.guessed_age),
+    guessed_abv: mergeOptionalNumber(prev.guessed_abv, server.guessed_abv),
+    guessed_distillery: mergeLooseTrimmedText(prev.guessed_distillery, server.guessed_distillery),
+    guessed_other1: mergeLooseTrimmedText(prev.guessed_other1, server.guessed_other1),
+    guessed_other2: mergeLooseTrimmedText(prev.guessed_other2, server.guessed_other2),
+    nose: mergeFlavorSectionForSilentPoll(prev.nose, server.nose),
+    palate: mergeFlavorSectionForSilentPoll(prev.palate, server.palate),
+    finish: mergeFlavorSectionForSilentPoll(prev.finish, server.finish),
+    score_0_100: mergeOptionalNumber(prev.score_0_100, server.score_0_100),
+    status: server.status,
+  };
+  return next;
+};
+
+const normalizeAnswerForCompare = (a: Answer) => {
+  const clean = (s: unknown) => (typeof s === 'string' ? s.trim() : s);
+  const sortStrs = (arr?: string[]) =>
+    Array.isArray(arr) ? [...arr].filter(Boolean).map((x) => x.trim()).sort() : [];
+  const intensityForTags = (
+    tags: string[],
+    raw?: Record<string, unknown> | Record<string, number>,
+  ): Record<string, number> => {
+    const o: Record<string, number> = {};
+    for (const t of tags) {
+      const v = raw?.[t];
+      o[t] = clampTier1Intensity(v);
+    }
+    return o;
+  };
+  const noseTags = sortStrs(a.nose?.tier1_tags);
+  const palateTags = sortStrs(a.palate?.tier1_tags);
+  const finishTags = sortStrs(a.finish?.tier1_tags);
+  return {
+    guessed_cask: clean(a.guessed_cask || ''),
+    guessed_region: clean(a.guessed_region || ''),
+    guessed_age: a.guessed_age ?? null,
+    guessed_abv: a.guessed_abv ?? null,
+    guessed_distillery: clean(a.guessed_distillery || ''),
+    guessed_other1: clean(a.guessed_other1 || ''),
+    guessed_other2: clean(a.guessed_other2 || ''),
+    nose: {
+      tier1_tags: noseTags,
+      tier1_intensity: intensityForTags(noseTags, a.nose?.tier1_intensity),
+      tier2_terms: sortStrs(a.nose?.tier2_terms),
+      text: clean(a.nose?.text || ''),
+    },
+    palate: {
+      tier1_tags: palateTags,
+      tier1_intensity: intensityForTags(palateTags, a.palate?.tier1_intensity),
+      tier2_terms: sortStrs(a.palate?.tier2_terms),
+      text: clean(a.palate?.text || ''),
+    },
+    finish: {
+      tier1_tags: finishTags,
+      tier1_intensity: intensityForTags(finishTags, a.finish?.tier1_intensity),
+      tier2_terms: sortStrs(a.finish?.tier2_terms),
+      text: clean(a.finish?.text || ''),
+    },
+    score_0_100: a.score_0_100 ?? null,
+  };
+};
+
 // デフォルト値（フォールバック用）
-const DEFAULT_TIER1_OPTIONS = [
-  'フルーティ',
-  'フローラル・ハーブ系',
-  'シリアル',
-  'テール',
-  '硫黄系',
-  'サリファリー',
-  'ピート・薫香',
-  '樽熟成',
-  'その他',
-];
+const DEFAULT_TIER1_OPTIONS = [...DEFAULT_FLAVOR_CHART.tier1];
 
 const DEFAULT_CASK_OPTIONS = ['シェリー樽', 'バーボン樽', 'ワイン樽', 'その他'];
 const DEFAULT_REGION_OPTIONS = ['スコットランド', 'アイルランド', 'アメリカ', '日本', 'その他'];
@@ -81,8 +225,13 @@ export default function RoundPage() {
   // 設定（sessionから読み込む）
   const [caskOptions, setCaskOptions] = useState<string[]>(DEFAULT_CASK_OPTIONS);
   const [regionOptions, setRegionOptions] = useState<string[]>(DEFAULT_REGION_OPTIONS);
+  const [scoringSnapshot, setScoringSnapshot] = useState<unknown>(null);
+  const scoringFull: FullScoringConfig = useMemo(
+    () => normalizeScoringConfig(scoringSnapshot),
+    [scoringSnapshot],
+  );
   const [tier1Options, setTier1Options] = useState<string[]>(DEFAULT_TIER1_OPTIONS);
-  const [, setTier2Suggestions] = useState<Record<string, string[]>>({});
+  const [tier2Suggestions, setTier2Suggestions] = useState<Record<string, string[]>>({});
 
   type LocalDraft = { savedAt: number; answer: Answer };
   const localDraftKey = useMemo(() => {
@@ -105,34 +254,6 @@ export default function RoundPage() {
     } catch {
       return '';
     }
-  };
-
-  const normalizeAnswerForCompare = (a: Answer) => {
-    const clean = (s: unknown) => (typeof s === 'string' ? s.trim() : s);
-    const sortStrs = (arr?: string[]) => (Array.isArray(arr) ? [...arr].filter(Boolean).map((x) => x.trim()).sort() : []);
-    return {
-      guessed_cask: clean(a.guessed_cask || ''),
-      guessed_region: clean(a.guessed_region || ''),
-      guessed_age: a.guessed_age ?? null,
-      guessed_abv: a.guessed_abv ?? null,
-      guessed_distillery: clean(a.guessed_distillery || ''),
-      nose: {
-        tier1_tags: sortStrs(a.nose?.tier1_tags),
-        tier2_terms: sortStrs(a.nose?.tier2_terms),
-        text: clean(a.nose?.text || ''),
-      },
-      palate: {
-        tier1_tags: sortStrs(a.palate?.tier1_tags),
-        tier2_terms: sortStrs(a.palate?.tier2_terms),
-        text: clean(a.palate?.text || ''),
-      },
-      finish: {
-        tier1_tags: sortStrs(a.finish?.tier1_tags),
-        tier2_terms: sortStrs(a.finish?.tier2_terms),
-        text: clean(a.finish?.text || ''),
-      },
-      score_0_100: a.score_0_100 ?? null,
-    };
   };
 
   useEffect(() => {
@@ -158,7 +279,20 @@ export default function RoundPage() {
 
   useEffect(() => {
     if (!joinToken) return;
-    
+
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const debugTok = sp.get('debug_participant_token');
+      if (debugTok) {
+        persistParticipantToken(joinToken, debugTok);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('debug_participant_token');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        setParticipantToken(debugTok);
+        return;
+      }
+    }
+
     const token = getParticipantToken(joinToken);
     if (!token) {
       router.push(`/s/${joinToken}`);
@@ -251,6 +385,8 @@ export default function RoundPage() {
             guessed_age: (existingAnswer.guessed_age as number) || undefined,
             guessed_abv: (existingAnswer.guessed_abv as number) || undefined,
             guessed_distillery: (existingAnswer.guessed_distillery as string) || '',
+            guessed_other1: (existingAnswer.guessed_other1 as string) || '',
+            guessed_other2: (existingAnswer.guessed_other2 as string) || '',
             nose: (existingAnswer.nose as Answer['nose']) || {
               tier1_tags: [],
               tier2_terms: [],
@@ -269,8 +405,16 @@ export default function RoundPage() {
             score_0_100: (existingAnswer.score_0_100 as number) || undefined,
             status: existingAnswer.status as Answer['status'],
           };
-          setAnswer(next);
-          serverAnswerSnapshotRef.current = JSON.stringify(normalizeAnswerForCompare(next));
+          if (silentPoll) {
+            setAnswer((prev) => {
+              const merged = mergeAnswerFromSilentPoll(prev, next);
+              serverAnswerSnapshotRef.current = JSON.stringify(normalizeAnswerForCompare(merged));
+              return merged;
+            });
+          } else {
+            setAnswer(next);
+            serverAnswerSnapshotRef.current = JSON.stringify(normalizeAnswerForCompare(next));
+          }
         }
 
         setIsLoading(false);
@@ -308,6 +452,10 @@ export default function RoundPage() {
           if (session.region_options_snapshot && Array.isArray(session.region_options_snapshot)) {
             setRegionOptions(session.region_options_snapshot);
           }
+
+          if (session.scoring_snapshot !== undefined && session.scoring_snapshot !== null) {
+            setScoringSnapshot(session.scoring_snapshot);
+          }
           
           // フレーバーチャート
           if (session.flavor_chart_snapshot) {
@@ -316,7 +464,7 @@ export default function RoundPage() {
               setTier1Options(chart.tier1);
             }
             if (chart.tier2_suggestions && typeof chart.tier2_suggestions === 'object') {
-              setTier2Suggestions(chart.tier2_suggestions);
+              setTier2Suggestions(chart.tier2_suggestions as Record<string, string[]>);
             }
           }
           
@@ -491,28 +639,6 @@ export default function RoundPage() {
     }
   };
 
-  const updateFlavor = (
-    section: 'nose' | 'palate' | 'finish',
-    field: 'tier1_tags' | 'tier2_terms' | 'text',
-    value: string | string[]
-  ) => {
-    setAnswer((prev) => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value,
-      },
-    }));
-  };
-
-  const toggleTier1Tag = (section: 'nose' | 'palate' | 'finish', tag: string) => {
-    const current = answer[section]?.tier1_tags || [];
-    const updated = current.includes(tag)
-      ? current.filter((t) => t !== tag)
-      : [...current, tag];
-    updateFlavor(section, 'tier1_tags', updated);
-  };
-
   const canEdit =
     sampleState === 'answering' || (sampleState === 'grading' && answer.status === 'draft');
 
@@ -561,20 +687,53 @@ export default function RoundPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localDraft?.savedAt]);
 
+  const guessFilled = useCallback(
+    (key: ScoringItemKey, a: Answer): boolean => {
+      const cfg = scoringFull.items[key];
+      if (!cfg.enabled || cfg.maxPoints <= 0) return true;
+      const t = (s?: string) => !!(s || '').trim();
+      const n = (x?: number) => typeof x === 'number' && Number.isFinite(x);
+      switch (key) {
+        case 'cask':
+          return t(a.guessed_cask);
+        case 'region':
+          return t(a.guessed_region);
+        case 'age':
+          return cfg.inputType === 'choice' ? t(String(a.guessed_age ?? '')) : n(a.guessed_age);
+        case 'abv':
+          return cfg.inputType === 'choice' ? t(String(a.guessed_abv ?? '')) : n(a.guessed_abv);
+        case 'distillery':
+          return cfg.inputType === 'choice' ? t(a.guessed_distillery) : t(a.guessed_distillery);
+        case 'other1':
+          return cfg.inputType === 'choice' ? t(a.guessed_other1) : t(String(a.guessed_other1 ?? ''));
+        case 'other2':
+          return cfg.inputType === 'choice' ? t(a.guessed_other2) : t(String(a.guessed_other2 ?? ''));
+        default:
+          return true;
+      }
+    },
+    [scoringFull],
+  );
+
   const progress = useMemo(() => {
-    const filledText = (s?: string) => !!(s || '').trim();
-    const filledNum = (n?: number) => typeof n === 'number' && Number.isFinite(n);
     const flavorFilled = (f?: { tier1_tags: string[]; tier2_terms: string[]; text?: string }) => {
       if (!f) return false;
       return (f.tier1_tags?.length || 0) > 0 || (f.tier2_terms?.length || 0) > 0 || !!(f.text || '').trim();
     };
 
+    const guessItems: Array<{ key: string; label: string; ok: boolean; sectionId: string }> =
+      SCORING_ITEM_KEYS.filter((key) => {
+        const it = scoringFull.items[key];
+        return it.enabled && it.maxPoints > 0;
+      }).map((key) => ({
+        key: `guess_${key}`,
+        label: scoringFull.items[key].label || key,
+        ok: guessFilled(key, answer),
+        sectionId: 'section-guess',
+      }));
+
     const items: Array<{ key: string; label: string; ok: boolean; sectionId: string }> = [
-      { key: 'guessed_distillery', label: '蒸留所', ok: filledText(answer.guessed_distillery), sectionId: 'section-guess' },
-      { key: 'guessed_cask', label: 'カスク', ok: filledText(answer.guessed_cask), sectionId: 'section-guess' },
-      { key: 'guessed_region', label: '地域', ok: filledText(answer.guessed_region), sectionId: 'section-guess' },
-      { key: 'guessed_age', label: '年数', ok: filledNum(answer.guessed_age), sectionId: 'section-guess' },
-      { key: 'guessed_abv', label: '度数', ok: filledNum(answer.guessed_abv), sectionId: 'section-guess' },
+      ...guessItems,
       { key: 'nose', label: 'Nose', ok: flavorFilled(answer.nose), sectionId: 'section-nose' },
       { key: 'palate', label: 'Palate', ok: flavorFilled(answer.palate), sectionId: 'section-palate' },
       { key: 'finish', label: 'Finish', ok: flavorFilled(answer.finish), sectionId: 'section-finish' },
@@ -585,7 +744,7 @@ export default function RoundPage() {
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
     const missing = items.filter((i) => !i.ok);
     return { total, done, percent, missing };
-  }, [answer]);
+  }, [answer, scoringFull, guessFilled]);
 
   if (isLoading) {
     return (
@@ -729,239 +888,41 @@ export default function RoundPage() {
           {/* 推測入力 */}
           <div id="section-guess" className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4 scroll-mt-24">
             <h2 className="text-xl font-semibold text-stone-100 tracking-tight">推測</h2>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">カスク</label>
-              <select
-                name="guessed_cask"
-                value={answer.guessed_cask || ''}
-                onChange={(e) => setAnswer({ ...answer, guessed_cask: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-              >
-                <option value="">選択してください</option>
-                {caskOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">地域</label>
-              <select
-                name="guessed_region"
-                value={answer.guessed_region || ''}
-                onChange={(e) => setAnswer({ ...answer, guessed_region: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-              >
-                <option value="">選択してください</option>
-                {regionOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">熟成年数</label>
-              <input
-                name="guessed_age"
-                type="number"
-                min="0"
-                value={answer.guessed_age || ''}
-                onChange={(e) =>
-                  setAnswer({ ...answer, guessed_age: parseInt(e.target.value) || undefined })
-                }
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
+            {SCORING_ITEM_KEYS.map((key) => (
+              <ScoringFieldBlock
+                key={key}
+                mode="guess"
+                itemKey={key}
+                cfg={scoringFull.items[key]}
+                caskOptions={caskOptions}
+                regionOptions={regionOptions}
+                value={answer}
+                disabled={!canEdit}
+                onChange={(next) => setAnswer({ ...answer, ...next })}
               />
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">度数（%）</label>
-              <input
-                name="guessed_abv"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={answer.guessed_abv || ''}
-                onChange={(e) =>
-                  setAnswer({ ...answer, guessed_abv: parseFloat(e.target.value) || undefined })
-                }
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">蒸留所名</label>
-              <input
-                name="guessed_distillery"
-                type="text"
-                value={answer.guessed_distillery || ''}
-                onChange={(e) => setAnswer({ ...answer, guessed_distillery: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="例: マッカラン"
-              />
-            </div>
+            ))}
           </div>
 
-          {/* フレーバー入力（Nose） */}
-          <div id="section-nose" className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4 scroll-mt-24">
-            <h2 className="text-xl font-semibold text-stone-100 tracking-tight">Nose（香り）</h2>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">Tier1（複数選択可）</label>
-              <div className="flex flex-wrap gap-2">
-                {tier1Options.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTier1Tag('nose', tag)}
-                    className={`px-4 py-2 rounded-full min-h-[44px] font-medium transition-all ${
-                      answer.nose?.tier1_tags?.includes(tag)
-                        ? 'bg-[#C88A2B] text-black/90'
-                        : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">Tier2（自由入力、カンマ区切り）</label>
-              <input
-                type="text"
-                value={answer.nose?.tier2_terms?.join(', ') || ''}
-                onChange={(e) =>
-                  updateFlavor(
-                    'nose',
-                    'tier2_terms',
-                    e.target.value.split(',').map((s) => s.trim()).filter((s) => s)
-                  )
-                }
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="例: レモン, バニラ"
-              />
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">コメント（任意）</label>
-              <textarea
-                value={answer.nose?.text || ''}
-                onChange={(e) => updateFlavor('nose', 'text', e.target.value)}
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[100px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="任意のコメントを入力"
-              />
-            </div>
-          </div>
-
-          {/* フレーバー入力（Palate） */}
-          <div id="section-palate" className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4 scroll-mt-24">
-            <h2 className="text-xl font-semibold text-stone-100 tracking-tight">Palate（味わい）</h2>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">Tier1（複数選択可）</label>
-              <div className="flex flex-wrap gap-2">
-                {tier1Options.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTier1Tag('palate', tag)}
-                    className={`px-4 py-2 rounded-full min-h-[44px] font-medium transition-all ${
-                      answer.palate?.tier1_tags?.includes(tag)
-                        ? 'bg-[#C88A2B] text-black/90'
-                        : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">Tier2（自由入力、カンマ区切り）</label>
-              <input
-                type="text"
-                value={answer.palate?.tier2_terms?.join(', ') || ''}
-                onChange={(e) =>
-                  updateFlavor(
-                    'palate',
-                    'tier2_terms',
-                    e.target.value.split(',').map((s) => s.trim()).filter((s) => s)
-                  )
-                }
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="例: オレンジ, キャラメル"
-              />
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">コメント（任意）</label>
-              <textarea
-                value={answer.palate?.text || ''}
-                onChange={(e) => updateFlavor('palate', 'text', e.target.value)}
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[100px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="任意のコメントを入力"
-              />
-            </div>
-          </div>
-
-          {/* フレーバー入力（Finish） */}
-          <div id="section-finish" className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4 scroll-mt-24">
-            <h2 className="text-xl font-semibold text-stone-100 tracking-tight">Finish（余韻）</h2>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">Tier1（複数選択可）</label>
-              <div className="flex flex-wrap gap-2">
-                {tier1Options.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTier1Tag('finish', tag)}
-                    className={`px-4 py-2 rounded-full min-h-[44px] font-medium transition-all ${
-                      answer.finish?.tier1_tags?.includes(tag)
-                        ? 'bg-[#C88A2B] text-black/90'
-                        : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">Tier2（自由入力、カンマ区切り）</label>
-              <input
-                type="text"
-                value={answer.finish?.tier2_terms?.join(', ') || ''}
-                onChange={(e) =>
-                  updateFlavor(
-                    'finish',
-                    'tier2_terms',
-                    e.target.value.split(',').map((s) => s.trim()).filter((s) => s)
-                  )
-                }
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="例: キャラメル, オーク"
-              />
-            </div>
-
-            <div>
-              <label className="block text-base font-medium text-stone-100 mb-2">コメント（任意）</label>
-              <textarea
-                value={answer.finish?.text || ''}
-                onChange={(e) => updateFlavor('finish', 'text', e.target.value)}
-                className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base min-h-[100px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-                placeholder="任意のコメントを入力"
-              />
-            </div>
-          </div>
+          {/* フレーバー入力（Nose / Palate / Finish） */}
+          <FlavorTastingSections
+            tier1Options={tier1Options}
+            tier2Suggestions={tier2Suggestions}
+            value={{
+              nose: answer.nose,
+              palate: answer.palate,
+              finish: answer.finish,
+            }}
+            disabled={!canEdit}
+            sectionIdPrefix="section"
+            onChange={(flavor) =>
+              setAnswer((prev) => ({
+                ...prev,
+                nose: flavor.nose !== undefined ? flavor.nose : prev.nose,
+                palate: flavor.palate !== undefined ? flavor.palate : prev.palate,
+                finish: flavor.finish !== undefined ? flavor.finish : prev.finish,
+              }))
+            }
+          />
 
           {/* 点数入力 */}
           <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">

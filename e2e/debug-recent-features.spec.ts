@@ -94,8 +94,8 @@ test.describe('最近実装した機能のデバッグ', () => {
     
     // 回答を入力
     await helpers.submitAnswer(joinToken, sampleId, participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'テスト蒸留所2',
@@ -104,8 +104,8 @@ test.describe('最近実装した機能のデバッグ', () => {
 
     // 正解を入力（参加者の回答後）
     await helpers.submitTruth(joinToken, sampleId, presenterToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'テスト蒸留所',
@@ -174,7 +174,7 @@ test.describe('最近実装した機能のデバッグ', () => {
       }
 
       // タブの動作を確認
-      const rankingTab = page.locator('button:has-text("順位表")');
+      const rankingTab = page.getByRole('button', { name: '順位表', exact: true });
       const detailsTab = page.locator('button:has-text("詳細")');
       const participantsTab = page.locator('button:has-text("参加者別")');
 

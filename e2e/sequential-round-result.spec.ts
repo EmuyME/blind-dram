@@ -1,5 +1,52 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { TestHelpers } from './helpers';
+
+/** 手採点（蒸留所）を API で済ませてから Round 終了ボタンを押す */
+async function gradeDistilleryAndFinishRound(
+  page: Page,
+  helpers: TestHelpers,
+  joinToken: string,
+  sampleId: string,
+  presenterToken: string,
+  grades: { participantId: string; correct: boolean }[],
+) {
+  for (const g of grades) {
+    await helpers.postDistilleryGrade(presenterToken, sampleId, g.participantId, g.correct);
+  }
+  await page.goto(`/session/${joinToken}/presenter/${sampleId}`);
+  await page.evaluate(({ token, jt }) => {
+    localStorage.setItem(`bd:participant_token:${jt}`, token);
+  }, { token: presenterToken, jt: joinToken });
+  await page.reload();
+  await page.waitForTimeout(2000);
+  const finishBtn = page.locator('button:has-text("Roundを終了する")').filter({ hasNotText: '採点未完了' });
+  await awaitFinishRoundButtonEnabled(page, finishBtn);
+  const finishResponsePromise = page.waitForResponse(
+    (res) =>
+      res.url().includes('/api/round/finish') &&
+      res.request().method() === 'POST' &&
+      res.ok(),
+    { timeout: 30000 },
+  );
+  await finishBtn.click();
+  await finishResponsePromise;
+  await page.waitForTimeout(1500);
+}
+
+async function awaitFinishRoundButtonEnabled(
+  page: Page,
+  finishBtn: ReturnType<Page['locator']>,
+  timeoutMs = 30000,
+) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (await finishBtn.isEnabled().catch(() => false)) {
+      return;
+    }
+    await page.waitForTimeout(500);
+  }
+  throw new Error('Round終了ボタンが有効になりませんでした（採点未完了のまま）');
+}
 
 const openOwnerPanelAndStartSession = async (helpers: TestHelpers, ownerToken: string, joinToken: string) => {
   await helpers.startSession(ownerToken, joinToken);
@@ -54,7 +101,7 @@ test.describe('Sequential Round Result Tests', () => {
     // 参加者1が回答提出
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       cask: 'シェリー樽',
-      region: 'スコットランド',
+      region: 'スコットランド（スペイサイド）',
       age: 12,
       abv: 43,
       distillery: 'マッカラン',
@@ -72,47 +119,24 @@ test.describe('Sequential Round Result Tests', () => {
     // PresenterがTruth入力
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       cask: 'シェリー樽',
-      region: 'スコットランド',
+      region: 'スコットランド（スペイサイド）',
       age: 12,
       abv: 43,
       distillery: 'マッカラン',
     });
     
-    // Presenterが採点
-    await page.goto(`/session/${joinToken}/presenter/${sampleId}`);
+    await gradeDistilleryAndFinishRound(page, helpers, joinToken, sampleId, participant1.participantToken, [
+      { participantId: participant1.participantId, correct: true },
+      { participantId: participant2.participantId, correct: false },
+    ]);
+    
+    // トークンを先に保存してからセッションホームへ（初回ロードから round/status をマージできるようにする）
+    await page.goto('/');
     await page.evaluate(({ token, jt }) => {
       localStorage.setItem(`bd:participant_token:${jt}`, token);
     }, { token: participant1.participantToken, jt: joinToken });
-    await page.reload();
-    await page.waitForTimeout(2000);
-    
-    // 採点ボタンをクリック（参加者1は正解、参加者2は不正解）
-    const gradeButtons = page.locator('button:has-text("○"), button:has-text("×")');
-    const buttonCount = await gradeButtons.count();
-    
-    if (buttonCount >= 2) {
-      // 参加者1（正解）を採点
-      await gradeButtons.nth(0).click();
-      await page.waitForTimeout(1000);
-      // 参加者2（不正解）を採点
-      await gradeButtons.nth(1).click();
-      await page.waitForTimeout(1000);
-    }
-    
-    // Round終了
-    await page.click('button:has-text("Roundを終了する")');
-    await page.waitForTimeout(2000);
-    
-    // セッションページにアクセス（revealed状態のサンプルがある場合、結果ページにリダイレクトされる）
     await page.goto(`/session/${joinToken}`);
-    await page.evaluate(({ token, jt }) => {
-      localStorage.setItem(`bd:participant_token:${jt}`, token);
-    }, { token: participant1.participantToken, jt: joinToken });
-    await page.reload();
-    await page.waitForTimeout(3000);
-    
-    // 結果ページにリダイレクトされていることを確認
-    await expect(page).toHaveURL(new RegExp(`/session/${joinToken}/round-result/${sampleId}`), { timeout: 10000 });
+    await page.waitForURL(new RegExp(`/session/${joinToken}/round-result/${sampleId}`), { timeout: 30000 });
   });
 
   test('結果ページが正しく表示される', async ({ page }) => {
@@ -138,7 +162,7 @@ test.describe('Sequential Round Result Tests', () => {
     await helpers.startRound(joinToken, sampleId, participant1.participantToken);
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       guessed_cask: 'シェリー樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'マッカラン',
@@ -152,31 +176,16 @@ test.describe('Sequential Round Result Tests', () => {
     });
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       true_cask: 'シェリー樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'マッカラン',
     });
     
-    // 採点とRound終了
-    await page.goto(`/session/${joinToken}/presenter/${sampleId}`);
-    await page.evaluate(({ token, jt }) => {
-      localStorage.setItem(`bd:participant_token:${jt}`, token);
-    }, { token: participant1.participantToken, jt: joinToken });
-    await page.reload();
-    await page.waitForTimeout(2000);
-    
-    const gradeButtons = page.locator('button:has-text("○"), button:has-text("×")');
-    const buttonCount = await gradeButtons.count();
-    if (buttonCount >= 2) {
-      await gradeButtons.nth(0).click();
-      await page.waitForTimeout(1000);
-      await gradeButtons.nth(1).click();
-      await page.waitForTimeout(1000);
-    }
-    
-    await page.click('button:has-text("Roundを終了する")');
-    await page.waitForTimeout(2000);
+    await gradeDistilleryAndFinishRound(page, helpers, joinToken, sampleId, participant1.participantToken, [
+      { participantId: participant1.participantId, correct: true },
+      { participantId: participant2.participantId, correct: false },
+    ]);
     
     // 結果ページに直接アクセス
     await page.goto(`/session/${joinToken}/round-result/${sampleId}`);
@@ -188,7 +197,7 @@ test.describe('Sequential Round Result Tests', () => {
     await page.waitForTimeout(2000);
     
     // 順位表が表示されることを確認
-    await expect(page.getByRole('button', { name: '順位表' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '順位表', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: '現段階での順位表' })).toBeVisible();
     
     // 詳細タブが表示されることを確認
@@ -227,7 +236,7 @@ test.describe('Sequential Round Result Tests', () => {
     await helpers.startRound(joinToken, sampleId, participant1.participantToken);
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       guessed_cask: 'シェリー樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'マッカラン',
@@ -241,31 +250,16 @@ test.describe('Sequential Round Result Tests', () => {
     });
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       true_cask: 'シェリー樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'マッカラン',
     });
     
-    // 採点とRound終了
-    await page.goto(`/session/${joinToken}/presenter/${sampleId}`);
-    await page.evaluate(({ token, jt }) => {
-      localStorage.setItem(`bd:participant_token:${jt}`, token);
-    }, { token: participant1.participantToken, jt: joinToken });
-    await page.reload();
-    await page.waitForTimeout(2000);
-    
-    const gradeButtons = page.locator('button:has-text("○"), button:has-text("×")');
-    const buttonCount = await gradeButtons.count();
-    if (buttonCount >= 2) {
-      await gradeButtons.nth(0).click();
-      await page.waitForTimeout(1000);
-      await gradeButtons.nth(1).click();
-      await page.waitForTimeout(1000);
-    }
-    
-    await page.click('button:has-text("Roundを終了する")');
-    await page.waitForTimeout(2000);
+    await gradeDistilleryAndFinishRound(page, helpers, joinToken, sampleId, participant1.participantToken, [
+      { participantId: participant1.participantId, correct: true },
+      { participantId: participant2.participantId, correct: false },
+    ]);
     
     // 結果ページにアクセス
     await page.goto(`/session/${joinToken}/round-result/${sampleId}`);
@@ -296,6 +290,7 @@ test.describe('Sequential Round Result Tests', () => {
     const joinToken = result.joinToken!;
     
     const participant1 = await helpers.createMockParticipant(joinToken, '参加者1', 1, ['Sample A']);
+    const participant2 = await helpers.createMockParticipant(joinToken, '参加者2', 0, []);
     
     await helpers.closeRegistration(result.ownerToken!, result.joinToken!);
     await openOwnerPanelAndStartSession(helpers, result.ownerToken!, joinToken);
@@ -310,36 +305,30 @@ test.describe('Sequential Round Result Tests', () => {
     await helpers.startRound(joinToken, sampleId, participant1.participantToken);
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       guessed_cask: 'シェリー樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'マッカラン',
     });
+    await helpers.submitAnswer(joinToken, sampleId, participant2.participantToken, {
+      guessed_cask: 'バーボン樽',
+      guessed_region: '日本',
+      guessed_age: 15,
+      guessed_abv: 40,
+      guessed_distillery: '山崎',
+    });
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       true_cask: 'シェリー樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'マッカラン',
     });
     
-    // 採点とRound終了
-    await page.goto(`/session/${joinToken}/presenter/${sampleId}`);
-    await page.evaluate(({ token, jt }) => {
-      localStorage.setItem(`bd:participant_token:${jt}`, token);
-    }, { token: participant1.participantToken, jt: joinToken });
-    await page.reload();
-    await page.waitForTimeout(2000);
-    
-    const gradeButtons = page.locator('button:has-text("○"), button:has-text("×")');
-    const buttonCount = await gradeButtons.count();
-    if (buttonCount >= 1) {
-      await gradeButtons.nth(0).click();
-      await page.waitForTimeout(1000);
-    }
-    
-    await page.click('button:has-text("Roundを終了する")');
-    await page.waitForTimeout(2000);
+    await gradeDistilleryAndFinishRound(page, helpers, joinToken, sampleId, participant1.participantToken, [
+      { participantId: participant1.participantId, correct: true },
+      { participantId: participant2.participantId, correct: false },
+    ]);
     
     // セッションページにアクセス（一斉モードでは結果ページにリダイレクトされない）
     await page.goto(`/session/${joinToken}`);

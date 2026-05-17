@@ -1,5 +1,7 @@
 "use client";
 
+import { disambiguatedDisplayName } from '@/lib/participant-display';
+
 interface ParticipantProgressProps {
   participants: Array<{
     id: string;
@@ -55,7 +57,13 @@ export function ParticipantProgress({ participants }: ParticipantProgressProps) 
             >
               <div className="flex items-center gap-3">
                 <span className="text-lg">{config.icon}</span>
-                <span className="text-base font-medium text-stone-100">{participant.display_name}</span>
+                <span className="text-base font-medium text-stone-100">
+                  {disambiguatedDisplayName(
+                    participant.display_name,
+                    participant.id,
+                    participants.map((p) => ({ participant_id: p.id, display_name: p.display_name })),
+                  )}
+                </span>
               </div>
               <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${config.textColor} border ${config.borderColor}`}>
                 {config.text}

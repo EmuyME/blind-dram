@@ -67,15 +67,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 採点完了確認（プレゼンター自身は除外）
-    const { data: participants } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('session_id', sample.session_id)
-      .eq('is_attending', true);
-
-    // プレゼンター以外の参加者を取得
-    const nonPresenterParticipants = participants?.filter((p) => p.id !== sample.presenter_participant_id) || [];
+    // 採点完了: 提出済み回答ごとに採点レコードがあること
 
     const { data: grades } = await supabase
       .from('distillery_grades')
@@ -83,24 +75,40 @@ export async function POST(request: NextRequest) {
       .eq('sample_id', sample_id);
 
     const gradedParticipantIds = new Set(grades?.map((g) => g.participant_id) || []);
-    
-    // プレゼンター以外の全参加者が採点済みかチェック
-    // 採点対象者がゼロのときは採点完了扱いにしない（誤って即 reveal しない）
-    let allGraded =
-      nonPresenterParticipants.length > 0 &&
-      nonPresenterParticipants.every((p) => gradedParticipantIds.has(p.id));
 
-    // オーナーのみ: 採点対象が0人のときでもラウンドを締められる（テスト用・復旧用）
+    const { data: submittedAnswers } = await supabase
+      .from('answers')
+      .select('participant_id')
+      .eq('sample_id', sample_id)
+      .eq('status', 'submitted');
+
+    const submittedIds = submittedAnswers?.map((a) => a.participant_id) || [];
+
+    let allGraded =
+      submittedIds.length > 0 && submittedIds.every((id) => gradedParticipantIds.has(id));
+
+    // プレゼンター以外に出席者がおらず、提出もない → 採点不要で Round 終了可
+    if (!allGraded && submittedIds.length === 0) {
+      const { data: attending } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('session_id', sample.session_id)
+        .eq('is_attending', true);
+      const nonPresenterCount =
+        (attending || []).filter((p) => p.id !== sample.presenter_participant_id).length;
+      if (nonPresenterCount === 0) {
+        allGraded = true;
+      }
+    }
+
+    // オーナーのみ: 提出が一件もないときでもラウンドを締められる（テスト用・復旧用）
     if (!allGraded && owner_token) {
       const { data: sessionOwnerRow } = await supabase
         .from('sessions')
         .select('owner_token')
         .eq('id', sample.session_id)
         .single();
-      if (
-        sessionOwnerRow?.owner_token === owner_token &&
-        nonPresenterParticipants.length === 0
-      ) {
+      if (sessionOwnerRow?.owner_token === owner_token && submittedIds.length === 0) {
         allGraded = true;
       }
     }
@@ -108,15 +116,14 @@ export async function POST(request: NextRequest) {
     console.log('[DEBUG] Round finish - Grading check:', {
       sample_id: sample_id,
       presenter_id: sample.presenter_participant_id,
-      all_participants_count: participants?.length || 0,
-      non_presenter_count: nonPresenterParticipants.length,
+      submitted_count: submittedIds.length,
       graded_count: grades?.length || 0,
       graded_participant_ids: Array.from(gradedParticipantIds),
       all_graded: allGraded,
     });
 
     if (!allGraded) {
-      const missing = nonPresenterParticipants.filter((p) => !gradedParticipantIds.has(p.id));
+      const missing = submittedIds.filter((id) => !gradedParticipantIds.has(id));
       return errorResponse(
         missing.length > 0
           ? `採点が完了していません。未採点の参加者が${missing.length}名います。プレゼンター画面で全員分の採点を済ませてから「Round終了」を押してください。`

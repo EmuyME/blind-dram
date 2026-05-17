@@ -9,7 +9,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // デフォルト並列が高いと dev サーバー上で apiRequestContext が ECONNRESET になりやすい
+  workers: process.env.CI ? 1 : 3,
   reporter: 'html',
   timeout: 60000, // 60秒に延長
   use: {

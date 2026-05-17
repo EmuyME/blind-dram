@@ -1,36 +1,53 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
-import { CorrectnessBadge } from '@/components/common/CorrectnessBadge';
 import { FlavorChips } from '@/components/common/FlavorChips';
+import {
+  DynamicParticipantGuessGrid,
+  DynamicScoringResultsTable,
+  DynamicTruthSummary,
+} from '@/components/scoring/ScoringResultsViews';
+import { BottleTruthMetaSummary } from '@/components/common/BottleTruthMeta';
+import type { ItemGradesMap } from '@/lib/scoring-schema';
 import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils';
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
+import { disambiguatedDisplayName } from '@/lib/participant-display';
+import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
+import { PresenterTastingTier2Summary } from '@/components/flavor/PresenterTastingTier2Summary';
 import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import type { TooltipItem } from 'chart.js';
-import { Radar } from 'react-chartjs-2';
+  flavorRadarChartLabels,
+  formatSampleHeadingLabel,
+  hasAnyPresenterTastingTier2,
+  hasNonZeroTier1CountsForNightingaleChart,
+  tier1CountsForNightingaleChartDisplay,
+} from '@/lib/json-helpers';
+import {
+  FLAVOR_NIGHTINGALE_PRESENTER_DETAIL_CAPTION,
+  PARTICIPANT_SAMPLE_RADAR_CAPTION,
+} from '@/lib/nightingale-chart-captions';
 
-ChartJS.register(
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend
-);
+function flavorCommentRowHasContent(
+  comment:
+    | {
+        nose?: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null };
+        palate?: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null };
+        finish?: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null };
+      }
+    | undefined
+): boolean {
+  if (!comment) return false;
+  const sec = (x: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null } | undefined) =>
+    (x?.tier1_tags?.length ?? 0) > 0 ||
+    (x?.tier2_terms?.length ?? 0) > 0 ||
+    !!((x?.text ?? '').trim().length > 0);
+  return sec(comment.nose) || sec(comment.palate) || sec(comment.finish);
+}
 
 interface Results {
   session: {
@@ -39,6 +56,7 @@ interface Results {
     mode: 'sequential' | 'simultaneous';
     state: string;
   };
+  scoring_snapshot?: unknown;
   rankings: Array<{
     rank: number;
     participant_id: string;
@@ -54,12 +72,19 @@ interface Results {
     sample_id: string;
     sample_label: string;
     presenter_name?: string | null;
+    scoring_snapshot?: unknown;
     truth: {
       true_cask: string;
       true_region: string;
-      true_age: number;
-      true_abv: number;
+      true_age: number | null;
+      true_abv: number | null;
       true_distillery: string;
+      true_other1?: string | null;
+      true_other2?: string | null;
+      true_bottler_name?: string | null;
+      true_distillation_year?: number | null;
+      true_bottling_year?: number | null;
+      notes?: string | null;
       bottle_image_url?: string | null;
     };
     participant_answers: Array<{
@@ -67,18 +92,41 @@ interface Results {
       display_name: string;
       guessed_cask: string;
       guessed_region: string;
-      guessed_age: number;
-      guessed_abv: number;
+      guessed_age: number | null;
+      guessed_abv: number | null;
       guessed_distillery: string;
+      guessed_other1?: string | null;
+      guessed_other2?: string | null;
       is_correct_distillery: boolean;
+      is_correct?: boolean | null;
+      item_grades?: ItemGradesMap | null;
       score: number;
     }>;
     comments?: Array<{
       participant_id: string;
       display_name: string;
-      nose: { tier1_tags: string[]; tier2_terms: string[]; text: string | null };
-      palate: { tier1_tags: string[]; tier2_terms: string[]; text: string | null };
-      finish: { tier1_tags: string[]; tier2_terms: string[]; text: string | null };
+      nose: {
+        tier1_tags: string[];
+        tier2_terms: string[];
+        text: string | null;
+        tier1_intensity?: Record<string, number>;
+      };
+      palate: {
+        tier1_tags: string[];
+        tier2_terms: string[];
+        text: string | null;
+        tier1_intensity?: Record<string, number>;
+      };
+      finish: {
+        tier1_tags: string[];
+        tier2_terms: string[];
+        text: string | null;
+        tier1_intensity?: Record<string, number>;
+      };
+    }>;
+    per_participant_radar?: Array<{
+      participant_id: string;
+      tier1_counts: Record<string, number>;
     }>;
     radar?: {
       tier1_counts: Record<string, number>;
@@ -87,10 +135,18 @@ interface Results {
       term: string;
       count: number;
     }>;
+    presenter_tasting_tier2?: {
+      nose: string[];
+      palate: string[];
+      finish: string[];
+    };
   }>;
   flavor_radar: {
     tier1_counts: Record<string, number>;
   };
+  tier1_nightingale_colors: Record<string, { r: number; g: number; b: number }>;
+  /** セッション開始時のフレーバーチャート（ナイチンゲール表示の tier1_nightingale_visible 等） */
+  flavor_chart_snapshot: unknown;
 }
 
 export default function ResultsPage() {
@@ -194,6 +250,14 @@ export default function ResultsPage() {
       setIsLoading(false);
     }
   }, [joinToken, loadResults]);
+
+  const rankingPeers = useMemo(() => {
+    if (!results?.rankings?.length) return [];
+    return results.rankings.map((r) => ({
+      participant_id: r.participant_id,
+      display_name: r.display_name,
+    }));
+  }, [results?.rankings]);
 
   const handleCopyRankingText = async () => {
     if (!results) return;
@@ -395,7 +459,9 @@ export default function ResultsPage() {
                         className={`ui-tr ${participantId && ranking.participant_id === participantId ? 'bg-[#C88A2B]/10' : ''}`}
                       >
                         <td className="py-3 px-4 font-semibold text-stone-100">{ranking.rank}</td>
-                        <td className="py-3 px-4 text-stone-100 break-words max-w-[200px]">{ranking.display_name}</td>
+                        <td className="py-3 px-4 text-stone-100 break-words max-w-[200px]">
+                          {disambiguatedDisplayName(ranking.display_name, ranking.participant_id, rankingPeers)}
+                        </td>
                         <td className="py-3 px-4 text-right font-semibold text-lg text-[#C88A2B]">
                           {ranking.total_score}
                         </td>
@@ -410,78 +476,6 @@ export default function ResultsPage() {
                 </table>
               </div>
             </div>
-
-            {/* 総合レーダーチャート（順位表タブにも表示） */}
-            {results.flavor_radar && results.flavor_radar.tier1_counts && Object.keys(results.flavor_radar.tier1_counts).length > 0 && (() => {
-              const labels = Object.keys(results.flavor_radar.tier1_counts).filter(label => label !== 'その他');
-              const data = labels.map(label => results.flavor_radar.tier1_counts[label] as number);
-              const maxValue = Math.max(...data, 1);
-              
-              const chartData = {
-                labels,
-                datasets: [
-                  {
-                    label: '選択回数',
-                    data,
-                    backgroundColor: 'rgba(200, 138, 43, 0.15)',
-                    borderColor: 'rgba(200, 138, 43, 0.8)',
-                    borderWidth: 2,
-                    pointBackgroundColor: 'rgba(200, 138, 43, 1)',
-                    pointBorderColor: 'rgba(245, 245, 244, 1)',
-                    pointHoverBackgroundColor: 'rgba(200, 138, 43, 1)',
-                    pointHoverBorderColor: 'rgba(245, 245, 244, 1)',
-                  },
-                ],
-              };
-              
-              const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 1.2,
-                scales: {
-                  r: {
-                    beginAtZero: true,
-                    max: maxValue,
-                    ticks: {
-                      stepSize: Math.ceil(maxValue / 5),
-                      color: 'rgba(245, 245, 244, 0.6)',
-                    },
-                    grid: {
-                      color: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    pointLabels: {
-                      color: 'rgba(245, 245, 244, 0.9)',
-                    },
-                  },
-                },
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                  tooltip: {
-                    backgroundColor: 'rgba(38, 38, 38, 0.95)',
-                    titleColor: 'rgba(245, 245, 244, 1)',
-                    bodyColor: 'rgba(245, 245, 244, 1)',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: 1,
-                    callbacks: {
-                      label: (context: TooltipItem<'radar'>) => `${context.label}: ${context.parsed.r}回`,
-                    },
-                  },
-                },
-              };
-              
-              return (
-                <div className="ui-card p-6">
-                  <h3 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">総合フレーバーレーダーチャート</h3>
-                  <div className="bg-neutral-900 rounded-xl p-6">
-                    <div className="max-w-2xl mx-auto">
-                      <Radar data={chartData} options={chartOptions} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         )}
 
@@ -490,11 +484,14 @@ export default function ResultsPage() {
           <div className="space-y-6">
             {results.sample_details.map((sample) => {
               const truth = sample.truth;
+              const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
               return (
                 <div key={sample.sample_id} className="ui-card p-6">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-stone-100 tracking-tight">Sample {sample.sample_label}</h3>
+                      <h3 className="text-xl font-semibold text-stone-100 tracking-tight">
+                        {formatSampleHeadingLabel(sample.sample_label)}
+                      </h3>
                       {sample.presenter_name && (
                         <p className="text-sm text-stone-400 mt-1">
                           持ち込み: {sample.presenter_name}
@@ -514,182 +511,85 @@ export default function ResultsPage() {
 
                   <div className="mb-6 p-4 bg-neutral-700 rounded-xl border border-white/10">
                     <h4 className="font-semibold text-stone-100 mb-3">正解</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="text-stone-400">カスク: <span className="text-stone-100 font-medium">{truth.true_cask}</span></div>
-                      <div className="text-stone-400">地域: <span className="text-stone-100 font-medium">{truth.true_region}</span></div>
-                      <div className="text-stone-400">年数: <span className="text-stone-100 font-medium">{truth.true_age}年</span></div>
-                      <div className="text-stone-400">度数: <span className="text-stone-100 font-medium">{truth.true_abv}%</span></div>
-                      <div className="col-span-2 text-stone-400">蒸留所: <span className="text-stone-100 font-medium">{truth.true_distillery}</span></div>
-                    </div>
+                    <DynamicTruthSummary scoringSnapshot={snap} truth={truth} />
+                    <BottleTruthMetaSummary
+                      true_bottler_name={truth.true_bottler_name ?? undefined}
+                      true_distillation_year={truth.true_distillation_year ?? null}
+                      true_bottling_year={truth.true_bottling_year ?? null}
+                      alwaysShow
+                    />
+                  </div>
+
+                  <div className="mb-6 p-4 bg-neutral-800/80 rounded-xl border border-[#C88A2B]/25">
+                    <h4 className="font-semibold text-stone-100 mb-2 tracking-tight">メモ</h4>
+                    <p className="text-stone-300 whitespace-pre-wrap text-sm leading-relaxed min-h-[1.25rem]">
+                      {(truth.notes ?? '').length > 0 ? truth.notes : (
+                        <span className="text-stone-500">—</span>
+                      )}
+                    </p>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-stone-100 mb-4">参加者の回答</h4>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-white/10 bg-neutral-900/30">
-                            <th className="text-left py-3 px-3 text-stone-200 font-semibold">参加者</th>
-                            <th className="text-left py-3 px-3 text-stone-200 font-semibold">
-                              カスク
-                              <span className="text-xs text-stone-400 block font-normal">正解: {truth.true_cask}</span>
-                            </th>
-                            <th className="text-left py-3 px-3 text-stone-200 font-semibold">
-                              地域
-                              <span className="text-xs text-stone-400 block font-normal">正解: {truth.true_region}</span>
-                            </th>
-                            <th className="text-left py-3 px-3 text-stone-200 font-semibold">
-                              年数
-                              <span className="text-xs text-stone-400 block font-normal">正解: {truth.true_age}年</span>
-                            </th>
-                            <th className="text-left py-3 px-3 text-stone-200 font-semibold">
-                              度数
-                              <span className="text-xs text-stone-400 block font-normal">正解: {truth.true_abv}%</span>
-                            </th>
-                            <th className="text-left py-3 px-3 text-stone-200 font-semibold">
-                              蒸留所
-                              <span className="text-xs text-stone-400 block font-normal">正解: {truth.true_distillery}</span>
-                            </th>
-                            <th className="text-right py-3 px-3 text-stone-200 font-semibold">点数</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sample.participant_answers.map((answer) => {
-                            const caskCorrect = answer.guessed_cask === truth.true_cask;
-                            const regionCorrect = answer.guessed_region === truth.true_region;
-                            const ageCorrect = answer.guessed_age === truth.true_age;
-                            const abvCorrect = answer.guessed_abv === truth.true_abv;
-                            const distilleryCorrect = answer.is_correct_distillery;
-                            
-                            return (
-                              <tr
-                                key={answer.participant_id}
-                                className={`border-b border-white/5 hover:bg-neutral-700/40 transition-colors ${
-                                  participantId && answer.participant_id === participantId ? 'bg-[#C88A2B]/10' : ''
-                                }`}
-                              >
-                                <td className="py-3 px-3 font-medium text-stone-100 break-words max-w-[150px]">{answer.display_name}</td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-stone-100 break-words">{answer.guessed_cask || '-'}</span>
-                                    <CorrectnessBadge value={caskCorrect} />
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-stone-100 break-words">{answer.guessed_region || '-'}</span>
-                                    <CorrectnessBadge value={regionCorrect} />
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-stone-100">{answer.guessed_age || '-'}</span>
-                                    <CorrectnessBadge value={ageCorrect} />
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-stone-100">{answer.guessed_abv || '-'}</span>
-                                    <CorrectnessBadge value={abvCorrect} />
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-stone-100 break-words max-w-[200px]">{answer.guessed_distillery || '-'}</span>
-                                    <CorrectnessBadge value={distilleryCorrect} />
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-right font-semibold text-[#C88A2B]">{answer.score}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <DynamicScoringResultsTable
+                      scoringSnapshot={snap}
+                      truth={truth}
+                      answers={sample.participant_answers}
+                      highlightParticipantId={participantId}
+                    />
                   </div>
 
-                  {/* レーダーチャート（サンプル別） */}
+                  {/* フレーバー・ナイチンゲール・ローズ・チャート（Presenter パネルの入力のみ） */}
                   {(() => {
                     const radar = sample.radar;
-                    if (!radar?.tier1_counts || Object.keys(radar.tier1_counts).length === 0) {
+                    const presenterTier2 = sample.presenter_tasting_tier2 ?? {
+                      nose: [],
+                      palate: [],
+                      finish: [],
+                    };
+                    const snapForChart = results.flavor_chart_snapshot;
+                    const chartTier1 = tier1CountsForNightingaleChartDisplay(radar?.tier1_counts, snapForChart);
+                    const hasRadar = hasNonZeroTier1CountsForNightingaleChart(radar?.tier1_counts, snapForChart);
+                    const hasPresenterTier2 = hasAnyPresenterTastingTier2(presenterTier2);
+                    const hasOtherList = (sample.other_terms?.length ?? 0) > 0;
+                    if (!hasRadar && !hasPresenterTier2 && !hasOtherList) {
                       return null;
                     }
-                    const labels = Object.keys(radar.tier1_counts).filter(label => label !== 'その他');
-                    const data = labels.map(label => radar.tier1_counts[label] as number);
-                    const maxValue = Math.max(...data, 1);
-                    
-                    const chartData = {
-                      labels,
-                      datasets: [
-                        {
-                          label: '選択回数',
-                          data,
-                          backgroundColor: 'rgba(200, 138, 43, 0.15)',
-                          borderColor: 'rgba(200, 138, 43, 0.8)',
-                          borderWidth: 2,
-                          pointBackgroundColor: 'rgba(200, 138, 43, 1)',
-                          pointBorderColor: 'rgba(245, 245, 244, 1)',
-                          pointHoverBackgroundColor: 'rgba(200, 138, 43, 1)',
-                          pointHoverBorderColor: 'rgba(245, 245, 244, 1)',
-                        },
-                      ],
-                    };
-                    
-                    const chartOptions = {
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      aspectRatio: 1.2,
-                      scales: {
-                        r: {
-                          beginAtZero: true,
-                          max: maxValue,
-                          ticks: {
-                            stepSize: Math.ceil(maxValue / 5),
-                            color: 'rgba(245, 245, 244, 0.6)',
-                          },
-                          grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
-                          },
-                          pointLabels: {
-                            color: 'rgba(245, 245, 244, 0.9)',
-                          },
-                        },
-                      },
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        tooltip: {
-                          backgroundColor: 'rgba(38, 38, 38, 0.95)',
-                          titleColor: 'rgba(245, 245, 244, 1)',
-                          bodyColor: 'rgba(245, 245, 244, 1)',
-                          borderColor: 'rgba(255, 255, 255, 0.1)',
-                          borderWidth: 1,
-                          callbacks: {
-                            label: (context: TooltipItem<'radar'>) => `${context.label}: ${context.parsed.r}回`,
-                          },
-                        },
-                      },
-                    };
-                    
+                    const labels = hasRadar && Object.keys(chartTier1).length ? flavorRadarChartLabels(chartTier1) : [];
+                    const values = hasRadar ? labels.map((l) => chartTier1[l] as number) : [];
+
                     return (
                       <div className="mt-6 space-y-6">
                         <div>
-                          <h4 className="font-semibold text-stone-100 mb-4 tracking-tight">
-                            フレーバーレーダーチャート（Sample {sample.sample_label}）
+                          <h4 className="font-semibold text-stone-100 mb-2 tracking-tight">
+                            フレーバー・ナイチンゲール・ローズ・チャート（{formatSampleHeadingLabel(sample.sample_label)}）
                           </h4>
-                          <div className="bg-neutral-900 rounded-xl p-6">
-                            <div className="max-w-2xl mx-auto">
-                              <Radar data={chartData} options={chartOptions} />
-                            </div>
-                          </div>
+                          <p className="text-sm text-stone-500 mb-4 leading-relaxed">
+                            プレゼンターが Presenter パネルで入力したテイスティングのみを表示しています。
+                          </p>
+                          {hasOtherList ? (
+                            <p className="text-sm text-stone-500 mb-4 leading-relaxed -mt-2">
+                              「その他一覧」は回答者全員のうち Tier1 で「その他」を選んだ回答の Tier2 集計です。
+                            </p>
+                          ) : null}
+                          {hasRadar ? (
+                            <FlavorIntensityRadarChart
+                              labels={labels}
+                              values={values}
+                              caption={FLAVOR_NIGHTINGALE_PRESENTER_DETAIL_CAPTION}
+                              tier1NightingaleColors={results.tier1_nightingale_colors}
+                            />
+                          ) : null}
+                          {hasPresenterTier2 ? (
+                            <PresenterTastingTier2Summary data={presenterTier2} />
+                          ) : null}
                         </div>
-                        
+
                         {/* その他一覧 */}
                         {sample.other_terms && sample.other_terms.length > 0 && (
                           <div>
                             <h4 className="font-semibold text-stone-100 mb-4 tracking-tight">
-                              その他一覧（Sample {sample.sample_label}）
+                              その他一覧（{formatSampleHeadingLabel(sample.sample_label)}）
                             </h4>
                             <div className="bg-neutral-800 rounded-xl p-6 border border-white/10">
                               <div className="space-y-2">
@@ -732,7 +632,7 @@ export default function ResultsPage() {
                           : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
                     }`}
                   >
-                    {ranking.display_name}
+                    {disambiguatedDisplayName(ranking.display_name, ranking.participant_id, rankingPeers)}
                     {ranking.participant_id === participantId && (
                       <span className="ml-2 text-xs font-semibold">(自分)</span>
                     )}
@@ -746,11 +646,14 @@ export default function ResultsPage() {
               const participant = results.rankings.find((r) => r.participant_id === selectedParticipantId);
               if (!participant) return null;
 
+              const sessionSnap = results.scoring_snapshot;
+              const snapForChart = results.flavor_chart_snapshot;
+
               return (
                 <div className="space-y-6">
                   <div className="ui-card p-6">
                     <h3 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">
-                      {participant.display_name} の回答
+                      {disambiguatedDisplayName(participant.display_name, participant.participant_id, rankingPeers)} の回答
                     </h3>
                     <div className="mb-4 p-4 bg-neutral-700 rounded-xl">
                       <div className="text-stone-400 mb-1">総合順位</div>
@@ -764,63 +667,76 @@ export default function ResultsPage() {
                         const answer = sample.participant_answers.find(
                           (a) => a.participant_id === selectedParticipantId
                         );
-                        if (!answer) return null;
-
                         const comment = sample.comments?.find(
                           (c) => c.participant_id === selectedParticipantId
                         );
+                        const radarEntry = sample.per_participant_radar?.find(
+                          (r) => r.participant_id === selectedParticipantId
+                        );
+                        const chartTier1 = tier1CountsForNightingaleChartDisplay(
+                          radarEntry?.tier1_counts,
+                          snapForChart,
+                        );
+                        const showParticipantRadar = hasNonZeroTier1CountsForNightingaleChart(
+                          radarEntry?.tier1_counts,
+                          snapForChart,
+                        );
+                        const showFlavorText = flavorCommentRowHasContent(comment);
+                        if (!answer && !showParticipantRadar && !showFlavorText) return null;
+
+                        const snap = sample.scoring_snapshot ?? sessionSnap;
+
+                        const radarLabels =
+                          showParticipantRadar && Object.keys(chartTier1).length
+                            ? flavorRadarChartLabels(chartTier1)
+                            : undefined;
+                        const radarValues = radarLabels?.map((l) => chartTier1[l] as number) ?? [];
 
                         return (
                           <div key={sample.sample_id} className="bg-neutral-700 rounded-xl p-4 border border-white/10">
                             <div className="mb-3">
-                              <h4 className="text-lg font-semibold text-stone-100">Sample {sample.sample_label}</h4>
+                              <h4 className="text-lg font-semibold text-stone-100">
+                                {formatSampleHeadingLabel(sample.sample_label)}
+                              </h4>
                               {sample.presenter_name && (
                                 <p className="text-sm text-stone-400 mt-1">
                                   持ち込み: {sample.presenter_name}
                                 </p>
                               )}
                             </div>
-                            
-                            {/* 推測値 */}
-                            <div className="mb-4 p-3 bg-neutral-800 rounded-lg">
-                              <div className="text-sm font-medium text-stone-400 mb-2">推測</div>
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                  <span className="text-stone-400">カスク: </span>
-                                  <span className="text-stone-100 break-words">{answer.guessed_cask || '-'}</span>
-                                </div>
-                                <div>
-                                  <span className="text-stone-400">地域: </span>
-                                  <span className="text-stone-100 break-words">{answer.guessed_region || '-'}</span>
-                                </div>
-                                <div>
-                                  <span className="text-stone-400">年数: </span>
-                                  <span className="text-stone-100">{answer.guessed_age || '-'}年</span>
-                                </div>
-                                <div>
-                                  <span className="text-stone-400">度数: </span>
-                                  <span className="text-stone-100">{answer.guessed_abv || '-'}%</span>
-                                </div>
-                                <div className="col-span-2">
-                                  <span className="text-stone-400">蒸留所: </span>
-                                  <span className="text-stone-100 break-words">{answer.guessed_distillery || '-'}</span>
-                                </div>
-                                <div className="col-span-2">
-                                  <span className="text-stone-400">点数: </span>
-                                  <span className="text-[#C88A2B] font-semibold">{answer.score}点</span>
-                                </div>
-                              </div>
-                            </div>
 
-                            {/* フレーバーコメント */}
-                            {comment && (
+                            {answer ? (
+                              <div className="mb-4 p-3 bg-neutral-800 rounded-lg">
+                                <div className="text-sm font-medium text-stone-400 mb-2">推測</div>
+                                <DynamicParticipantGuessGrid scoringSnapshot={snap} answer={answer} />
+                              </div>
+                            ) : null}
+
+                            {showParticipantRadar && radarLabels && radarLabels.length > 0 ? (
+                              <div className="mb-4">
+                                <div className="text-sm font-medium text-stone-400 mb-1">
+                                  フレーバー・ナイチンゲール・ローズ・チャート（この参加者）
+                                </div>
+                                <p className="text-xs text-stone-500 mb-3 leading-relaxed">
+                                  当該参加者が回答画面で入力したテイスティングです。
+                                </p>
+                                <FlavorIntensityRadarChart
+                                  labels={radarLabels}
+                                  values={radarValues}
+                                  caption={PARTICIPANT_SAMPLE_RADAR_CAPTION}
+                                  tier1NightingaleColors={results.tier1_nightingale_colors}
+                                />
+                              </div>
+                            ) : null}
+
+                            {showFlavorText && comment ? (
                               <div className="space-y-3">
                                 <div className="text-sm font-medium text-stone-400">フレーバーコメント</div>
                                 <FlavorChips label="Nose" flavor={comment.nose} />
                                 <FlavorChips label="Palate" flavor={comment.palate} />
                                 <FlavorChips label="Finish" flavor={comment.finish} />
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         );
                       })}

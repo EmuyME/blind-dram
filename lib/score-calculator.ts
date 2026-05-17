@@ -1,6 +1,29 @@
-// 点数計算ユーティリティ
-// 仕様: カスク3 + 地域3 + 年数3 + 度数3 + 蒸留所6 = 最大18点（デフォルト）
+// 点数計算（拡張スキーマ対応、旧 API 互換）
+export type {
+  ScoringItemKey,
+  ItemGradesMap,
+  ItemGrade,
+  AnswerScoreInput,
+  TruthScoreInput,
+  FullScoringConfig,
+} from '@/lib/scoring-schema';
+export {
+  normalizeScoringConfig,
+  calculateScoreExtended,
+  isParticipantManualGradingComplete,
+  SCORING_ITEM_KEYS,
+  createDefaultScoringItems,
+  optionsForItem,
+} from '@/lib/scoring-schema';
 
+import {
+  calculateScoreExtended,
+  type AnswerScoreInput,
+  type TruthScoreInput,
+  type ItemGradesMap,
+} from '@/lib/scoring-schema';
+
+/** @deprecated 型互換 */
 export interface AnswerData {
   guessed_cask: string | null;
   guessed_region: string | null;
@@ -18,83 +41,54 @@ export interface TruthData {
 }
 
 export interface DistilleryGrade {
-  is_correct: boolean;
+  /** 従来の蒸留所一括○×。項目別手採点のみのときは null 可 */
+  is_correct?: boolean | null;
+  item_grades?: ItemGradesMap | null;
 }
 
+/** @deprecated 旧フラット形式（normalizeScoringConfig が解釈） */
 export interface ScoringConfig {
   cask: number;
   region: number;
   age: number;
   abv: number;
   distillery: number;
-  age_penalty_per_year?: number; // 年数：誤差○年ごとに1点減点（デフォルト：1）
-  abv_penalty_per_percent?: number; // 度数：誤差○%ごとに1点減点（デフォルト：2）
+  age_penalty_per_year?: number;
+  abv_penalty_per_percent?: number;
 }
 
-// デフォルト配点
-const DEFAULT_SCORING: ScoringConfig = {
-  cask: 3,
-  region: 3,
-  age: 3,
-  abv: 3,
-  distillery: 6,
-};
-
 /**
- * 回答の点数を計算する
- * @param answer 参加者の回答
- * @param truth 正解
- * @param distilleryGrade 蒸留所名の採点結果
- * @param scoring 配点設定（オプショナル、指定されない場合はデフォルト値を使用）
- * @returns 合計点数
+ * 回答の点数を計算する（拡張設定・item_grades 対応）
  */
 export function calculateScore(
-  answer: AnswerData,
-  truth: TruthData,
+  answer: AnswerData & { guessed_other1?: string | null; guessed_other2?: string | null },
+  truth: TruthData & { true_other1?: string | null; true_other2?: string | null },
   distilleryGrade: DistilleryGrade | null,
-  scoring?: ScoringConfig | null
+  scoring?: unknown,
+  caskOptions: string[] = [],
+  regionOptions: string[] = [],
 ): number {
-  const scoringConfig = scoring || DEFAULT_SCORING;
-  let score = 0;
-
-  // カスク: 配点（選択一致）
-  if (answer.guessed_cask && truth.true_cask) {
-    if (answer.guessed_cask === truth.true_cask) {
-      score += scoringConfig.cask;
-    }
-  }
-
-  // 地域: 配点（選択一致）
-  if (answer.guessed_region && truth.true_region) {
-    if (answer.guessed_region === truth.true_region) {
-      score += scoringConfig.region;
-    }
-  }
-
-  // 熟成年数: 配点（誤差○年ごとに -1、下限0）
-  if (answer.guessed_age !== null && truth.true_age !== null) {
-    const diff = Math.abs(answer.guessed_age - truth.true_age);
-    const penaltyPerYear = scoringConfig.age_penalty_per_year || 1;
-    const penaltyPoints = Math.floor(diff / penaltyPerYear);
-    const ageScore = Math.max(0, scoringConfig.age - penaltyPoints);
-    score += ageScore;
-  }
-
-  // 度数: 配点（誤差○%ごとに -1、下限0）
-  if (answer.guessed_abv !== null && truth.true_abv !== null) {
-    const diff = Math.abs(answer.guessed_abv - truth.true_abv);
-    const penaltyPerPercent = scoringConfig.abv_penalty_per_percent || 2;
-    const penaltyPoints = Math.floor(diff / penaltyPerPercent);
-    const abvScore = Math.max(0, scoringConfig.abv - penaltyPoints);
-    score += abvScore;
-  }
-
-  // 蒸留所: 配点（Presenterが○×判定。正解=配点 / 不正解=0）
-  if (distilleryGrade) {
-    if (distilleryGrade.is_correct) {
-      score += scoringConfig.distillery;
-    }
-  }
-
-  return score;
+  const a: AnswerScoreInput = {
+    guessed_cask: answer.guessed_cask,
+    guessed_region: answer.guessed_region,
+    guessed_age: answer.guessed_age,
+    guessed_abv: answer.guessed_abv,
+    guessed_distillery: answer.guessed_distillery,
+    guessed_other1: answer.guessed_other1,
+    guessed_other2: answer.guessed_other2,
+  };
+  const t: TruthScoreInput = {
+    true_cask: truth.true_cask,
+    true_region: truth.true_region,
+    true_age: truth.true_age,
+    true_abv: truth.true_abv,
+    true_distillery: truth.true_distillery,
+    true_other1: truth.true_other1,
+    true_other2: truth.true_other2,
+  };
+  const grade = {
+    is_correct: distilleryGrade?.is_correct ?? null,
+    item_grades: distilleryGrade?.item_grades,
+  };
+  return calculateScoreExtended(a, t, grade, scoring ?? null, caskOptions, regionOptions);
 }

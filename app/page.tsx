@@ -37,6 +37,17 @@ export default function Home() {
                 参加コードで参加
               </Button>
             </Link>
+            <Link
+              href="/guide"
+              className="inline-block w-full md:w-auto"
+            >
+              <Button
+                variant="secondary"
+                className="w-full md:w-auto min-w-[200px] border-[#C88A2B]/35 hover:border-[#C88A2B]/55"
+              >
+                使い方・進行のヒント
+              </Button>
+            </Link>
             <p className="text-sm text-stone-400 mt-6">
               イベントを作成すると、参加URLとOwner URLが発行されます
             </p>

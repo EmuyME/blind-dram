@@ -38,8 +38,8 @@ test.describe('逐次モード: ロバスト性（順序/タイミング揺れ�
     await helpers.startRound(joinToken, s1!, p1.participantToken);
     await page.waitForTimeout(500);
     await helpers.submitTruth(joinToken, s1!, p1.participantToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'D1',
@@ -48,16 +48,16 @@ test.describe('逐次モード: ロバスト性（順序/タイミング揺れ�
 
     // answers: u1 & p2 are both non-presenters for round1
     await helpers.submitAnswer(joinToken, s1!, u1.participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'D2',
     });
     await page.waitForTimeout(300);
     await helpers.submitAnswer(joinToken, s1!, p2.participantToken, {
-      guessed_cask: 'バーボン',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'バーボン樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43.0,
       guessed_distillery: 'D1',
@@ -157,8 +157,8 @@ test.describe('逐次モード: ロバスト性（順序/タイミング揺れ�
     await helpers.startRound(joinToken, s1!, p1.participantToken);
     await page.waitForTimeout(300);
     await helpers.submitTruth(joinToken, s1!, p1.participantToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'D1',
@@ -166,16 +166,16 @@ test.describe('逐次モード: ロバスト性（順序/タイミング揺れ�
     await page.waitForTimeout(300);
 
     await helpers.submitAnswer(joinToken, s1!, u1.participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'D2',
     });
     await page.waitForTimeout(300);
     await helpers.submitAnswer(joinToken, s1!, p2.participantToken, {
-      guessed_cask: 'バーボン',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'バーボン樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43.0,
       guessed_distillery: 'D1',
@@ -276,8 +276,8 @@ test.describe('逐次モード: ロバスト性（順序/タイミング揺れ�
     await helpers.startRound(joinToken, s1!, p1.participantToken);
     await page.waitForTimeout(300);
     await helpers.submitTruth(joinToken, s1!, p1.participantToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'D1',
@@ -285,8 +285,8 @@ test.describe('逐次モード: ロバスト性（順序/タイミング揺れ�
     await page.waitForTimeout(300);
 
     await helpers.submitAnswer(joinToken, s1!, u1.participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'D2',

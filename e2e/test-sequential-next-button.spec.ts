@@ -52,8 +52,8 @@ test.describe('逐次モード「次へ」ボタンの動作確認', () => {
     
     // 正解を入力
     await helpers.submitTruth(joinToken, sampleId, presenterToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'テスト蒸留所',
@@ -64,8 +64,8 @@ test.describe('逐次モード「次へ」ボタンの動作確認', () => {
     const participantToken = participant.participantToken;
     
     await helpers.submitAnswer(joinToken, sampleId, participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'テスト蒸留所2',
@@ -73,8 +73,8 @@ test.describe('逐次モード「次へ」ボタンの動作確認', () => {
     await page.waitForTimeout(2000);
 
     await helpers.submitAnswer(joinToken, sampleId, presenter2.participantToken, {
-      guessed_cask: 'バーボン',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'バーボン樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43.0,
       guessed_distillery: 'テスト蒸留所',
@@ -175,6 +175,7 @@ test.describe('逐次モード「次へ」ボタンの動作確認', () => {
 
     const nextRoundButton = page.locator('button:has-text("次のラウンドへ進む")');
     await expect(nextRoundButton).toBeVisible({ timeout: 30000 });
+    page.once('dialog', (d) => d.accept());
     await nextRoundButton.click();
 
     // Presenter2 は presenter 画面へ遷移する

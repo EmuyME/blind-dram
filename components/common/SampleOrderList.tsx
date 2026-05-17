@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
+import { disambiguatedDisplayName } from '@/lib/participant-display';
 
 interface Sample {
   id: string;
@@ -39,12 +40,26 @@ export function SampleOrderList({
   const [isSaving, setIsSaving] = useState(false);
   const [localSamples, setLocalSamples] = useState<Sample[]>(samples);
 
+  const participantPeers = useMemo(
+    () =>
+      (participants || []).map((p) => ({
+        participant_id: p.id,
+        display_name: p.display_name,
+      })),
+    [participants],
+  );
+
   // 参加者名を取得
   const getParticipantName = (participantId?: string) => {
     if (!participantId) return '不明';
     if (!participants || !Array.isArray(participants)) return '不明';
     const participant = participants.find((p) => p.id === participantId);
-    return participant?.display_name || '不明';
+    if (!participant) return '不明';
+    return disambiguatedDisplayName(
+      participant.display_name,
+      participant.id,
+      participantPeers,
+    );
   };
 
   // ソート済みサンプルリスト

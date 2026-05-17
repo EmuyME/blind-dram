@@ -41,7 +41,7 @@ test.describe('Sequential Mode Results Display Test', () => {
       // 参加者1が回答提出
       await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
         guessed_cask: 'シェリー樽',
-        guessed_region: 'スコットランド',
+        guessed_region: 'スコットランド（スペイサイド）',
         guessed_age: 12,
         guessed_abv: 43,
         guessed_distillery: 'マッカラン',
@@ -59,7 +59,7 @@ test.describe('Sequential Mode Results Display Test', () => {
       // Truth入力（Presenter）
       await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
         true_cask: 'シェリー樽',
-        true_region: 'スコットランド',
+        true_region: 'スコットランド（スペイサイド）',
         true_age: 12,
         true_abv: 43,
         true_distillery: 'マッカラン',
@@ -121,6 +121,28 @@ test.describe('Sequential Mode Results Display Test', () => {
       }
     }
     
+    if (!samples.length) {
+      throw new Error('サンプルがありません');
+    }
+    
+    // 最終サンプルは revealed のまま check-complete では aggregating にならないため、
+    // 全員「次へ」→ start-next でセッションを集計フェーズへ進める
+    const lastSample = samples[samples.length - 1];
+    const lastSampleId = lastSample.id as string;
+    await page.request.post('/api/round-result/click-next', {
+      data: { participant_token: participant1.participantToken, sample_id: lastSampleId },
+    });
+    await page.request.post('/api/round-result/click-next', {
+      data: { participant_token: participant2.participantToken, sample_id: lastSampleId },
+    });
+    const startLast = await page.request.post('/api/round-result/start-next', {
+      data: { participant_token: participant1.participantToken, sample_id: lastSampleId },
+    });
+    if (!startLast.ok()) {
+      const err = await startLast.json().catch(() => ({}));
+      throw new Error(`最終ラウンドの start-next に失敗: ${err?.error || startLast.status()}`);
+    }
+    
     // すべてのラウンドが完了したら、セッションがaggregating状態になることを確認
     // check-complete APIを呼び出して、セッション状態を更新（join_tokenを使用）
     await page.request.post('/api/session/check-complete', {
@@ -159,8 +181,16 @@ test.describe('Sequential Mode Results Display Test', () => {
     }, { token: participant1.participantToken, joinToken });
     await page.reload();
     
-    // 結果ページにリダイレクトされることを確認（10秒待つ）
-    await expect(page).toHaveURL(new RegExp(`/session/${joinToken}/results`), { timeout: 15000 });
+    // aggregating 中はポーリングで自動遷移するが、published 直後にだけ「結果を見る」だけが出る競合があり得る
+    const resultsUrlRe = new RegExp(`/session/${joinToken}/results`);
+    try {
+      await expect(page).toHaveURL(resultsUrlRe, { timeout: 20000 });
+    } catch {
+      const viewBtn = page.getByRole('button', { name: '結果を見る' });
+      await expect(viewBtn).toBeVisible({ timeout: 10000 });
+      await viewBtn.click();
+      await expect(page).toHaveURL(resultsUrlRe, { timeout: 15000 });
+    }
     
     // 結果ページで結果が表示されることを確認
     await expect(page.locator('text=/結果|ランキング|順位/').first()).toBeVisible({ timeout: 10000 });

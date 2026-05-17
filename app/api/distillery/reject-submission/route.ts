@@ -85,10 +85,26 @@ export async function POST(request: NextRequest) {
       // 差し戻し自体は成功しているため続行
     }
 
+    // 採点中に提出を差し戻したら、回答の再編集が可能な answering に戻す
+    let nextSampleState = sample.state;
+    if (sample.state === 'grading') {
+      const { error: sampleUpdateError } = await supabase
+        .from('samples')
+        .update({ state: 'answering' })
+        .eq('id', sample_id)
+        .eq('state', 'grading');
+
+      if (sampleUpdateError) {
+        console.error('Sample state update after reject:', sampleUpdateError);
+      } else {
+        nextSampleState = 'answering';
+      }
+    }
+
     return successResponse({
       answer_id: answer.id,
       status: 'draft',
-      sample_state: sample.state,
+      sample_state: nextSampleState,
     });
   } catch (error) {
     console.error('Unexpected error:', error);

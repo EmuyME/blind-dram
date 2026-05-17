@@ -8,7 +8,12 @@ import { ParticipantProgress } from '@/components/common/ParticipantProgress';
 import { OwnerPanel } from '@/components/common/OwnerPanel';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
-import { getParticipantToken, getOwnerToken } from '@/lib/utils';
+import {
+  getParticipantToken,
+  getOwnerToken,
+  setParticipantToken as persistParticipantToken,
+  clearParticipantToken,
+} from '@/lib/utils';
 
 interface Session {
   id: string;
@@ -85,11 +90,39 @@ export default function SessionHomePage() {
     }
   }, [roundStatus]);
 
+  const handleSwitchParticipant = useCallback(() => {
+    if (!joinToken) return;
+    clearParticipantToken(joinToken);
+    setParticipantToken(null);
+    setParticipantId(null);
+    setParticipantName(null);
+    setMySamples([]);
+    setRoundStatus(null);
+    router.push(`/s/${joinToken}`);
+  }, [joinToken, router]);
+
   useEffect(() => {
     if (!joinToken) return;
     
     // participantTokenを取得（リダイレクト直後でも確実に読み込む）
     const loadParticipantToken = () => {
+      if (typeof window !== 'undefined') {
+        const sp = new URLSearchParams(window.location.search);
+        const debugTok = sp.get('debug_participant_token');
+        if (debugTok) {
+          persistParticipantToken(joinToken, debugTok);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('debug_participant_token');
+          window.history.replaceState(
+            {},
+            '',
+            `${url.pathname}${url.search}${url.hash}`,
+          );
+          setParticipantToken(debugTok);
+          loadParticipantInfo(debugTok);
+          return debugTok;
+        }
+      }
       const token = getParticipantToken(joinToken);
       setParticipantToken(token);
       if (token) {
@@ -246,6 +279,7 @@ export default function SessionHomePage() {
         status: 'draft' | 'submitted' | 'graded';
       };
       type RoundStatusApiData = {
+        state?: string;
         participant_progress?: RoundStatusProgressRow[];
         truth_entered?: boolean;
         presenter_participant_id?: string | null;
@@ -305,6 +339,27 @@ export default function SessionHomePage() {
         currentSample.presenter_participant_id ??
         null;
 
+      /** 同じ sample 行に対する DB 上の最新 state（current-sample と取得タイミングがずれたときの表示ズレを抑える） */
+      const SAMPLE_STATES = ['pending', 'answering', 'grading', 'revealed', 'closed'] as const;
+      const statusStateRaw = statusResult?.data?.state;
+      const mergedState =
+        typeof statusStateRaw === 'string' &&
+        (SAMPLE_STATES as readonly string[]).includes(statusStateRaw)
+          ? (statusStateRaw as Sample['state'])
+          : null;
+      // current-sample API は逐次で revealed を最優先。round/status が一瞬古い grading などを返すと
+      // 結果ページへのリダイレクトが止まり、プレゼンターが結果に辿り着けないことがある。
+      const terminal = (s: string) => s === 'revealed' || s === 'closed';
+      const currentSampleForUi: Sample =
+        session?.mode === 'sequential' &&
+        terminal(currentSample.state) &&
+        mergedState &&
+        !terminal(mergedState)
+          ? currentSample
+          : mergedState
+            ? { ...currentSample, state: mergedState }
+            : currentSample;
+
       let listForPendingCheck: MySample[] = mySamples;
       if (participantToken) {
         try {
@@ -330,12 +385,12 @@ export default function SessionHomePage() {
         listForPendingCheck.length === 0 &&
         participantId &&
         resolvedPresenterId === participantId &&
-        currentSample
+        currentSampleForUi
       ) {
         const fallbackRow: MySample = {
-          id: currentSample.id,
-          label: statusResult?.data?.label || currentSample.label,
-          state: currentSample.state,
+          id: currentSampleForUi.id,
+          label: statusResult?.data?.label || currentSampleForUi.label,
+          state: currentSampleForUi.state,
           sort_order: 0,
         };
         listForPendingCheck = [fallbackRow];
@@ -350,11 +405,11 @@ export default function SessionHomePage() {
       // });
 
       setRoundStatus({
-        current_sample: currentSample,
+        current_sample: currentSampleForUi,
         participants: participantProgress,
         truth_entered: statusResult?.data?.truth_entered || false,
         presenter_participant_id: resolvedPresenterId,
-        label: statusResult?.data?.label ?? currentSample.label,
+        label: statusResult?.data?.label ?? currentSampleForUi.label,
         truth: statusResult?.data?.truth, // Truth情報を保存（revealed状態の場合）
       });
 
@@ -611,6 +666,24 @@ export default function SessionHomePage() {
               <p className="text-stone-400 mb-4 leading-relaxed">
                 参加登録が完了しました。オーナーが参加登録を締め切るまでお待ちください。
               </p>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (joinToken) {
+                    router.push(`/s/${joinToken}?edit=1`);
+                  }
+                }}
+                className="w-full"
+              >
+                表示名・持ち込みボトルを修正する
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleSwitchParticipant}
+                className="w-full mt-3"
+              >
+                参加者を変更する
+              </Button>
             </div>
           )}
         </div>
@@ -647,12 +720,17 @@ export default function SessionHomePage() {
           )}
 
           {/* 参加者向けメッセージ */}
-          {participantToken && !isOwner && (
+          {participantToken && (
             <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">順番決め中</h2>
               <p className="text-stone-400 mb-4 leading-relaxed">
-                オーナーがサンプルの順番を決めています。しばらくお待ちください。
+                {isOwner
+                  ? 'このタブからでも参加できます。順番とセッション開始は下のオーナー機能パネルで操作してください。'
+                  : 'オーナーがサンプルの順番を決めています。しばらくお待ちください。'}
               </p>
+              <Button variant="secondary" onClick={handleSwitchParticipant} className="w-full">
+                参加者を変更する
+              </Button>
             </div>
           )}
         </div>
@@ -856,26 +934,26 @@ export default function SessionHomePage() {
             </div>
           )}
 
-          {/* プレゼンター（自分の持ち込みSample）の場合は回答入力欄を表示しない */}
+          {/* プレゼンター本人は Presenter パネルで完結させる（ホームに回答入力カードを出さない） */}
           {currentSample && !isMySample && (
             <NextActionCard
               title={
                 currentSample.state === 'answering'
                   ? `Sample ${currentSample.label} の回答を入力してください`
                   : currentSample.state === 'pending'
-                  ? `Sample ${currentSample.label} はまだ開始されていません`
-                  : currentSample.state === 'grading'
-                  ? `Sample ${currentSample.label} は採点中です`
-                  : `Sample ${currentSample.label} は終了しました`
+                    ? `Sample ${currentSample.label} はまだ開始されていません`
+                    : currentSample.state === 'grading'
+                      ? `Sample ${currentSample.label} は採点中です`
+                      : `Sample ${currentSample.label} は終了しました`
               }
               description={
                 currentSample.state === 'answering'
                   ? '現在のSampleについて、推測とフレーバーを入力してください。'
                   : currentSample.state === 'pending'
-                  ? 'PresenterがRoundを開始するまでお待ちください。'
-                  : currentSample.state === 'grading'
-                  ? '回答は提出済みです。採点を待っています。'
-                  : 'このRoundは終了しました。'
+                    ? 'PresenterがRoundを開始するまでお待ちください。'
+                    : currentSample.state === 'grading'
+                      ? '回答は提出済みです。採点を待っています。'
+                      : 'このRoundは終了しました。'
               }
               primaryAction={
                 currentSample.state === 'answering'
@@ -901,6 +979,14 @@ export default function SessionHomePage() {
 
           {roundStatus.participants.length > 0 && (
             <ParticipantProgress participants={roundStatus.participants} />
+          )}
+
+          {participantToken && (
+            <div className="flex justify-center pt-2">
+              <Button variant="secondary" onClick={handleSwitchParticipant} className="text-sm">
+                参加者を変更する
+              </Button>
+            </div>
           )}
         </div>
       </div>

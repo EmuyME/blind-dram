@@ -5,6 +5,7 @@ import {
   buildRankingMatrix,
   type RankingMatrixParticipant,
 } from '@/lib/rankingMatrix';
+import { disambiguatedDisplayName } from '@/lib/participant-display';
 
 type Props = {
   caption: string;
@@ -17,6 +18,11 @@ export const RankingMatrixTable = forwardRef<HTMLDivElement, Props>(
     const { participants, samples, getScore } = useMemo(
       () => buildRankingMatrix(rankings),
       [rankings],
+    );
+
+    const peerList = useMemo(
+      () => participants.map((p) => ({ participant_id: p.participant_id, display_name: p.display_name })),
+      [participants],
     );
 
     const colHighlight = (participantId: string) =>
@@ -57,7 +63,7 @@ export const RankingMatrixTable = forwardRef<HTMLDivElement, Props>(
                     className={`ui-th px-3 py-3 text-center font-semibold text-stone-100 ${colHighlight(p.participant_id)}`}
                   >
                     <span className="inline-block max-w-[140px] break-words leading-snug">
-                      {p.display_name}
+                      {disambiguatedDisplayName(p.display_name, p.participant_id, peerList)}
                     </span>
                   </th>
                 ))}

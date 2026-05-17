@@ -55,11 +55,14 @@ export async function POST(request: NextRequest) {
 
 
     if (session.mode === 'sequential') {
-      // 逐次モードの場合、pending、answering、またはgrading状態のサンプルがある場合は完了していない
+      // 逐次モード: revealed は結果ページで全員が「次へ」を押すまで未完了（aggregating は start-next 側で遷移）
       const hasIncompleteSamples = allSamples.some(
-        (s) => s.state === 'pending' || s.state === 'answering' || s.state === 'grading'
+        (s) =>
+          s.state === 'pending' ||
+          s.state === 'answering' ||
+          s.state === 'grading' ||
+          s.state === 'revealed',
       );
-      // pending/answering/grading状態のサンプルがある場合は完了していない
       if (hasIncompleteSamples) {
         return successResponse({
           session_id: session.id,
@@ -68,8 +71,6 @@ export async function POST(request: NextRequest) {
           reason: 'incomplete_samples_pending',
         });
       }
-      // 逐次モードでは、すべてのサンプルがrevealedまたはclosed状態になった時点で完了
-      // revealed状態のサンプルがある場合でも、すべてのサンプルがrevealedまたはclosed状態であれば完了とみなす
     }
 
     const allCompleted = allSamples.every(

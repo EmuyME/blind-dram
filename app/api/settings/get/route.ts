@@ -3,41 +3,31 @@ import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
 import { verifyOwnerToken } from '@/lib/api-utils';
+import {
+  DEFAULT_CASK_CHOICE_OPTIONS,
+  DEFAULT_REGION_CHOICE_OPTIONS,
+  mergeLegacyOptionColumnsIntoScoring,
+} from '@/lib/scoring-schema';
+import { resolvedTier1NightingaleColors } from '@/lib/flavor-chart-colors';
+import { DEFAULT_FLAVOR_CHART, ensureTier1NightingaleVisibleMap } from '@/lib/default-flavor-chart';
 
 // デフォルト設定
-const DEFAULT_CASK_OPTIONS = ['シェリー樽', 'バーボン樽', 'ワイン樽', 'その他'];
-const DEFAULT_REGION_OPTIONS = ['スコットランド', 'アイルランド', 'アメリカ', '日本', 'その他'];
-const DEFAULT_FLAVOR_CHART = {
-  version: 'v1',
-  tier1: [
-    'フルーティ',
-    'フローラル・ハーブ系',
-    'シリアル',
-    'テール',
-    '硫黄系',
-    'サリファリー',
-    'ピート・薫香',
-    '樽熟成',
-    'その他',
-  ],
-  tier2_suggestions: {
-    'フルーティ': ['レモン', 'ライム', 'オレンジ', 'グレープフルーツ', '青リンゴ', '赤リンゴ', '洋梨', '桃', 'さくらんぼ', 'プラム', 'いちご', 'ラズベリー', 'ブラックベリー', 'カシス', 'マンゴー', 'パイナップル', 'バナナ', 'メロン', 'ドライレーズン', 'ドライイチジク', 'ドライアプリコット'],
-    'フローラル・ハーブ系': ['バラ', '白い花', 'スミレ', 'ラベンダー', 'ヒース（ヘザー）', 'ミント', 'タイム', 'ローズマリー', '芝生', '干し草', '甘草'],
-    'シリアル': ['麦芽', '穀草', 'パン', 'ビスケット', 'クッキー', 'クレープ'],
-    'テール': ['タバコ', '紅茶', 'バター', '皮革', 'うろこ'],
-    '硫黄系': ['硫黄', 'マッチ', 'ゴム', 'ゆで卵', 'キャベツ'],
-    'サリファリー': ['なめし革', 'ゴム', '油', '肉', 'ブロス'],
-    'ピート・薫香': ['煙', '焚き火', 'タール', 'ヨード', '海藻', 'ベーコン', 'スモーク', '焦げ'],
-    '樽熟成': ['バニラ', 'キャラメル', 'ハチミツ', 'メープル', 'ココナッツ', 'クルミ', 'アーモンド', 'ヘーゼルナッツ', 'オーク', 'セダー', 'サンダルウッド', '杉', '黒胡椒', '白胡椒', 'ジンジャー', 'ナツメグ', 'クローブ', 'シナモン', 'シェリー', 'マデイラ', 'ワイン'],
-    'その他': [],
-  },
-};
+const DEFAULT_CASK_OPTIONS = [...DEFAULT_CASK_CHOICE_OPTIONS];
+const DEFAULT_REGION_OPTIONS = [...DEFAULT_REGION_CHOICE_OPTIONS];
+
+function flavorChartResponse(fc: typeof DEFAULT_FLAVOR_CHART) {
+  return {
+    ...fc,
+    tier1_nightingale_colors: resolvedTier1NightingaleColors(fc),
+    tier1_nightingale_visible: ensureTier1NightingaleVisibleMap(fc),
+  };
+}
 const DEFAULT_SCORING = {
-  cask: 3,
-  region: 3,
+  cask: 5,
+  region: 2,
   age: 3,
   abv: 3,
-  distillery: 6,
+  distillery: 5,
   age_penalty_per_year: 1,
   abv_penalty_per_percent: 2,
 };
@@ -80,8 +70,8 @@ export async function GET(request: NextRequest) {
         name: 'デフォルト設定',
         cask_options: DEFAULT_CASK_OPTIONS,
         region_options: DEFAULT_REGION_OPTIONS,
-        flavor_chart: DEFAULT_FLAVOR_CHART,
-        scoring: DEFAULT_SCORING,
+        flavor_chart: flavorChartResponse(DEFAULT_FLAVOR_CHART),
+        scoring: mergeLegacyOptionColumnsIntoScoring(DEFAULT_SCORING, DEFAULT_CASK_OPTIONS, DEFAULT_REGION_OPTIONS),
       });
     }
 
@@ -92,18 +82,26 @@ export async function GET(request: NextRequest) {
         name: 'デフォルト設定',
         cask_options: DEFAULT_CASK_OPTIONS,
         region_options: DEFAULT_REGION_OPTIONS,
-        flavor_chart: DEFAULT_FLAVOR_CHART,
-        scoring: DEFAULT_SCORING,
+        flavor_chart: flavorChartResponse(DEFAULT_FLAVOR_CHART),
+        scoring: mergeLegacyOptionColumnsIntoScoring(DEFAULT_SCORING, DEFAULT_CASK_OPTIONS, DEFAULT_REGION_OPTIONS),
       });
     }
+
+    const merged = mergeLegacyOptionColumnsIntoScoring(
+      settings.scoring || DEFAULT_SCORING,
+      settings.cask_options,
+      settings.region_options,
+    );
 
     return successResponse({
       id: settings.id,
       name: settings.name,
-      cask_options: settings.cask_options || DEFAULT_CASK_OPTIONS,
-      region_options: settings.region_options || DEFAULT_REGION_OPTIONS,
-      flavor_chart: settings.flavor_chart || DEFAULT_FLAVOR_CHART,
-      scoring: settings.scoring || DEFAULT_SCORING,
+      cask_options: merged.items.cask.options?.length ? merged.items.cask.options : DEFAULT_CASK_OPTIONS,
+      region_options: merged.items.region.options?.length ? merged.items.region.options : DEFAULT_REGION_OPTIONS,
+      flavor_chart: flavorChartResponse(
+        (settings.flavor_chart as typeof DEFAULT_FLAVOR_CHART) || DEFAULT_FLAVOR_CHART,
+      ),
+      scoring: merged,
     });
   } catch (error) {
     console.error('Unexpected error:', error);

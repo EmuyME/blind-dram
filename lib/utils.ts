@@ -18,6 +18,12 @@ export function setParticipantToken(joinToken: string, token: string): void {
   localStorage.setItem(key, token);
 }
 
+/** 参加表明をリセット（別端末・別参加者として入り直す用） */
+export function clearParticipantToken(joinToken: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(`bd:participant_token:${joinToken}`);
+}
+
 /**
  * localStorageからowner_tokenを取得
  */

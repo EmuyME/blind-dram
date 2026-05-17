@@ -3,7 +3,8 @@ import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { errorResponse, isMissingPublicResultsColumn } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
-import { calculateScore, type ScoringConfig } from '@/lib/score-calculator';
+import { calculateScore } from '@/lib/score-calculator';
+import type { ItemGradesMap } from '@/lib/scoring-schema';
 import type { PostgrestError } from '@supabase/supabase-js';
 
 type ParticipantRow = {
@@ -25,6 +26,12 @@ type TruthRow = {
   true_age: number | null;
   true_abv: number | null;
   true_distillery: string | null;
+  true_other1?: string | null;
+  true_other2?: string | null;
+  true_bottler_name?: string | null;
+  true_distillation_year?: number | null;
+  true_bottling_year?: number | null;
+  notes?: string | null;
 };
 
 type AnswerRow = {
@@ -37,6 +44,8 @@ type AnswerRow = {
   guessed_age: number | null;
   guessed_abv: number | null;
   guessed_distillery: string | null;
+  guessed_other1?: string | null;
+  guessed_other2?: string | null;
   nose: unknown;
   palate: unknown;
   finish: unknown;
@@ -46,6 +55,7 @@ type GradeRow = {
   sample_id: string;
   participant_id: string;
   is_correct: boolean | null;
+  item_grades?: ItemGradesMap | null;
 };
 
 type FlavorSection = {
@@ -61,6 +71,8 @@ type SessionRowForCsv = {
   owner_token: string;
   state: string;
   scoring_snapshot: unknown;
+  cask_options_snapshot?: unknown;
+  region_options_snapshot?: unknown;
   public_results?: boolean | null;
 };
 
@@ -74,8 +86,10 @@ export async function GET(request: NextRequest) {
       return errorResponse('join_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const sessionSelectWithPublic = 'id, title, owner_token, state, scoring_snapshot, public_results';
-    const sessionSelectWithoutPublic = 'id, title, owner_token, state, scoring_snapshot';
+    const sessionSelectWithPublic =
+      'id, title, owner_token, state, scoring_snapshot, cask_options_snapshot, region_options_snapshot, public_results';
+    const sessionSelectWithoutPublic =
+      'id, title, owner_token, state, scoring_snapshot, cask_options_snapshot, region_options_snapshot';
 
     let session: SessionRowForCsv | null = null;
     let sessionError: PostgrestError | null = null;
@@ -152,7 +166,9 @@ export async function GET(request: NextRequest) {
     // Truth一覧取得
     const { data: truths, error: truthsError } = await supabase
       .from('truths')
-      .select('sample_id, true_cask, true_region, true_age, true_abv, true_distillery')
+      .select(
+        'sample_id, true_cask, true_region, true_age, true_abv, true_distillery, true_other1, true_other2, true_bottler_name, true_distillation_year, true_bottling_year, notes',
+      )
       .eq('session_id', session.id);
 
     if (truthsError) {
@@ -164,7 +180,7 @@ export async function GET(request: NextRequest) {
     const { data: answers, error: answersError } = await supabase
       .from('answers')
       .select(
-        'sample_id, participant_id, status, submitted_at, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, nose, palate, finish'
+        'sample_id, participant_id, status, submitted_at, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2, nose, palate, finish',
       )
       .eq('session_id', session.id);
 
@@ -176,7 +192,7 @@ export async function GET(request: NextRequest) {
     // 採点結果取得
     const { data: grades, error: gradesError } = await supabase
       .from('distillery_grades')
-      .select('sample_id, participant_id, is_correct')
+      .select('sample_id, participant_id, is_correct, item_grades')
       .eq('session_id', session.id);
 
     if (gradesError) {
@@ -184,7 +200,13 @@ export async function GET(request: NextRequest) {
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
-    const scoringSnapshot = session.scoring_snapshot as unknown as ScoringConfig | null;
+    const scoringSnapshot = session.scoring_snapshot;
+    const caskOpts = Array.isArray(session.cask_options_snapshot)
+      ? (session.cask_options_snapshot as string[])
+      : [];
+    const regionOpts = Array.isArray(session.region_options_snapshot)
+      ? (session.region_options_snapshot as string[])
+      : [];
 
     const csvEscape = (value: unknown) => {
       if (value === null || value === undefined) return '';
@@ -242,6 +264,8 @@ export async function GET(request: NextRequest) {
       guessed_age: string;
       guessed_abv: string;
       guessed_distillery: string;
+      guessed_other1: string;
+      guessed_other2: string;
       nose_tier1: string;
       nose_tier2: string;
       nose_text: string;
@@ -256,7 +280,14 @@ export async function GET(request: NextRequest) {
       true_age: string;
       true_abv: string;
       true_distillery: string;
+      true_other1: string;
+      true_other2: string;
+      true_bottler_name: string;
+      true_distillation_year: string;
+      true_bottling_year: string;
+      truth_notes: string;
       is_correct: string;
+      item_grades_json: string;
       score: number | null;
     };
 
@@ -291,6 +322,8 @@ export async function GET(request: NextRequest) {
                 guessed_age: answer.guessed_age,
                 guessed_abv: answer.guessed_abv,
                 guessed_distillery: answer.guessed_distillery,
+                guessed_other1: answer.guessed_other1,
+                guessed_other2: answer.guessed_other2,
               },
               {
                 true_cask: truth.true_cask,
@@ -298,15 +331,31 @@ export async function GET(request: NextRequest) {
                 true_age: truth.true_age,
                 true_abv: truth.true_abv,
                 true_distillery: truth.true_distillery,
+                true_other1: truth.true_other1,
+                true_other2: truth.true_other2,
               },
-              grade && typeof grade.is_correct === 'boolean' ? { is_correct: grade.is_correct } : null,
-              scoringSnapshot
+              grade && typeof grade.is_correct === 'boolean'
+                ? {
+                    is_correct: grade.is_correct,
+                    item_grades: grade.item_grades ?? null,
+                  }
+                : grade?.item_grades
+                  ? { is_correct: null, item_grades: grade.item_grades }
+                  : null,
+              scoringSnapshot,
+              caskOpts,
+              regionOpts,
             )
           : null;
 
         if (typeof score === 'number' && Number.isFinite(score)) {
           totals.set(p.id, (totals.get(p.id) ?? 0) + score);
         }
+
+        const itemGradesJson =
+          grade?.item_grades && typeof grade.item_grades === 'object'
+            ? JSON.stringify(grade.item_grades)
+            : '';
 
         rows.push({
           sample_id: sample.id,
@@ -323,6 +372,8 @@ export async function GET(request: NextRequest) {
           guessed_age: answer?.guessed_age?.toString() || '',
           guessed_abv: answer?.guessed_abv?.toString() || '',
           guessed_distillery: answer?.guessed_distillery || '',
+          guessed_other1: answer?.guessed_other1 || '',
+          guessed_other2: answer?.guessed_other2 || '',
           nose_tier1: nose.tier1,
           nose_tier2: nose.tier2,
           nose_text: nose.text,
@@ -337,7 +388,14 @@ export async function GET(request: NextRequest) {
           true_age: truth?.true_age?.toString() || '',
           true_abv: truth?.true_abv?.toString() || '',
           true_distillery: truth?.true_distillery || '',
+          true_other1: truth?.true_other1 || '',
+          true_other2: truth?.true_other2 || '',
+          true_bottler_name: truth?.true_bottler_name || '',
+          true_distillation_year: truth?.true_distillation_year?.toString() || '',
+          true_bottling_year: truth?.true_bottling_year?.toString() || '',
+          truth_notes: truth?.notes || '',
           is_correct: isCorrectCell,
+          item_grades_json: itemGradesJson,
           score,
         });
       });
@@ -360,6 +418,8 @@ export async function GET(request: NextRequest) {
       'guessed_age',
       'guessed_abv',
       'guessed_distillery',
+      'guessed_other1',
+      'guessed_other2',
       'nose_tier1',
       'nose_tier2',
       'nose_text',
@@ -374,7 +434,14 @@ export async function GET(request: NextRequest) {
       'true_age',
       'true_abv',
       'true_distillery',
+      'true_other1',
+      'true_other2',
+      'true_bottler_name',
+      'true_distillation_year',
+      'true_bottling_year',
+      'truth_notes',
       'is_correct',
+      'item_grades_json',
       'score',
       'participant_total_score',
     ];
@@ -398,6 +465,8 @@ export async function GET(request: NextRequest) {
         csvEscape(r.guessed_age),
         csvEscape(r.guessed_abv),
         csvEscape(r.guessed_distillery),
+        csvEscape(r.guessed_other1),
+        csvEscape(r.guessed_other2),
         csvEscape(r.nose_tier1),
         csvEscape(r.nose_tier2),
         csvEscape(r.nose_text),
@@ -412,7 +481,14 @@ export async function GET(request: NextRequest) {
         csvEscape(r.true_age),
         csvEscape(r.true_abv),
         csvEscape(r.true_distillery),
+        csvEscape(r.true_other1),
+        csvEscape(r.true_other2),
+        csvEscape(r.true_bottler_name),
+        csvEscape(r.true_distillation_year),
+        csvEscape(r.true_bottling_year),
+        csvEscape(r.truth_notes),
         csvEscape(r.is_correct),
+        csvEscape(r.item_grades_json),
         csvEscape(r.score ?? ''),
         csvEscape(total),
       ];

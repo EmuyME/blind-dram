@@ -1,9 +1,11 @@
 "use client";
 
 import React from 'react';
+import { clampTier1Intensity } from '@/lib/json-helpers';
 
 type Flavor = {
   tier1_tags?: string[] | null;
+  tier1_intensity?: Record<string, number> | null;
   tier2_terms?: string[] | null;
   text?: string | null;
 };
@@ -31,6 +33,7 @@ export function FlavorChips({
   defaultCollapsed?: boolean;
 }) {
   const tier1 = (flavor?.tier1_tags || []).filter(Boolean);
+  const tier1Int = flavor?.tier1_intensity || {};
   const tier2 = (flavor?.tier2_terms || []).filter(Boolean);
   const text = (flavor?.text || '').trim();
 
@@ -51,11 +54,16 @@ export function FlavorChips({
           <div>
             <div className="text-xs font-semibold text-stone-400 mb-2">Tier1</div>
             <div className="flex flex-wrap gap-2">
-              {tier1.map((t) => (
-                <Chip key={`t1-${label}-${t}`} tone="accent">
-                  {t}
-                </Chip>
-              ))}
+              {tier1.map((t) => {
+                const raw = tier1Int[t];
+                const lv =
+                  raw != null && Number.isFinite(raw) ? clampTier1Intensity(raw) : null;
+                return (
+                  <Chip key={`t1-${label}-${t}`} tone="accent">
+                    {lv != null ? `${t}（${lv}）` : t}
+                  </Chip>
+                );
+              })}
             </div>
           </div>
         )}

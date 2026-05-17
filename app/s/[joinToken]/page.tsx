@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
@@ -17,8 +17,26 @@ interface Session {
 }
 
 export default function JoinPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
+          <div className="max-w-md mx-auto mt-8">
+            <p className="text-center text-stone-400">読み込み中...</p>
+          </div>
+        </div>
+      }
+    >
+      <JoinPageContent />
+    </Suspense>
+  );
+}
+
+function JoinPageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isEditMode = searchParams.get('edit') === '1';
   const [joinToken, setJoinToken] = useState<string>('');
 
   useEffect(() => {
@@ -36,16 +54,16 @@ export default function JoinPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [, setOwnerTokenState] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [rejoinParticipantToken, setRejoinParticipantToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (joinToken) {
-      // 既に参加登録済みの場合は自動的にリダイレクト
       const existingToken = getParticipantToken(joinToken);
-      if (existingToken) {
+      if (existingToken && !isEditMode) {
         router.push(`/session/${joinToken}`);
         return;
       }
-      
+
       loadSession();
       
       // オーナートークンを取得
@@ -55,8 +73,8 @@ export default function JoinPage() {
         checkOwnerStatus(storedOwnerToken);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ joinToken で再実行
-  }, [joinToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ joinToken / 修正モードで再実行
+  }, [joinToken, isEditMode, router]);
   
   // オーナーかどうかをチェック
   const checkOwnerStatus = async (token: string) => {
@@ -72,6 +90,55 @@ export default function JoinPage() {
       console.error('Check owner status error:', error);
     }
   };
+
+  useEffect(() => {
+    if (!joinToken || !isEditMode) return;
+    const t = getParticipantToken(joinToken);
+    if (!t) {
+      showToast('参加登録の修正には、この端末で保存された参加トークンが必要です', 'error');
+      return;
+    }
+    setRejoinParticipantToken(t);
+
+    const load = async () => {
+      try {
+        const meRes = await fetch(
+          `/api/participants/me?join_token=${encodeURIComponent(joinToken)}&participant_token=${encodeURIComponent(t)}`,
+        );
+        const meJson = await meRes.json();
+        if (!meRes.ok) {
+          showToast(meJson.error || '登録内容の読み込みに失敗しました', 'error');
+          return;
+        }
+        const me = meJson.data as { display_name: string; brought_count: number };
+        setDisplayName(me.display_name || '');
+        const count = typeof me.brought_count === 'number' ? me.brought_count : 0;
+        setBroughtCount(count);
+
+        const samplesRes = await fetch(
+          `/api/session/my-samples?join_token=${encodeURIComponent(joinToken)}&participant_token=${encodeURIComponent(t)}`,
+        );
+        const samplesJson = await samplesRes.json();
+        if (samplesRes.ok && Array.isArray(samplesJson.data) && samplesJson.data.length > 0) {
+          const sorted = [...(samplesJson.data as { label: string; sort_order: number }[])].sort(
+            (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+          );
+          setBottleLabels(sorted.map((s) => s.label));
+        } else if (count > 0) {
+          const defaults = Array.from({ length: count }, (_, i) => `Sample ${String.fromCharCode(65 + i)}`);
+          setBottleLabels(defaults);
+        } else {
+          setBottleLabels([]);
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('ネットワークエラーが発生しました', 'error');
+      }
+    };
+
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinToken, isEditMode]);
 
   const loadSession = async () => {
     try {
@@ -125,19 +192,30 @@ export default function JoinPage() {
       return;
     }
 
+    if (isEditMode && !rejoinParticipantToken) {
+      showToast('登録内容を読み込み中です。しばらく待ってから再度お試しください', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       
+      const payload: Record<string, unknown> = {
+        join_token: joinToken,
+        display_name: displayName,
+        is_attending: true,
+        brought_count: broughtCount,
+        bottle_labels: bottleLabels.filter((label) => label.trim()),
+      };
+      if (isEditMode && rejoinParticipantToken) {
+        payload.rejoin_participant_token = rejoinParticipantToken;
+      }
+
       const response = await fetch('/api/participants/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          join_token: joinToken,
-          display_name: displayName,
-          is_attending: true,
-          brought_count: broughtCount,
-          bottle_labels: bottleLabels.filter(label => label.trim()),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -153,7 +231,7 @@ export default function JoinPage() {
       setParticipantToken(joinToken, participant_token);
       
       
-      showToast('参加登録が完了しました', 'success');
+      showToast(isEditMode ? '参加登録を更新しました' : '参加登録が完了しました', 'success');
       
       // 参加者ホームに即座にリダイレクト（setTimeoutを削除して即座に遷移）
       if (joinToken) {
@@ -216,6 +294,11 @@ export default function JoinPage() {
 
       <div className="max-w-md mx-auto mt-8">
         <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 mb-6 tracking-tight">{session.title}</h1>
+        {isEditMode && (
+          <p className="text-sm text-stone-400 mb-4 leading-relaxed">
+            参加登録内容を修正しています。保存すると新しい参加トークンがこの端末に記録されます。
+          </p>
+        )}
         
         {/* オーナー向け：参加URLと参加コードの表示 */}
         {isOwner && (
@@ -295,6 +378,9 @@ export default function JoinPage() {
               placeholder="例: 山田太郎"
               required
             />
+            <p className="text-sm text-stone-500 mt-1.5 leading-relaxed">
+              このイベント内で既に使われている表示名は登録できません（前後の空白は無視して比較します）。
+            </p>
           </div>
 
           <div>
@@ -340,7 +426,7 @@ export default function JoinPage() {
             disabled={isSubmitting || !displayName.trim()}
             className="w-full"
           >
-            {isSubmitting ? '登録中...' : '参加登録する'}
+            {isSubmitting ? '保存中...' : isEditMode ? '変更を保存' : '参加登録する'}
           </Button>
         </form>
       </div>

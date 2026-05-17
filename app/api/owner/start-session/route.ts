@@ -2,6 +2,8 @@
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
+import { mergeLegacyOptionColumnsIntoScoring, cleanOptionStrings, DEFAULT_CASK_CHOICE_OPTIONS, DEFAULT_REGION_CHOICE_OPTIONS } from '@/lib/scoring-schema';
+import { DEFAULT_FLAVOR_CHART } from '@/lib/default-flavor-chart';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,10 +14,10 @@ export async function POST(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証とSession取得
+    // Owner認証とSession取得（mode は一斉開始時の Sample 状態遷移に必要）
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('id, state, flavor_chart_id')
+      .select('id, state, mode, flavor_chart_id')
       .eq('owner_token', owner_token)
       .single();
 
@@ -66,57 +68,50 @@ export async function POST(request: NextRequest) {
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
-    // デフォルトのフレーバーチャート
-    const defaultFlavorChart = {
-      version: 'v1',
-      tier1: [
-        'フルーティ',
-        'フローラル・ハーブ系',
-        'シリアル',
-        'テール',
-        '硫黄系',
-        'サリファリー',
-        'ピート・薫香',
-        '樽熟成',
-        'その他',
-      ],
-      tier2_suggestions: {
-        'フルーティ': ['レモン', 'ライム', 'オレンジ', 'グレープフルーツ', '青リンゴ', '赤リンゴ', '洋梨', '桃', 'さくらんぼ', 'プラム', 'いちご', 'ラズベリー', 'ブラックベリー', 'カシス', 'マンゴー', 'パイナップル', 'バナナ', 'メロン', 'ドライレーズン', 'ドライイチジク', 'ドライアプリコット'],
-        'フローラル・ハーブ系': ['バラ', '白い花', 'スミレ', 'ラベンダー', 'ヒース（ヘザー）', 'ミント', 'タイム', 'ローズマリー', '芝生', '干し草', '甘草'],
-        'シリアル': ['麦芽', '穀草', 'パン', 'ビスケット', 'クッキー', 'クレープ'],
-        'テール': ['タバコ', '紅茶', 'バター', '皮革', 'うろこ'],
-        '硫黄系': ['硫黄', 'マッチ', 'ゴム', 'ゆで卵', 'キャベツ'],
-        'サリファリー': ['なめし革', 'ゴム', '油', '肉', 'ブロス'],
-        'ピート・薫香': ['煙', '焚き火', 'タール', 'ヨード', '海藻', 'ベーコン', 'スモーク', '焦げ'],
-        '樽熟成': ['バニラ', 'キャラメル', 'ハチミツ', 'メープル', 'ココナッツ', 'クルミ', 'アーモンド', 'ヘーゼルナッツ', 'オーク', 'セダー', 'サンダルウッド', '杉', '黒胡椒', '白胡椒', 'ジンジャー', 'ナツメグ', 'クローブ', 'シナモン', 'シェリー', 'マデイラ', 'ワイン'],
-        'その他': [],
-      },
-    };
+    const flavorChartSnapshot = settings?.flavor_chart || DEFAULT_FLAVOR_CHART;
 
-    // 設定が存在する場合はそれを使用、なければデフォルトを使用
-    const flavorChartSnapshot = settings?.flavor_chart || defaultFlavorChart;
+    const defaultCaskOptions = [...DEFAULT_CASK_CHOICE_OPTIONS];
+    const defaultRegionOptions = [...DEFAULT_REGION_CHOICE_OPTIONS];
 
-    // デフォルトのカスク・地域選択肢
-    const defaultCaskOptions = ['シェリー樽', 'バーボン樽', 'ワイン樽', 'その他'];
-    const defaultRegionOptions = ['スコットランド', 'アイルランド', 'アメリカ', '日本', 'その他'];
-
-    // 設定からカスク・地域選択肢を取得
-    const caskOptionsSnapshot = settings?.cask_options || defaultCaskOptions;
-    const regionOptionsSnapshot = settings?.region_options || defaultRegionOptions;
-
-    // デフォルト配点
     const defaultScoring = {
-      cask: 3,
-      region: 3,
+      cask: 5,
+      region: 2,
       age: 3,
       abv: 3,
-      distillery: 6,
+      distillery: 5,
       age_penalty_per_year: 1,
       abv_penalty_per_percent: 2,
     };
 
-    // 設定から配点を取得
-    const scoringSnapshot = settings?.scoring || defaultScoring;
+    const scoringSnapshot = mergeLegacyOptionColumnsIntoScoring(
+      settings?.scoring || defaultScoring,
+      settings?.cask_options,
+      settings?.region_options,
+    );
+
+    const needCaskChoice =
+      scoringSnapshot.items.cask.enabled &&
+      scoringSnapshot.items.cask.maxPoints > 0 &&
+      scoringSnapshot.items.cask.inputType === 'choice';
+    const needRegionChoice =
+      scoringSnapshot.items.region.enabled &&
+      scoringSnapshot.items.region.maxPoints > 0 &&
+      scoringSnapshot.items.region.inputType === 'choice';
+
+    const caskOptsList = cleanOptionStrings(scoringSnapshot.items.cask.options ?? []);
+    const regionOptsList = cleanOptionStrings(scoringSnapshot.items.region.options ?? []);
+
+    const caskOptionsSnapshot = needCaskChoice
+      ? caskOptsList.length > 0
+        ? caskOptsList
+        : defaultCaskOptions
+      : caskOptsList;
+
+    const regionOptionsSnapshot = needRegionChoice
+      ? regionOptsList.length > 0
+        ? regionOptsList
+        : defaultRegionOptions
+      : regionOptsList;
 
     // Session状態をrunningに変更、スナップショット保存
     // cask_options_snapshot、region_options_snapshot、scoring_snapshotはオプショナル（カラムが存在する場合のみ更新）
@@ -151,6 +146,56 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error('Session update error:', updateError);
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
+    }
+
+    // mode は DB 上 NOT NULL のはずだが、取りこぼし・型ゆれで厳密比較だけだと分岐に入らず
+    // pending のまま残り得るため、「simultaneous 以外は逐次扱い」とする。
+    const effectiveMode: 'sequential' | 'simultaneous' =
+      session.mode === 'simultaneous' ? 'simultaneous' : 'sequential';
+
+    // 一斉モード: 仕様どおり、セッション開始と同時に未開始の全 Sample を回答受付にする。
+    // （これがないと session は running でも全件 pending のままになり、参加者側が永遠に「開始待ち」になる）
+    if (effectiveMode === 'simultaneous') {
+      const { error: samplesActivateError } = await supabase
+        .from('samples')
+        .update({ state: 'answering' })
+        .eq('session_id', session.id)
+        .eq('state', 'pending');
+
+      if (samplesActivateError) {
+        console.error('Simultaneous samples activate error:', samplesActivateError);
+        return errorResponse('サンプル状態の更新に失敗しました', 'SERVER_ERROR', 500);
+      }
+    } else {
+      // 逐次モード: sort_order 最小の pending を第1ラウンドとして自動開始する。
+      // これまで「Session を開始」後も全件 pending のため、参加者だけ「まだ開始されていません」が続いていた。
+      const { data: firstPending, error: firstPendingError } = await supabase
+        .from('samples')
+        .select('id')
+        .eq('session_id', session.id)
+        .eq('state', 'pending')
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (firstPendingError) {
+        console.error('Sequential first pending sample query error:', firstPendingError);
+        return errorResponse('サンプル状態の確認に失敗しました', 'SERVER_ERROR', 500);
+      }
+
+      if (firstPending?.id) {
+        const { error: firstActivateError } = await supabase
+          .from('samples')
+          .update({ state: 'answering' })
+          .eq('id', firstPending.id)
+          .eq('session_id', session.id)
+          .eq('state', 'pending');
+
+        if (firstActivateError) {
+          console.error('Sequential first sample activate error:', firstActivateError);
+          return errorResponse('最初のラウンドの開始に失敗しました', 'SERVER_ERROR', 500);
+        }
+      }
     }
 
     return successResponse({

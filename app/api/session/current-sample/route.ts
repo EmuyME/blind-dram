@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const isSequential = session.mode === 'sequential';
 
     if (isSequential) {
-      const { data: revealedSample, error: revealedError } = await supabase
+      const { data: revealedSample } = await supabase
         .from('samples')
         .select('id, label, state, sort_order, presenter_participant_id')
         .eq('session_id', session.id)
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      const { data: closedSample, error: closedError } = await supabase
+      const { data: closedSample } = await supabase
         .from('samples')
         .select('id, label, state, sort_order, presenter_participant_id')
         .eq('session_id', session.id)
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 現在のSampleを取得（優先順位: answering > grading > pending）
-    const { data: answeringSample, error: answeringError } = await supabase
+    const { data: answeringSample } = await supabase
       .from('samples')
       .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     }
 
     // grading状態のSampleを取得（採点中）
-    const { data: gradingSample, error: gradingError } = await supabase
+    const { data: gradingSample } = await supabase
       .from('samples')
       .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
     // 逐次モードの revealed/closed は冒頭で優先判定済み
 
     // answering状態（およびrevealed状態）のSampleがない場合、pending状態の最初のSampleを返す
-    const { data: pendingSample, error: pendingError } = await supabase
+    const { data: pendingSample } = await supabase
       .from('samples')
       .select('id, label, state, sort_order, presenter_participant_id')
       .eq('session_id', session.id)

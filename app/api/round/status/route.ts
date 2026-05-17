@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 import { supabase } from '@/lib/supabase';
 import { writeErrorLog } from '@/lib/logger';
+import {
+  isParticipantManualGradingComplete,
+  type ItemGradesMap,
+} from '@/lib/scoring-schema';
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const { data: sessionRow } = await supabase
       .from('sessions')
-      .select('mode')
+      .select('mode, scoring_snapshot, cask_options_snapshot, region_options_snapshot')
       .eq('id', sample.session_id)
       .maybeSingle();
     const sessionMode =
@@ -73,7 +77,7 @@ export async function GET(request: NextRequest) {
     // 逐次モードでrevealed状態の場合、参加者は自分の回答を見られる
     const isRevealed = sample.state === 'revealed';
     const answerSelect = isPresenter || isRevealed
-      ? 'participant_id, status, submitted_at, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, nose, palate, finish, bottle_image_url'
+      ? 'participant_id, status, submitted_at, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2, nose, palate, finish, bottle_image_url'
       : 'participant_id, status, submitted_at';
     const { data: answersData, error: answersError } = await supabase
       .from('answers')
@@ -96,6 +100,8 @@ export async function GET(request: NextRequest) {
         guessed_age?: number | null;
         guessed_abv?: number | null;
         guessed_distillery?: string | null;
+        guessed_other1?: string | null;
+        guessed_other2?: string | null;
         nose?: unknown;
         palate?: unknown;
         finish?: unknown;
@@ -110,24 +116,27 @@ export async function GET(request: NextRequest) {
     // });
 
     // 採点結果取得（Presenterの場合のみ）
-    let grades: Array<{ participant_id: string; is_correct: boolean }> = [];
+    let grades: Array<{
+      participant_id: string;
+      is_correct: boolean;
+      item_grades: ItemGradesMap | null;
+    }> = [];
     if (isPresenter) {
       const { data: gradesData, error: gradesError } = await supabase
         .from('distillery_grades')
-        .select('participant_id, is_correct')
+        .select('participant_id, is_correct, item_grades')
         .eq('sample_id', sampleId);
 
       if (gradesError) {
         console.error('Grades fetch error:', gradesError);
       } else {
-        grades = gradesData || [];
-        console.log('[DEBUG] Grades fetched:', grades);
+        grades = (gradesData || []) as typeof grades;
       }
     }
 
     // Truth入力確認（Presenterの場合、またはrevealed状態の場合は詳細情報も取得）
     const truthSelect = isPresenter || isRevealed
-      ? 'id, true_cask, true_region, true_age, true_abv, true_distillery, notes, bottle_image_url'
+      ? 'id, true_cask, true_region, true_age, true_abv, true_distillery, true_other1, true_other2, true_bottler_name, true_distillation_year, true_bottling_year, notes, bottle_image_url'
       : 'id';
     const { data: truthData } = await supabase
       .from('truths')
@@ -142,16 +151,16 @@ export async function GET(request: NextRequest) {
       true_age?: number | null;
       true_abv?: number | null;
       true_distillery?: string | null;
+      true_other1?: string | null;
+      true_other2?: string | null;
+      true_bottler_name?: string | null;
+      true_distillation_year?: number | null;
+      true_bottling_year?: number | null;
       notes?: string | null;
       bottle_image_url?: string | null;
     }) ?? null;
 
-    const participantProgress = (participants || [])
-      .filter((p) => {
-        // Presenter自身は参加者進捗から除外（Presenterは採点する側なので）
-        return !isPresenter || p.id !== sample.presenter_participant_id;
-      })
-      .map((p) => {
+    const participantProgress = (participants || []).map((p) => {
         const answer = answers?.find((a) => a.participant_id === p.id);
 
         // 回答の状態を取得（回答がない場合は'draft'）
@@ -186,11 +195,14 @@ export async function GET(request: NextRequest) {
               guessed_age: answer.guessed_age || null,
               guessed_abv: answer.guessed_abv || null,
               guessed_distillery: answer.guessed_distillery || null,
+              guessed_other1: answer.guessed_other1 ?? null,
+              guessed_other2: answer.guessed_other2 ?? null,
               nose: answer.nose || null,
               palate: answer.palate || null,
               finish: answer.finish || null,
               bottle_image_url: answer.bottle_image_url || null,
               is_correct: gradeForParticipant?.is_correct ?? undefined,
+              item_grades: gradeForParticipant?.item_grades ?? undefined,
             };
             // ログは重要な変更時のみ記録（ポーリングで頻繁に呼ばれるため）
             // console.log(`[DEBUG] Participant ${p.id} (${p.display_name}): has_answer=true, status=${answer.status}, guessed_distillery=${answer.guessed_distillery || 'null'}, grade=${gradeForParticipant?.is_correct ?? 'undefined'}`);
@@ -204,11 +216,14 @@ export async function GET(request: NextRequest) {
               guessed_age: null,
               guessed_abv: null,
               guessed_distillery: null,
+              guessed_other1: null,
+              guessed_other2: null,
               nose: null,
               palate: null,
               finish: null,
               bottle_image_url: null,
               is_correct: gradeForParticipant?.is_correct ?? undefined,
+              item_grades: gradeForParticipant?.item_grades ?? undefined,
             };
             // ログは重要な変更時のみ記録（ポーリングで頻繁に呼ばれるため）
             // console.log(`[DEBUG] Participant ${p.id} (${p.display_name}): has_answer=false, grade=${gradeForParticipant?.is_correct ?? 'undefined'}`);
@@ -226,26 +241,42 @@ export async function GET(request: NextRequest) {
     //   filtered_count: participantProgress.length,
     // });
 
-    // 全員提出済み = 参加者全員が回答を持ち、かつすべてsubmitted（プレゼンターは除外）
+    // プレゼンター以外＝「出題ボトルの他人の回答者」がいるときは、その全員の提出を待つ。
+    // プレゼンター以外に出席者がいないときは、他人の提出待ちなし（allSubmitted とみなす）。
     const nonPresenterProgress = participantProgress.filter(
-      (p) => !isPresenter || p.participant_id !== sample.presenter_participant_id
+      (p) => p.participant_id !== sample.presenter_participant_id,
     );
     const allSubmitted =
-      nonPresenterProgress.length > 0 &&
-      nonPresenterProgress.every((p) => p.status === 'submitted');
+      nonPresenterProgress.length > 0
+        ? nonPresenterProgress.every((p) => p.status === 'submitted' || p.status === 'graded')
+        : true; // プレゼンター以外に出席者がいない → 提出待ちなし
+
     const truthEntered = !!truth;
 
-    // 採点完了確認（プレゼンターの場合のみ）
     let allGraded = false;
     if (isPresenter) {
-      const nonPresenterIds = nonPresenterProgress.map((p) => p.participant_id);
-      const gradedIds = grades.map((g) => g.participant_id);
-      // NOTE: 全員提出済みでない限り「全員採点済み」にはしない
-      // （差し戻し等でsubmittedが減った場合に、finishが誤って有効になるのを防ぐ）
-      allGraded =
-        allSubmitted &&
-        nonPresenterIds.length > 0 &&
-        nonPresenterIds.every((id) => gradedIds.includes(id));
+      const gradeByPid = new Map(grades.map((g) => [g.participant_id, g]));
+      const submittedForGrading = participantProgress.filter(
+        (p) => p.status === 'submitted' || p.status === 'graded',
+      );
+      const noNonPresenterAttendees = nonPresenterProgress.length === 0;
+      // 解答者ゼロかつ提出済み回答がない → 採点対象なし（正解保存のみで Round 進行可）
+      if (noNonPresenterAttendees && submittedForGrading.length === 0) {
+        allGraded = allSubmitted && truthEntered;
+      } else {
+        allGraded =
+          allSubmitted &&
+          submittedForGrading.length > 0 &&
+          submittedForGrading.every((p) => {
+            const g = gradeByPid.get(p.participant_id);
+            return isParticipantManualGradingComplete(
+              sessionRow?.scoring_snapshot ?? null,
+              g
+                ? { is_correct: g.is_correct, item_grades: g.item_grades }
+                : null,
+            );
+          });
+      }
     }
 
     const response: {
@@ -264,9 +295,17 @@ export async function GET(request: NextRequest) {
         true_age: number | null | undefined;
         true_abv: number | null | undefined;
         true_distillery: string | null | undefined;
+        true_other1: string | null | undefined;
+        true_other2: string | null | undefined;
+        true_bottler_name: string | null | undefined;
+        true_distillation_year: number | null | undefined;
+        true_bottling_year: number | null | undefined;
         notes: string | null | undefined;
         bottle_image_url: string | null;
       };
+      scoring_snapshot?: unknown;
+      cask_options_snapshot?: unknown;
+      region_options_snapshot?: unknown;
     } = {
       sample_id: sampleId,
       state: sample.state,
@@ -288,9 +327,20 @@ export async function GET(request: NextRequest) {
         true_age: truth.true_age,
         true_abv: truth.true_abv,
         true_distillery: truth.true_distillery,
+        true_other1: truth.true_other1,
+        true_other2: truth.true_other2,
+        true_bottler_name: truth.true_bottler_name,
+        true_distillation_year: truth.true_distillation_year,
+        true_bottling_year: truth.true_bottling_year,
         notes: truth.notes,
         bottle_image_url: truth.bottle_image_url || null,
       };
+    }
+
+    if (isPresenter) {
+      response.scoring_snapshot = sessionRow?.scoring_snapshot ?? null;
+      response.cask_options_snapshot = sessionRow?.cask_options_snapshot ?? null;
+      response.region_options_snapshot = sessionRow?.region_options_snapshot ?? null;
     }
     
 

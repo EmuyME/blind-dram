@@ -49,7 +49,7 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     // 参加者1が回答提出
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       guessed_cask: 'シェリー樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'マッカラン',
@@ -65,16 +65,9 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     });
     
     // PresenterがTruth入力
-    await helpers.submitAnswer(joinToken, sampleId, participant2.participantToken, {
-      guessed_cask: 'バーボン樽',
-      guessed_region: '日本',
-      guessed_age: 15,
-      guessed_abv: 40,
-      guessed_distillery: '山崎',
-    });
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       true_cask: 'シェリー樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'マッカラン',
@@ -93,16 +86,19 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
       await page.waitForTimeout(1000);
     }
 
-    // Presenterが採点（API）
-    const gradeResponse = await page.request.post('/api/distillery/grade', {
-      data: {
-        participant_token: participant1.participantToken,
-        sample_id: sampleId,
-        target_participant_id: participant2.participantId,
-        is_correct: true,
-      },
-    });
-    expect(gradeResponse.ok()).toBeTruthy();
+    // 提出者全員分の採点（API）。finish は全提出者に grade 行が必要
+    await helpers.postDistilleryGrade(
+      participant1.participantToken,
+      sampleId,
+      participant1.participantId,
+      true,
+    );
+    await helpers.postDistilleryGrade(
+      participant1.participantToken,
+      sampleId,
+      participant2.participantId,
+      true,
+    );
 
     // Round終了（API）
     const finishResponse = await page.request.post('/api/round/finish', {
@@ -169,7 +165,7 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     await helpers.startRound(joinToken, sampleId, participant1.participantToken);
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       guessed_cask: 'シェリー樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'マッカラン',
@@ -183,7 +179,7 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     });
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       true_cask: 'シェリー樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'マッカラン',
@@ -202,16 +198,18 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
       await page.waitForTimeout(1000);
     }
 
-    // 採点とRound終了（API）
-    const gradeResponse = await page.request.post('/api/distillery/grade', {
-      data: {
-        participant_token: participant1.participantToken,
-        sample_id: sampleId,
-        target_participant_id: participant2.participantId,
-        is_correct: true,
-      },
-    });
-    expect(gradeResponse.ok()).toBeTruthy();
+    await helpers.postDistilleryGrade(
+      participant1.participantToken,
+      sampleId,
+      participant1.participantId,
+      true,
+    );
+    await helpers.postDistilleryGrade(
+      participant1.participantToken,
+      sampleId,
+      participant2.participantId,
+      true,
+    );
 
     const finishResponse = await page.request.post('/api/round/finish', {
       data: {
@@ -235,10 +233,10 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     
     // 「次へ」ボタンをクリック（参加者1）
     await nextButton.click();
-    await page.waitForTimeout(2000);
-    
-    // 成功メッセージが表示されることを確認
-    await expect(page.locator('text=/次へ.*押しました|他の参加者を待っています/')).toBeVisible({ timeout: 5000 });
+    // トーストは約3秒で消えるため、文言は待ち時間を短く／文言を実装に合わせる
+    await expect(
+      page.getByText(/他の参加者を待っています|次へ.*押しました/, { exact: false }).first(),
+    ).toBeVisible({ timeout: 12000 });
     
     // 参加者1/2のクリックをAPIで確定
     const click1 = await page.request.post('/api/round-result/click-next', {
@@ -328,7 +326,7 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     await helpers.startRound(joinToken, sampleId, participant1.participantToken);
     await helpers.submitAnswer(joinToken, sampleId, participant1.participantToken, {
       guessed_cask: 'シェリー樽',
-      guessed_region: 'スコットランド',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 12,
       guessed_abv: 43,
       guessed_distillery: 'マッカラン',
@@ -342,7 +340,7 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     });
     await helpers.submitTruth(joinToken, sampleId, participant1.participantToken, {
       true_cask: 'シェリー樽',
-      true_region: 'スコットランド',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43,
       true_distillery: 'マッカラン',
@@ -361,16 +359,18 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
       await page.waitForTimeout(1000);
     }
 
-    // 採点とRound終了（API）
-    const gradeResponse = await page.request.post('/api/distillery/grade', {
-      data: {
-        participant_token: participant1.participantToken,
-        sample_id: sampleId,
-        target_participant_id: participant2.participantId,
-        is_correct: true,
-      },
-    });
-    expect(gradeResponse.ok()).toBeTruthy();
+    await helpers.postDistilleryGrade(
+      participant1.participantToken,
+      sampleId,
+      participant1.participantId,
+      true,
+    );
+    await helpers.postDistilleryGrade(
+      participant1.participantToken,
+      sampleId,
+      participant2.participantId,
+      true,
+    );
 
     const finishResponse = await page.request.post('/api/round/finish', {
       data: {

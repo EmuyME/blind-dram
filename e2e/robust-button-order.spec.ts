@@ -66,8 +66,8 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
       await helpers.startRound(joinToken, s1!, presenter.participantToken);
       await page.waitForTimeout(300);
       await helpers.submitTruth(joinToken, s1!, presenter.participantToken, {
-        true_cask: 'バーボン',
-        true_region: 'スコットランド',
+        true_cask: 'バーボン樽',
+        true_region: 'スコットランド（スペイサイド）',
         true_age: 12,
         true_abv: 43.0,
         true_distillery: 'D1',
@@ -76,16 +76,16 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
 
       // answers: 回答者 & 次Presenter(=ラウンド1では回答者)
       await helpers.submitAnswer(joinToken, s1!, answerer.participantToken, {
-        guessed_cask: 'シェリー',
-        guessed_region: 'スコットランド',
+        guessed_cask: 'シェリー樽',
+        guessed_region: 'スコットランド（スペイサイド）',
         guessed_age: 10,
         guessed_abv: 40.0,
         guessed_distillery: 'D2',
       });
       await page.waitForTimeout(300);
       await helpers.submitAnswer(joinToken, s1!, nextPresenter.participantToken, {
-        guessed_cask: 'バーボン',
-        guessed_region: 'スコットランド',
+        guessed_cask: 'バーボン樽',
+        guessed_region: 'スコットランド（スペイサイド）',
         guessed_age: 12,
         guessed_abv: 43.0,
         guessed_distillery: 'D1',
@@ -202,8 +202,8 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
 
     // Presenter truth
     await helpers.submitTruth(joinToken, s1!, presenter.participantToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'D1',
@@ -220,8 +220,8 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
 
     // 回答者が提出（ここで answering→grading へ遷移し得る）
     await helpers.submitAnswer(joinToken, s1!, answerer.participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'D2',
@@ -276,16 +276,16 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
     await helpers.startRound(joinToken, s1!, presenter.participantToken);
     await page.waitForTimeout(300);
     await helpers.submitTruth(joinToken, s1!, presenter.participantToken, {
-      true_cask: 'バーボン',
-      true_region: 'スコットランド',
+      true_cask: 'バーボン樽',
+      true_region: 'スコットランド（スペイサイド）',
       true_age: 12,
       true_abv: 43.0,
       true_distillery: 'D1',
     });
     await page.waitForTimeout(300);
     await helpers.submitAnswer(joinToken, s1!, answerer.participantToken, {
-      guessed_cask: 'シェリー',
-      guessed_region: 'スコットランド',
+      guessed_cask: 'シェリー樽',
+      guessed_region: 'スコットランド（スペイサイド）',
       guessed_age: 10,
       guessed_abv: 40.0,
       guessed_distillery: 'D2',
@@ -323,13 +323,16 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
     await page.waitForTimeout(800);
     await answererPage.waitForTimeout(800);
 
-    // 最終ラウンドなので「セッションページに戻る」で check-complete → aggregating へ
-    const backBtn = answererPage.locator('button:has-text("セッションページに戻る")');
-    await expect(backBtn).toBeVisible({ timeout: 30000 });
-    await backBtn.click();
+    await page.request.post('/api/round-result/start-next', {
+      data: { participant_token: presenter.participantToken, sample_id: s1 },
+    });
 
-    // 参加者は session/aggregating にいるはず
-    await expect(answererPage).toHaveURL(new RegExp(`/session/${joinToken}`), { timeout: 30000 });
+    // 最終ラウンドの start-next 後はセッションが aggregating になり、
+    // round-result ページ側が session へ自動遷移する（手動「セッションページに戻る」は出ない）
+    await answererPage.waitForURL(
+      (url) => url.pathname === `/session/${joinToken}`,
+      { timeout: 45000 },
+    );
     await answererPage.waitForTimeout(1000);
 
     // もう一人は round-result のままでも良い（published後に結果へ追従できるかを見るため残す）

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { forwardRef, useMemo } from 'react';
 import {
@@ -27,7 +27,7 @@ export const RankingMatrixTable = forwardRef<HTMLDivElement, Props>(
 
     const colHighlight = (participantId: string) =>
       highlightParticipantId && participantId === highlightParticipantId
-        ? 'bg-[#C88A2B]/12 border-x border-[#C88A2B]/35'
+        ? 'bg-bd-accent/12 border-x border-bd-accent/35'
         : '';
 
     if (participants.length === 0) {
@@ -91,17 +91,17 @@ export const RankingMatrixTable = forwardRef<HTMLDivElement, Props>(
                   })}
                 </tr>
               ))}
-              <tr className="ui-tr border-t-2 border-[#C88A2B]/40 bg-neutral-900/40">
+              <tr className="ui-tr border-t-2 border-bd-accent/40 bg-neutral-900/40">
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 bg-neutral-900/95 px-3 py-3 text-left text-sm font-bold text-[#E7C27B] backdrop-blur-sm"
+                  className="sticky left-0 z-10 bg-neutral-900/95 px-3 py-3 text-left text-sm font-bold text-bd-accent-dim backdrop-blur-sm"
                 >
                   総得点
                 </th>
                 {participants.map((p) => (
                   <td
                     key={`total-${p.participant_id}`}
-                    className={`px-3 py-3 text-center text-base font-bold tabular-nums text-[#C88A2B] ${colHighlight(p.participant_id)}`}
+                    className={`px-3 py-3 text-center text-base font-bold tabular-nums text-bd-accent ${colHighlight(p.participant_id)}`}
                   >
                     {p.total_score}
                   </td>

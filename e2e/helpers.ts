@@ -83,17 +83,18 @@ export class TestHelpers {
     await nameInput.waitFor({ state: 'visible', timeout: 10000 });
     await nameInput.fill(displayName);
     
-    // 持参ボトル数を入力
+    // 持参ボトル数を入力（BroughtCountInput は type="text" + #broughtCount）
     if (bottleCount > 0) {
-      const countInput = this.page.locator('input[type="number"]');
+      const countInput = this.page.locator('#broughtCount');
       await countInput.waitFor({ state: 'visible', timeout: 10000 });
       await countInput.fill(bottleCount.toString());
-      
-      // ボトルラベルを入力（ラベル入力フィールドが表示されるまで待つ）
-      await this.page.waitForTimeout(500); // ラベル入力フィールドが表示されるまで少し待つ
-      
+
+      // ボトルラベルを入力（displayName, broughtCount の次の text input）
+      await this.page.waitForTimeout(500);
+
+      const formTextInputs = this.page.locator('form input[type="text"]');
       for (let i = 0; i < labels.length; i++) {
-        const labelInput = this.page.locator('input[placeholder^="Sample"]').nth(i);
+        const labelInput = formTextInputs.nth(i + 2);
         await labelInput.waitFor({ state: 'visible', timeout: 10000 });
         await labelInput.fill(labels[i]);
       }
@@ -736,6 +737,20 @@ export class TestHelpers {
     await this.page.goto(`/o/${ownerToken}`);
     await this.page.click('button:has-text("結果を公開する")');
     await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * セッションホーム — Presenter パネルを開く（NextActionFocus 対応）
+   */
+  presenterPanelOpenButton() {
+    return this.page.getByRole('button', { name: /Presenter\s*パネルを開く/ });
+  }
+
+  /**
+   * セッションホーム — 回答画面へ（NextActionFocus 対応）
+   */
+  roundAnswerOpenButton() {
+    return this.page.getByRole('button', { name: /回答画面を開く|回答入力へ/ });
   }
 
   /**

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from 'react';
 
@@ -30,7 +30,7 @@ export function CorrectnessBadge({
   const tone = isTrue
     ? 'bg-sky-500/15 text-sky-100 border-sky-300/40'
     : isFalse
-      ? 'bg-amber-500/15 text-amber-100 border-amber-300/40 border-dashed'
+      ? 'bg-bd-accent/15 text-bd-accent-dim border-bd-accent/40 border-dashed'
       : 'bg-neutral-800/80 text-stone-300 border-white/10 border-dotted';
 
   return (

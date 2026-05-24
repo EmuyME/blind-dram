@@ -34,14 +34,14 @@ test.describe('逐次モード: Presenterパネルは順番が来た時のみ表
     await p2Page.waitForLoadState('domcontentloaded');
     await p2Page.waitForTimeout(1500);
 
-    await expect(p2Page.locator('text=Roundを開始できます')).toHaveCount(0);
-    await expect(p2Page.locator('text=/あなたはSample .*のPresenterです。Roundを開始できます。/')).toHaveCount(0);
+    await expect(p2Page.getByRole('heading', { name: /Round\s*を開始できます/ })).toHaveCount(0);
+    await expect(p2Page.getByText(/Roundを開始できます|Round を開始できます/)).toHaveCount(0);
 
     // P1 は自分の順番なので Presenterパネルが出る（開くボタンが見える）
     await page.goto(`/session/${joinToken}?debug_participant_token=${p1.participantToken}`);
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1500);
-    await expect(page.locator('button:has-text("Presenterパネルを開く")')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: /Presenter\s*パネルを開く/ })).toBeVisible({ timeout: 30000 });
 
     await p2Page.close();
   });

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
 import { BroughtCountInput } from '@/components/common/BroughtCountInput';
+import { ParticipantRecoveryPicker } from '@/components/common/ParticipantRecoveryPicker';
 import { setParticipantToken, getParticipantToken, getOwnerToken } from '@/lib/utils';
 import { defaultBottleLabel } from '@/lib/default-bottle-label';
 import { displayBottleCount } from '@/lib/display-count';
@@ -265,25 +266,30 @@ function JoinPageContent() {
           sessionState={session.state}
           mode={session.mode}
         />
-        <div className="max-w-md mx-auto mt-8">
+        <div className="max-w-md mx-auto mt-8 space-y-6">
+          <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight">{session.title}</h1>
           <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
             <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加登録は締め切られています</h2>
-            <p className="text-stone-400 mb-4 leading-relaxed">
-              このイベントの参加登録は既に締め切られています。
+            <p className="text-stone-400 mb-6 leading-relaxed">
+              新規の参加登録はできません。以前登録済みの方は、自分の名札を選んで復帰してください。
             </p>
+            <ParticipantRecoveryPicker joinToken={joinToken} showToast={showToast} />
             <Button
-              variant="primary"
+              variant="secondary"
               onClick={() => {
                 if (joinToken) {
                   router.push(`/session/${joinToken}`);
                 }
               }}
-              className="w-full"
+              className="w-full mt-4"
             >
-              ホームに戻る
+              セッションホームへ
             </Button>
           </div>
         </div>
+        {toast && (
+          <Toast message={toast.message} type={toast.type} onClose={hideToast} />
+        )}
       </div>
     );
   }
@@ -367,6 +373,19 @@ function JoinPageContent() {
           </div>
         )}
         
+        <div className="ui-card p-6 mb-6">
+          <ParticipantRecoveryPicker joinToken={joinToken} showToast={showToast} />
+        </div>
+
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <div className="w-full border-t border-white/10" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-neutral-900 px-3 text-sm text-stone-500">新規参加登録</span>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="displayName" className="block text-base md:text-lg font-medium text-stone-100 mb-2">

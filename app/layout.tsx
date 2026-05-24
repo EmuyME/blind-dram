@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className="antialiased selection:bg-amber-500/20 selection:text-stone-50">
+      <body className="antialiased selection:bg-bd-accent/25 selection:text-stone-50">
         {children}
         <footer className="py-6 px-4 text-center" aria-label="著作権表記・クレジット">
           <p className="select-none text-[10px] font-extralight tracking-[0.18em] text-stone-500/42">

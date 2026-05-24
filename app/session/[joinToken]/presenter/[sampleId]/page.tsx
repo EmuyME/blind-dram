@@ -985,7 +985,7 @@ export default function PresenterPage() {
           ) : null}
           <button
             type="button"
-            className="flex w-full min-h-[48px] items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5 active:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C88A2B]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+            className="flex w-full min-h-[48px] items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5 active:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bd-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
             onClick={() => setPresenterTastingOpen((o) => !o)}
             aria-expanded={presenterTastingOpen}
             aria-controls="presenter-tasting-panel"
@@ -1342,7 +1342,7 @@ export default function PresenterPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-amber-500/10 border border-amber-400/30 rounded-2xl p-4">
+                  <div className="bg-bd-accent/10 border border-bd-accent/30 rounded-2xl p-4">
                     <p className="text-amber-200 font-semibold">差し戻されました</p>
                     <p className="text-stone-300 text-sm mt-1 leading-relaxed">
                       内容を修正して保存してください。
@@ -1437,7 +1437,7 @@ export default function PresenterPage() {
                                     onClick={() => applyItemVerdict(participant.participant_id, key, 'wrong')}
                                     className={`py-2 text-sm ${
                                       g?.verdict === 'wrong'
-                                        ? 'bg-amber-500 hover:bg-amber-600 text-black/90'
+                                        ? 'bg-bd-ink hover:bg-bd-ink-hover text-bd-paper'
                                         : ''
                                     }`}
                                   >

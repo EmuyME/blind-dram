@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 type Props = {
   /** 現在選ばれている Tier1（この順でブロックを並べる） */
@@ -50,7 +50,7 @@ export function FlavorTier2SuggestChips({
                     onClick={() => onToggleTerm(term)}
                     className={`px-3 py-2 rounded-full min-h-[40px] text-sm font-medium transition-all disabled:opacity-50 ${
                       on
-                        ? 'bg-[#C88A2B] text-black/90'
+                        ? 'bg-bd-ink text-bd-paper'
                         : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
                     }`}
                   >

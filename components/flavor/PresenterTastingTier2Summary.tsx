@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { PresenterTastingTier2BySection } from '@/lib/json-helpers';
 
@@ -22,7 +22,7 @@ export function PresenterTastingTier2Summary({ data }: { data: PresenterTastingT
             {data[sec].map((term) => (
               <span
                 key={`${sec}-${term}`}
-                className="inline-flex items-center px-3 py-1 rounded-full border text-xs font-semibold bg-[#C88A2B]/15 text-[#E7C27B] border-[#C88A2B]/30"
+                className="inline-flex items-center px-3 py-1 rounded-full border text-xs font-semibold bg-bd-accent/15 text-bd-accent-dim border-bd-accent/30"
               >
                 {term}
               </span>

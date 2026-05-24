@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { ReactNode } from 'react';
 
@@ -30,7 +30,7 @@ export function BottleTruthMetaFields({
   } as const;
 
   return (
-    <div className="space-y-4 rounded-xl border border-amber-500/20 bg-neutral-900/30 p-4">
+    <div className="space-y-4 rounded-xl border border-bd-accent/20 bg-neutral-900/30 p-4">
       <h3 className="text-lg font-semibold text-stone-100 tracking-tight">ボトル情報（任意）</h3>
       <p className="text-sm text-stone-500 leading-relaxed">
         ボトラーズ名・蒸留年・ボトリング年は採点対象外です。テイスティングでは Tier1 ごとに強度（1〜5）も付けられます。メモ・ボトル画像は記録・共有用に入力できます。

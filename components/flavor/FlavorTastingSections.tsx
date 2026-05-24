@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { FlavorTier2SuggestChips } from '@/components/flavor/FlavorTier2SuggestChips';
 import { clampTier1Intensity } from '@/lib/json-helpers';
@@ -115,7 +115,7 @@ export function FlavorTastingSections({
                 disabled={disabled}
                 className={`px-4 py-2 rounded-full min-h-[44px] font-medium transition-all disabled:opacity-50 ${
                   cur.tier1_tags.includes(tag)
-                    ? 'bg-[#C88A2B] text-black/90'
+                    ? 'bg-bd-ink text-bd-paper'
                     : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
                 }`}
               >
@@ -152,7 +152,7 @@ export function FlavorTastingSections({
                           onClick={() => setTier1Intensity(section, tag, lv)}
                           className={`min-h-[40px] min-w-[40px] rounded-lg text-sm font-semibold transition-all disabled:opacity-50 ${
                             level === lv
-                              ? 'bg-[#C88A2B] text-black ring-2 ring-[#C88A2B]/50 ring-offset-2 ring-offset-neutral-900'
+                              ? 'bg-bd-ink text-bd-paper ring-2 ring-bd-accent/50 ring-offset-2 ring-offset-neutral-900'
                               : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
                           }`}
                         >

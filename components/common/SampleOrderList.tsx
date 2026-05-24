@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -217,7 +217,7 @@ export function SampleOrderList({
                 dragEnabled ? 'cursor-move' : ''
               } ${
                 draggedIndex === index
-                  ? 'bg-[#C88A2B]/20 border-[#C88A2B]'
+                  ? 'bg-bd-accent/20 border-bd-accent'
                   : 'bg-neutral-700 border-white/10 hover:bg-neutral-600'
               }`}
             >

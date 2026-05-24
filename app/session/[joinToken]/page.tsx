@@ -3,7 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
-import { NextActionCard } from '@/components/common/NextActionCard';
+import {
+  NextActionFocus,
+  PresenterFocusIcon,
+  sessionModeLabel,
+} from '@/components/common/NextActionFocus';
 import { ParticipantProgress } from '@/components/common/ParticipantProgress';
 import { OwnerPanel } from '@/components/common/OwnerPanel';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +18,7 @@ import {
   setParticipantToken as persistParticipantToken,
   clearParticipantToken,
 } from '@/lib/utils';
+import { ParticipantRecoveryPicker } from '@/components/common/ParticipantRecoveryPicker';
 
 interface Session {
   id: string;
@@ -77,6 +82,7 @@ export default function SessionHomePage() {
   const [isPublishingResults, setIsPublishingResults] = useState(false);
   /** running なのに current_sample が一時的に取れないとき、check-complete の reason を UI に出す */
   const [runningGapReason, setRunningGapReason] = useState<string | null>(null);
+  const [showParticipantProgress, setShowParticipantProgress] = useState(false);
 
   useEffect(() => {
     if (session?.state !== 'running') {
@@ -100,6 +106,17 @@ export default function SessionHomePage() {
     setRoundStatus(null);
     router.push(`/s/${joinToken}`);
   }, [joinToken, router]);
+
+  const handleParticipantRecovered = useCallback(
+    (token: string) => {
+      if (!joinToken) return;
+      persistParticipantToken(joinToken, token);
+      setParticipantToken(token);
+      void loadParticipantInfo(token);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadParticipantInfo は joinToken 確定後に都度参照
+    [joinToken],
+  );
 
   useEffect(() => {
     if (!joinToken) return;
@@ -608,23 +625,27 @@ export default function SessionHomePage() {
           sessionState={session.state}
           mode={session.mode}
         />
-        <div className="max-w-md mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-            <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加登録が必要です</h2>
-            <p className="text-stone-400 mb-4 leading-relaxed">
-              このページを表示するには、まず参加登録を行ってください。
-            </p>
-            <Button
-              variant="primary"
-              onClick={() => {
-                if (joinToken) {
-                  router.push(`/s/${joinToken}`);
-                }
-              }}
-              className="w-full"
-            >
-              参加登録へ
-            </Button>
+        <div className="max-w-md mx-auto mt-8 space-y-6">
+          <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight">{session.title}</h1>
+          <div className="ui-card p-6">
+            <ParticipantRecoveryPicker
+              joinToken={joinToken}
+              showToast={showToast}
+              onRecovered={handleParticipantRecovered}
+            />
+            {session.state === 'registering' && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (joinToken) {
+                    router.push(`/s/${joinToken}`);
+                  }
+                }}
+                className="w-full mt-6"
+              >
+                新規参加登録へ
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -657,6 +678,17 @@ export default function SessionHomePage() {
               onSessionUpdate={loadSession}
               showToast={showToast}
             />
+          )}
+
+          {!participantToken && isOwner && (
+            <div className="ui-card p-6">
+              <ParticipantRecoveryPicker
+                joinToken={joinToken}
+                showToast={showToast}
+                showOwnerRecovery={false}
+                onRecovered={handleParticipantRecovered}
+              />
+            </div>
           )}
 
           {/* 参加者向けメッセージ */}
@@ -869,26 +901,53 @@ export default function SessionHomePage() {
       participantId &&
       roundStatus.presenter_participant_id === participantId;
 
+    const modeLabel = sessionModeLabel(session.mode);
+    const sampleHeader = currentSample
+      ? `Sample ${currentSample.label}`
+      : myPendingSample
+        ? `Sample ${myPendingSample.label}`
+        : session.title;
+
+    const showPresenterFocus = isMySample || (myPendingSample != null && canStartPendingSample);
+    const showAnswererFocus = currentSample != null && !isMySample;
+    const showWaitingFocus =
+      myPendingSample != null && !canStartPendingSample && session.mode === 'sequential';
+    const prioritizeAnswerFocus =
+      showAnswererFocus && currentSample?.state === 'answering';
+
+    const participantListToggle =
+      roundStatus.participants.length > 0
+        ? {
+            label: showParticipantProgress ? '参加者一覧を閉じる' : '参加者一覧を見る',
+            onClick: () => setShowParticipantProgress((v) => !v),
+          }
+        : undefined;
+
+    const participantFooter = (
+      <>
+        {showParticipantProgress && roundStatus.participants.length > 0 && (
+          <ParticipantProgress participants={roundStatus.participants} />
+        )}
+        {participantToken && (
+          <div className="flex justify-center pt-4">
+            <Button variant="secondary" onClick={handleSwitchParticipant} className="text-sm">
+              参加者を変更する
+            </Button>
+          </div>
+        )}
+      </>
+    );
+
     return (
-      <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
+      <div className="min-h-screen bg-neutral-900 flex flex-col pt-16 pb-8">
         <PhaseBanner
           sessionState={session.state}
           mode={session.mode}
           currentSample={currentSample ? { id: currentSample.id, label: currentSample.label } : undefined}
         />
 
-        <div className="max-w-2xl mx-auto mt-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight">{session.title}</h1>
-            {participantName && (
-              <div className="text-base md:text-lg text-stone-400">
-                参加者: <span className="font-medium text-stone-100">{participantName}</span>
-              </div>
-            )}
-          </div>
-
-          {/* オーナー機能パネル */}
-          {isOwner && ownerToken && (
+        {isOwner && ownerToken && (
+          <div className="max-w-lg mx-auto w-full px-4 pt-4 shrink-0">
             <OwnerPanel
               ownerToken={ownerToken}
               joinToken={joinToken}
@@ -896,97 +955,117 @@ export default function SessionHomePage() {
               onSessionUpdate={loadSession}
               showToast={showToast}
             />
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-0">
+          {prioritizeAnswerFocus && (
+            <NextActionFocus
+              headerKicker={`Sample ${currentSample.label}`}
+              headerMeta={`${modeLabel} · 進行中`}
+              eyebrow={
+                myStatus?.status === 'submitted'
+                  ? '提出済み — 編集できます'
+                  : 'あなたの番です'
+              }
+              title={
+                myStatus?.status === 'submitted' ? '回答を編集する' : '回答を提出する'
+              }
+              description="蒸溜所・年数・フレーバーを入力して提出してください"
+              primaryAction={{
+                label: isNavigatingToRound
+                  ? '移動中...'
+                  : myStatus?.status === 'submitted'
+                    ? '回答画面を開く（編集）'
+                    : '回答画面を開く',
+                onClick: () => {
+                  if (joinToken && currentSample?.id) {
+                    setIsNavigatingToRound(true);
+                    router.push(`/session/${joinToken}/round/${currentSample.id}`);
+                  }
+                },
+                disabled: isNavigatingToRound,
+              }}
+              note="回答は後で編集できます"
+              secondaryAction={
+                showPresenterFocus
+                  ? {
+                      label: 'Presenter パネルを開く',
+                      onClick: () => {
+                        const targetSampleId = isMySample ? currentSample?.id : myPendingSample?.id;
+                        if (joinToken && targetSampleId) {
+                          router.push(`/session/${joinToken}/presenter/${targetSampleId}`);
+                        }
+                      },
+                    }
+                  : participantListToggle
+              }
+              footer={participantFooter}
+            />
           )}
 
-          {/* Presenterとして担当しているSampleのPresenterパネルへのリンク */}
-          {(isMySample || (myPendingSample && canStartPendingSample)) && (
-            <div className="bg-neutral-800 border border-white/10 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h2 className="text-lg font-semibold text-stone-100 mb-2">Presenterパネル</h2>
-              <p className="text-sm text-stone-400 mb-3 leading-relaxed">
-                {isMySample
-                  ? `あなたはSample ${currentSample?.label}のPresenterです。Roundを開始・管理できます。`
-                  : myPendingSample
-                  ? `あなたはSample ${myPendingSample.label}のPresenterです。Roundを開始できます。`
-                  : ''}
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => {
+          {!prioritizeAnswerFocus && showPresenterFocus && (
+            <NextActionFocus
+              headerKicker={sampleHeader}
+              headerMeta={`${modeLabel} · 進行中`}
+              icon={<PresenterFocusIcon />}
+              title={
+                isMySample && currentSample?.state === 'answering'
+                  ? 'Presenter として Round を管理中'
+                  : 'Round を開始できます'
+              }
+              description={
+                isMySample
+                  ? `あなたは Sample ${currentSample?.label} の Presenter です。Round の開始・管理は Presenter パネルから行います。`
+                  : `あなたは Sample ${myPendingSample?.label} の Presenter です。準備ができたら Round を開始してください。`
+              }
+              primaryAction={{
+                label: 'Presenter パネルを開く',
+                onClick: () => {
                   const targetSampleId = isMySample ? currentSample?.id : myPendingSample?.id;
                   if (joinToken && targetSampleId) {
                     router.push(`/session/${joinToken}/presenter/${targetSampleId}`);
                   }
-                }}
-                className="w-full"
-              >
-                Presenterパネルを開く
-              </Button>
-            </div>
-          )}
-          
-          {/* 逐次モードで、pending状態のサンプルが全員の「次へ」待ちの場合のメッセージ */}
-          {myPendingSample && !canStartPendingSample && session.mode === 'sequential' && (
-            <div className="bg-neutral-800 border border-white/10 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h2 className="text-lg font-semibold text-stone-100 mb-2">次のラウンド待機中</h2>
-              <p className="text-sm text-stone-400 mb-3 leading-relaxed">
-                あなたはSample {myPendingSample.label}のPresenterです。前のラウンドの結果確認が完了するまでお待ちください。
-              </p>
-            </div>
-          )}
-
-          {/* プレゼンター本人は Presenter パネルで完結させる（ホームに回答入力カードを出さない） */}
-          {currentSample && !isMySample && (
-            <NextActionCard
-              title={
-                currentSample.state === 'answering'
-                  ? `Sample ${currentSample.label} の回答を入力してください`
-                  : currentSample.state === 'pending'
-                    ? `Sample ${currentSample.label} はまだ開始されていません`
-                    : currentSample.state === 'grading'
-                      ? `Sample ${currentSample.label} は採点中です`
-                      : `Sample ${currentSample.label} は終了しました`
-              }
-              description={
-                currentSample.state === 'answering'
-                  ? '現在のSampleについて、推測とフレーバーを入力してください。'
-                  : currentSample.state === 'pending'
-                    ? 'PresenterがRoundを開始するまでお待ちください。'
-                    : currentSample.state === 'grading'
-                      ? '回答は提出済みです。採点を待っています。'
-                      : 'このRoundは終了しました。'
-              }
-              primaryAction={
-                currentSample.state === 'answering'
-                  ? {
-                      label: isNavigatingToRound
-                        ? '移動中...'
-                        : myStatus?.status === 'submitted'
-                          ? '回答を編集する'
-                          : '回答入力へ',
-                      onClick: () => {
-                        if (joinToken && currentSample?.id) {
-                          setIsNavigatingToRound(true);
-                          router.push(`/session/${joinToken}/round/${currentSample.id}`);
-                        }
-                      },
-                      disabled: isNavigatingToRound,
-                    }
-                  : undefined
-              }
-              note={currentSample.state === 'answering' ? '回答は後で編集できます' : undefined}
+                },
+              }}
+              secondaryAction={participantListToggle}
+              footer={participantFooter}
             />
           )}
 
-          {roundStatus.participants.length > 0 && (
-            <ParticipantProgress participants={roundStatus.participants} />
+          {!prioritizeAnswerFocus && !showPresenterFocus && showWaitingFocus && (
+            <NextActionFocus
+              headerKicker={`Sample ${myPendingSample.label}`}
+              headerMeta={`${modeLabel} · 進行中`}
+              icon={<PresenterFocusIcon />}
+              title="次のラウンド待機中"
+              description="前のラウンドの結果確認が完了するまでお待ちください。"
+              secondaryAction={participantListToggle}
+              footer={participantFooter}
+            />
           )}
 
-          {participantToken && (
-            <div className="flex justify-center pt-2">
-              <Button variant="secondary" onClick={handleSwitchParticipant} className="text-sm">
-                参加者を変更する
-              </Button>
-            </div>
+          {!prioritizeAnswerFocus && !showPresenterFocus && showAnswererFocus && (
+            <NextActionFocus
+              headerKicker={`Sample ${currentSample.label}`}
+              headerMeta={`${modeLabel} · 進行中`}
+              title={
+                currentSample.state === 'pending'
+                  ? 'Round 開始を待っています'
+                  : currentSample.state === 'grading'
+                    ? '採点中です'
+                    : 'この Round は終了しました'
+              }
+              description={
+                currentSample.state === 'pending'
+                  ? 'Presenter が Round を開始するまでお待ちください。'
+                  : currentSample.state === 'grading'
+                    ? '回答は提出済みです。採点を待っています。'
+                    : 'この Round は終了しました。'
+              }
+              secondaryAction={participantListToggle}
+              footer={participantFooter}
+            />
           )}
         </div>
       </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from 'react';
 import { clampTier1Intensity } from '@/lib/json-helpers';
@@ -13,7 +13,7 @@ type Flavor = {
 function Chip({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'accent' }) {
   const toneClass =
     tone === 'accent'
-      ? 'bg-[#C88A2B]/15 text-[#E7C27B] border-[#C88A2B]/30'
+      ? 'bg-bd-accent/15 text-bd-accent-dim border-bd-accent/30'
       : 'bg-neutral-800 text-stone-200 border-white/10';
 
   return (

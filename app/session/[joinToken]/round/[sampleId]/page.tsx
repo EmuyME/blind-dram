@@ -790,7 +790,7 @@ export default function RoundPage() {
 
       <div className="max-w-2xl mx-auto mt-8 space-y-6">
         {sampleState === 'grading' && answer.status === 'draft' && (
-          <div className="bg-amber-500/10 border border-amber-400/30 rounded-2xl p-4">
+          <div className="bg-bd-accent/10 border border-bd-accent/30 rounded-2xl p-4">
             <p className="text-amber-200 font-semibold">差し戻しされました</p>
             <p className="text-stone-300 text-sm mt-1 leading-relaxed">
               内容を修正して、再度「提出」してください。
@@ -819,7 +819,7 @@ export default function RoundPage() {
               <div className="text-sm text-stone-300">{progress.percent}%</div>
             </div>
             <div className="mt-2 h-2 rounded-full bg-neutral-900/40 border border-white/10 overflow-hidden">
-              <div className="h-full bg-[#C88A2B]" style={{ width: `${progress.percent}%` }} />
+              <div className="h-full bg-bd-accent" style={{ width: `${progress.percent}%` }} />
             </div>
           </div>
 
@@ -842,7 +842,7 @@ export default function RoundPage() {
           )}
 
           {showLocalDraftRestore && localDraft && (
-            <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-400/30">
+            <div className="mt-4 p-4 rounded-xl bg-bd-accent/10 border border-bd-accent/30">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="font-semibold text-amber-200">ローカル下書きが見つかりました</div>

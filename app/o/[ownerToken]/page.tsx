@@ -733,7 +733,7 @@ export default function OwnerPage() {
             onClick={() => setActiveTab('session')}
             className={`px-4 py-2 font-medium transition-colors ${
               activeTab === 'session'
-                ? 'text-[#C88A2B] border-b-2 border-[#C88A2B]'
+                ? 'text-bd-accent border-b-2 border-bd-accent'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
@@ -745,7 +745,7 @@ export default function OwnerPage() {
               onClick={() => setActiveTab('settings')}
               className={`px-4 py-2 font-medium transition-colors ${
                 activeTab === 'settings'
-                  ? 'text-[#C88A2B] border-b-2 border-[#C88A2B]'
+                  ? 'text-bd-accent border-b-2 border-bd-accent'
                   : 'text-stone-400 hover:text-stone-200'
               }`}
             >
@@ -776,7 +776,7 @@ export default function OwnerPage() {
                   type="url"
                   readOnly
                   value={joinUrl}
-                  className="flex-1 min-w-0 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+                  className="flex-1 min-w-0 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-bd-accent/50 focus:border-bd-accent/50 transition-all"
                 />
                 <div className="flex gap-2 shrink-0">
                   <Button
@@ -856,14 +856,14 @@ export default function OwnerPage() {
                   </Button>
                 </div>
                 <p className="text-stone-400 mt-3 text-sm">
-                  参加者は <a href="/join" className="text-[#C88A2B] hover:underline" target="_blank" rel="noopener noreferrer">参加コードで参加</a> ページでこのコードを入力できます。
+                  参加者は <a href="/join" className="text-bd-accent hover:underline" target="_blank" rel="noopener noreferrer">参加コードで参加</a> ページでこのコードを入力できます。
                 </p>
               </div>
             )}
             
             {/* デバッグ用：模擬参加者（開発環境のみ） */}
             {process.env.NODE_ENV !== 'production' && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 border-amber-500/30">
+              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 border-bd-accent/30">
                 <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">デバッグ用：模擬参加者</h2>
                 <p className="text-stone-400 mb-4 leading-relaxed text-sm">
                   テスト用に模擬参加者を簡単に作成できます。
@@ -877,7 +877,7 @@ export default function OwnerPage() {
                       type="text"
                       id="mock-participant-name"
                       placeholder="参加者名"
-                      className="w-full px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+                      className="w-full px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-bd-accent/50 focus:border-bd-accent/50 transition-all"
                     />
                   </div>
                   <div>
@@ -889,7 +889,7 @@ export default function OwnerPage() {
                       id="mock-participant-bottles"
                       min="0"
                       defaultValue="0"
-                      className="w-full px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+                      className="w-full px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-bd-accent/50 focus:border-bd-accent/50 transition-all"
                     />
                   </div>
                   <Button
@@ -1056,7 +1056,7 @@ export default function OwnerPage() {
             </div>
 
             {joinToken && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-[#C88A2B]/30 p-6">
+              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-bd-accent/30 p-6">
                 <h3 className="text-lg font-semibold text-stone-100 mb-2 tracking-tight">回答・プレゼン（参加者側）</h3>
                 <p className="text-sm text-stone-400 mb-4 leading-relaxed">
                   この画面は進行管理用です。オーナー本人もゲームに参加する場合は、セッション参加者画面で回答入力やPresenterパネルへ進んでください（同じブラウザなら参加トークンを共有します）。
@@ -1475,7 +1475,7 @@ export default function OwnerPage() {
                                     },
                                   });
                                 }}
-                                className="h-4 w-4 rounded border-white/20 bg-neutral-700 text-[#C88A2B] focus:ring-[#C88A2B]/40 shrink-0"
+                                className="h-4 w-4 rounded border-white/20 bg-neutral-700 text-bd-accent focus:ring-bd-accent/40 shrink-0"
                               />
                               <span>ナイチンゲール・チャートに表示</span>
                             </label>

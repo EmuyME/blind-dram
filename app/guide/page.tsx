@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +9,7 @@ export default function GuidePage() {
       <div className="max-w-2xl mx-auto space-y-8">
         <header className="text-center space-y-2">
           <p className="text-sm text-stone-500">
-            <Link href="/" className="text-[#C88A2B] hover:text-[#dba34d] transition-colors">
+            <Link href="/" className="text-bd-accent hover:text-bd-accent-hover transition-colors">
               ← トップに戻る
             </Link>
           </p>
@@ -45,7 +45,7 @@ export default function GuidePage() {
           <ol className="text-sm text-stone-300 leading-relaxed space-y-3 list-decimal pl-5">
             <li>
               トップの{" "}
-              <Link href="/create" className="text-[#C88A2B] hover:underline">
+              <Link href="/create" className="text-bd-accent hover:underline">
                 イベントを作成する
               </Link>
               でイベント名と回答モード（逐次モード／一斉モード）を選びます。
@@ -66,7 +66,7 @@ export default function GuidePage() {
             <li>
               司会から共有された{" "}
               <span className="text-stone-200">参加用リンク</span>を開くか、
-              <Link href="/join" className="text-[#C88A2B] hover:underline">
+              <Link href="/join" className="text-bd-accent hover:underline">
                 参加コードで参加
               </Link>
               からコードを入力します。
@@ -118,12 +118,12 @@ export default function GuidePage() {
           </p>
         </section>
 
-        <section className="ui-card p-6 md:p-8 space-y-4 border border-[#C88A2B]/25">
+        <section className="ui-card p-6 md:p-8 space-y-4 border border-bd-accent/25">
           <h2 className="text-lg font-semibold text-stone-100 tracking-tight">うまく動かないとき</h2>
           <ul className="text-sm text-stone-300 leading-relaxed space-y-2 list-disc pl-5">
             <li>参加リンクと参加コードは別物です。コードは短い英数字、リンクは長いトークン付き URL です。</li>
             <li>司会操作は Owner URL から行います。通常の参加 URL だけでは設定変更や締切はできません。</li>
-            <li>スマホで別ブラウザにした場合は、再度参加登録が必要なことがあります。</li>
+            <li>別ブラウザや端末からアクセスした場合は、参加URLまたはセッションホームから以前登録した名前を選べば復帰できます（パスワード不要）。</li>
           </ul>
         </section>
 

@@ -10,33 +10,33 @@ export function PhaseBanner({ sessionState, mode, currentSample }: PhaseBannerPr
   const stateConfig = {
     registering: {
       text: '参加登録中',
-      accent: '#38bdf8',
-      pill: 'bg-sky-500/15 text-sky-100 border-sky-400/35',
+      accent: '#9a8470',
+      pill: 'bg-stone-500/15 text-stone-200 border-stone-400/30',
     },
     ordering: {
       text: '順番決め中',
-      accent: '#a78bfa',
-      pill: 'bg-violet-500/15 text-violet-100 border-violet-400/35',
+      accent: '#8b7355',
+      pill: 'bg-stone-500/15 text-stone-200 border-stone-400/30',
     },
     running: {
       text: '進行中',
-      accent: '#c88a2b',
-      pill: 'bg-amber-500/10 text-[#E7C27B] border-[#C88A2B]/40',
+      accent: '#c4a574',
+      pill: 'bg-bd-accent/15 text-bd-accent-dim border-bd-accent/40',
     },
     aggregating: {
       text: '集計中',
-      accent: '#fbbf24',
-      pill: 'bg-amber-400/15 text-amber-100 border-amber-300/35',
+      accent: '#d4b584',
+      pill: 'bg-bd-accent/10 text-bd-accent-dim border-bd-accent/30',
     },
     published: {
       text: '結果公開済み',
-      accent: '#7dd3fc',
-      pill: 'bg-sky-500/15 text-sky-100 border-sky-400/35',
+      accent: '#d4a853',
+      pill: 'bg-bd-accent/15 text-bd-accent-dim border-bd-accent/35',
     },
     closed: {
       text: 'イベント終了',
-      accent: '#94a3b8',
-      pill: 'bg-slate-500/15 text-slate-200 border-slate-400/25',
+      accent: '#8b7355',
+      pill: 'bg-stone-500/15 text-stone-300 border-stone-400/25',
     },
   };
 
@@ -46,9 +46,11 @@ export function PhaseBanner({ sessionState, mode, currentSample }: PhaseBannerPr
 
   return (
     <div
-      className="sticky top-0 z-50 border-b border-white/10 py-3 px-4 shadow-xl shadow-black/40 backdrop-blur-md"
+      className="sticky top-0 z-50 border-b py-3 px-4 shadow-xl shadow-black/40 backdrop-blur-md"
       style={{
-        backgroundImage: `linear-gradient(180deg, rgba(15,15,15,0.92) 0%, rgba(23,23,23,0.88) 100%)`,
+        borderColor: 'rgba(201, 184, 150, 0.18)',
+        backgroundImage:
+          'linear-gradient(180deg, rgba(26,20,16,0.96) 0%, rgba(42,31,24,0.92) 100%)',
         borderLeft: `4px solid ${config.accent}`,
       }}
     >

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { CorrectnessBadge } from '@/components/common/CorrectnessBadge';
 import {
@@ -251,7 +251,7 @@ export function DynamicScoringResultsTable({
   truth,
   answers,
   highlightParticipantId,
-  rowHighlightClass = 'bg-[#C88A2B]/10',
+  rowHighlightClass = 'bg-bd-accent/10',
 }: TableProps) {
   const keys = resultsTableKeys(scoringSnapshot, truth, answers);
   const full = normalizeScoringConfig(scoringSnapshot);
@@ -316,7 +316,7 @@ export function DynamicScoringResultsTable({
                     </td>
                   );
                 })}
-                <td className="py-3 px-3 text-right font-semibold text-[#C88A2B]">{answer.score}</td>
+                <td className="py-3 px-3 text-right font-semibold text-bd-accent">{answer.score}</td>
               </tr>
             );
           })}
@@ -350,7 +350,7 @@ export function DynamicParticipantGuessGrid({ scoringSnapshot, answer }: GuessGr
       ))}
       <div className="col-span-2">
         <span className="text-stone-400">点数: </span>
-        <span className="text-[#C88A2B] font-semibold">{answer.score}点</span>
+        <span className="text-bd-accent font-semibold">{answer.score}点</span>
       </div>
     </div>
   );

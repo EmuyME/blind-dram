@@ -91,7 +91,7 @@ export default function CreatePage() {
                   value="sequential"
                   checked={mode === 'sequential'}
                   onChange={(e) => setMode(e.target.value as 'sequential' | 'simultaneous')}
-                  className="mr-3 w-5 h-5 accent-[#C88A2B]"
+                  className="mr-3 w-5 h-5 accent-bd-accent"
                 />
                 <span className="text-base md:text-lg text-stone-100">逐次モード（1つずつ回答）</span>
               </label>
@@ -102,7 +102,7 @@ export default function CreatePage() {
                   value="simultaneous"
                   checked={mode === 'simultaneous'}
                   onChange={(e) => setMode(e.target.value as 'sequential' | 'simultaneous')}
-                  className="mr-3 w-5 h-5 accent-[#C88A2B]"
+                  className="mr-3 w-5 h-5 accent-bd-accent"
                 />
                 <span className="text-base md:text-lg text-stone-100">一斉モード（全員同時回答）</span>
               </label>

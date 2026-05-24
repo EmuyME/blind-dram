@@ -447,7 +447,7 @@ export default function ResultsPage() {
             onClick={() => setActiveTab('ranking')}
             className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
               activeTab === 'ranking'
-                ? 'border-b-2 border-[#C88A2B] text-[#C88A2B]'
+                ? 'border-b-2 border-bd-accent text-bd-accent'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
@@ -457,7 +457,7 @@ export default function ResultsPage() {
             onClick={() => setActiveTab('details')}
             className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
               activeTab === 'details'
-                ? 'border-b-2 border-[#C88A2B] text-[#C88A2B]'
+                ? 'border-b-2 border-bd-accent text-bd-accent'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
@@ -467,7 +467,7 @@ export default function ResultsPage() {
             onClick={() => setActiveTab('participants')}
             className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
               activeTab === 'participants'
-                ? 'border-b-2 border-[#C88A2B] text-[#C88A2B]'
+                ? 'border-b-2 border-bd-accent text-bd-accent'
                 : 'text-stone-400 hover:text-stone-200'
             }`}
           >
@@ -498,13 +498,13 @@ export default function ResultsPage() {
                     {results.rankings.map((ranking) => (
                       <tr
                         key={ranking.participant_id}
-                        className={`ui-tr ${participantId && ranking.participant_id === participantId ? 'bg-[#C88A2B]/10' : ''}`}
+                        className={`ui-tr ${participantId && ranking.participant_id === participantId ? 'bg-bd-accent/10' : ''}`}
                       >
                         <td className="py-3 px-4 font-semibold text-stone-100">{ranking.rank}</td>
                         <td className="py-3 px-4 text-stone-100 break-words max-w-[200px]">
                           {disambiguatedDisplayName(ranking.display_name, ranking.participant_id, rankingPeers)}
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold text-lg text-[#C88A2B]">
+                        <td className="py-3 px-4 text-right font-semibold text-lg text-bd-accent">
                           {ranking.total_score}
                         </td>
                         {ranking.sample_scores && ranking.sample_scores.length > 0 && ranking.sample_scores.map((sample) => (
@@ -562,7 +562,7 @@ export default function ResultsPage() {
                     />
                   </div>
 
-                  <div className="mb-6 p-4 bg-neutral-800/80 rounded-xl border border-[#C88A2B]/25">
+                  <div className="mb-6 p-4 bg-neutral-800/80 rounded-xl border border-bd-accent/25">
                     <h4 className="font-semibold text-stone-100 mb-2 tracking-tight">メモ</h4>
                     <p className="text-stone-300 whitespace-pre-wrap text-sm leading-relaxed min-h-[1.25rem]">
                       {(truth.notes ?? '').length > 0 ? truth.notes : (
@@ -638,7 +638,7 @@ export default function ResultsPage() {
                                 {sample.other_terms.map((item, idx) => (
                                   <div key={idx} className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg border border-white/10">
                                     <span className="text-stone-100 break-words">{item.term}</span>
-                                    <span className="text-[#C88A2B] font-semibold ml-4 flex-shrink-0">{item.count}回</span>
+                                    <span className="text-bd-accent font-semibold ml-4 flex-shrink-0">{item.count}回</span>
                                   </div>
                                 ))}
                               </div>
@@ -668,9 +668,9 @@ export default function ResultsPage() {
                     onClick={() => setSelectedParticipantId(ranking.participant_id)}
                     className={`px-4 py-2 rounded-full min-h-[44px] font-medium transition-all ${
                       selectedParticipantId === ranking.participant_id
-                        ? 'bg-[#C88A2B] text-black/90'
+                        ? 'bg-bd-ink text-bd-paper'
                         : ranking.participant_id === participantId
-                          ? 'bg-neutral-700 text-stone-200 border border-[#C88A2B]/40 hover:bg-neutral-600'
+                          ? 'bg-neutral-700 text-stone-200 border border-bd-accent/40 hover:bg-neutral-600'
                           : 'bg-neutral-700 text-stone-200 border border-white/10 hover:bg-neutral-600'
                     }`}
                   >
@@ -699,7 +699,7 @@ export default function ResultsPage() {
                     </h3>
                     <div className="mb-4 p-4 bg-neutral-700 rounded-xl">
                       <div className="text-stone-400 mb-1">総合順位</div>
-                      <div className="text-3xl font-semibold text-[#C88A2B]">{participant.rank}位</div>
+                      <div className="text-3xl font-semibold text-bd-accent">{participant.rank}位</div>
                       <div className="text-stone-400 mt-1">合計点数: {participant.total_score}点</div>
                     </div>
 

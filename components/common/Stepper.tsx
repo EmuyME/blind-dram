@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 interface StepperProps {
   steps: string[];
@@ -17,7 +17,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
             key={index}
             className={`flex items-center px-4 py-2 rounded-full min-h-[44px] text-sm md:text-base font-medium transition-all ${
               isCurrent
-                ? 'bg-[#C88A2B] text-black/90 shadow-lg shadow-black/40'
+                ? 'bg-bd-ink text-bd-paper shadow-lg shadow-black/40'
                 : isCompleted
                 ? 'bg-neutral-700 text-stone-200 border border-white/10'
                 : 'bg-neutral-800 text-stone-400 border border-white/10'

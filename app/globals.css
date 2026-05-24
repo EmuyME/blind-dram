@@ -1,39 +1,83 @@
 @import "tailwindcss";
 
+/* Tasting Note — ウォルナット・パーチメント・インク */
+@theme {
+  --color-neutral-950: #14100c;
+  --color-neutral-900: #1a1410;
+  --color-neutral-800: #2a1f18;
+  --color-neutral-700: #352820;
+  --color-neutral-600: #3d2e1f;
+
+  --color-stone-50: #f5ebe0;
+  --color-stone-100: #f5ebe0;
+  --color-stone-200: #e8dcc8;
+  --color-stone-300: #c9b896;
+  --color-stone-400: #a89070;
+  --color-stone-500: #8b7355;
+
+  --color-bd-ink: #3d2e1f;
+  --color-bd-ink-hover: #4d3a28;
+  --color-bd-ink-active: #2d2118;
+  --color-bd-paper: #f4ead8;
+  --color-bd-paper-alt: #ebe0cc;
+  --color-bd-accent: #c4a574;
+  --color-bd-accent-hover: #d4b584;
+  --color-bd-accent-active: #b89564;
+  --color-bd-accent-dim: #e8dcc8;
+  --color-bd-accent-foreground: #3d2e1f;
+  --color-bd-secondary: #352820;
+  --color-bd-brand: #c4a574;
+}
+
 :root {
-  --foreground-rgb: 245, 245, 244;
-  --background-rgb: 23, 23, 23;
+  --foreground-rgb: 245, 235, 224;
+  --background-rgb: 26, 20, 16;
+  --bd-accent-rgb: 196, 165, 116;
+  --bd-glow-rgb: 61, 46, 31;
+  --bd-border: rgba(201, 184, 150, 0.22);
+  --bd-border-strong: rgba(201, 184, 150, 0.35);
+  --bd-paper-gradient: linear-gradient(180deg, #f4ead8 0%, #ebe0cc 100%);
 }
 
 body {
   color: rgb(var(--foreground-rgb));
+  font-family: Georgia, "Times New Roman", Times, serif;
   background:
-    radial-gradient(1200px circle at 15% -10%, rgba(200, 138, 43, 0.14), transparent 45%),
-    radial-gradient(900px circle at 95% 10%, rgba(56, 189, 248, 0.10), transparent 45%),
-    rgb(var(--background-rgb));
+    radial-gradient(700px circle at 15% 100%, rgba(var(--bd-glow-rgb), 0.35), transparent 55%),
+    linear-gradient(165deg, #2a1f18 0%, #1a1410 100%);
+  min-height: 100vh;
 }
 
-/* モバイルファースト: 基本スタイル */
 * {
   box-sizing: border-box;
 }
 
 @layer components {
   .ui-card {
-    /*
-      NOTE: Tailwind v4 currently fails to @apply utilities that use slash alpha syntax
-      (e.g. bg-neutral-800/90, border-white/10, shadow-black/40).
-      So we keep @apply to “plain” utilities and set alpha colors via raw CSS.
-    */
     @apply bg-neutral-800 border rounded-2xl shadow-xl;
-    border-color: rgba(255, 255, 255, 0.10);
+    border-color: var(--bd-border);
     box-shadow:
-      0 20px 25px -5px rgba(0, 0, 0, 0.35),
+      0 20px 25px -5px rgba(0, 0, 0, 0.45),
       0 8px 10px -6px rgba(0, 0, 0, 0.35);
   }
 
   .ui-card-hover {
-    @apply hover:bg-neutral-800 transition-colors;
+    @apply hover:bg-neutral-700/80 transition-colors;
+  }
+
+  .ui-paper-card {
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: var(--bd-paper-gradient);
+    color: #3d2e1f;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    border: 1px solid #c9b896;
+  }
+
+  .ui-paper-badge {
+    background: var(--bd-paper-gradient);
+    border: 1px solid #c9b896;
+    color: #3d2e1f;
   }
 
   .ui-h1 {
@@ -58,8 +102,8 @@ body {
 
   .ui-thead {
     @apply border-b;
-    border-bottom-color: rgba(255, 255, 255, 0.10);
-    background-color: rgba(10, 10, 10, 0.35);
+    border-bottom-color: var(--bd-border);
+    background-color: rgba(26, 20, 16, 0.65);
   }
 
   .ui-th {
@@ -67,71 +111,67 @@ body {
   }
 
   .ui-tr {
-    @apply border-b hover:bg-neutral-700 transition-colors;
-    border-bottom-color: rgba(255, 255, 255, 0.05);
+    @apply border-b hover:bg-neutral-700/60 transition-colors;
+    border-bottom-color: rgba(201, 184, 150, 0.08);
   }
 
-  /* セグメントタブ（結果・詳細 など） */
   .ui-tablist {
     @apply flex flex-wrap gap-1 p-1 rounded-xl;
-    background-color: rgba(10, 10, 10, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    background-color: rgba(26, 20, 16, 0.65);
+    border: 1px solid rgba(201, 184, 150, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
   .ui-tab {
     @apply min-h-[44px] flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-      text-stone-400 hover:text-stone-200 hover:bg-neutral-800/80;
+      text-stone-400 hover:text-stone-200 hover:bg-neutral-700/60;
   }
 
   .ui-tab-active {
     @apply text-stone-100 bg-neutral-700;
     box-shadow:
-      inset 0 0 0 1px rgba(200, 138, 43, 0.4),
+      inset 0 0 0 1px rgba(var(--bd-accent-rgb), 0.45),
       0 4px 14px rgba(0, 0, 0, 0.35);
   }
 
-  /* ページ見出しブロック */
   .ui-page-hero {
     @apply rounded-2xl p-6 md:p-8;
     background: linear-gradient(
       145deg,
-      rgba(38, 38, 38, 0.95) 0%,
-      rgba(23, 23, 23, 0.65) 100%
+      rgba(42, 31, 24, 0.95) 0%,
+      rgba(26, 20, 16, 0.85) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--bd-border);
     box-shadow:
       0 20px 40px rgba(0, 0, 0, 0.45),
-      0 0 0 1px rgba(200, 138, 43, 0.12);
+      0 0 0 1px rgba(var(--bd-accent-rgb), 0.12);
   }
 
   .ui-accent-dot {
     @apply inline-block h-2 w-2 rounded-full;
-    background: linear-gradient(135deg, #e7c27b, #c88a2b);
-    box-shadow: 0 0 12px rgba(200, 138, 43, 0.45);
+    background: linear-gradient(135deg, #e8dcc8, #c4a574);
+    box-shadow: 0 0 12px rgba(var(--bd-accent-rgb), 0.45);
   }
 }
 
-/* スクロールバーのスタイル（ダークUI対応） */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(201, 184, 150, 0.06);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(201, 184, 150, 0.2);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(201, 184, 150, 0.32);
 }
 
-/* モーション抑制対応 */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;

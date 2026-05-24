@@ -135,7 +135,7 @@ test.describe('ロバスト性: ボタン順序（Presenter/回答者の先押�
       );
       if (pages.answerer.url().includes(`/session/${joinToken}?from=round-result`)) {
         // セッションページに戻った場合でも、次ラウンドの回答画面へ進めること
-        const goRound = pages.answerer.locator('button:has-text("回答入力へ")');
+        const goRound = pages.answerer.getByRole('button', { name: /回答画面を開く|回答入力へ/ });
         if (await goRound.isVisible().catch(() => false)) {
           await goRound.click();
           await expect(pages.answerer).toHaveURL(new RegExp(`/session/${joinToken}/round/${s2}`), { timeout: 30000 });

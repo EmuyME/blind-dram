@@ -432,6 +432,6 @@ test.describe('Sequential and Simultaneous Mode Debug Tests', () => {
     await page.waitForTimeout(2000);
     
     // セッションページが表示されることを確認
-    await expect(page.locator('button:has-text("Presenterパネルを開く")')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Presenter\s*パネルを開く/ })).toBeVisible({ timeout: 10000 });
   });
 });

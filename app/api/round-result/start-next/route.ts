@@ -2,50 +2,44 @@
 // 全員が「次へ」を押した後、次のラウンドを明示的に開始する
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { participant_token, sample_id } = body;
 
-
     if (!participant_token || !sample_id) {
       return errorResponse('participant_tokenとsample_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Participant認証
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id, session_id')
-      .eq('participant_token', participant_token)
-      .single();
+    const [participant] = await sql<{ id: string; session_id: string }[]>`
+      SELECT id, session_id FROM participants
+      WHERE participant_token = ${participant_token}
+    `;
 
-    if (participantError || !participant) {
+    if (!participant) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // Sample取得と状態チェック
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, session_id, state, sort_order')
-      .eq('id', sample_id)
-      .eq('session_id', participant.session_id)
-      .single();
+    const [sample] = await sql<{ id: string; session_id: string; state: string; sort_order: number }[]>`
+      SELECT id, session_id, state, sort_order
+      FROM samples
+      WHERE id = ${sample_id}
+        AND session_id = ${participant.session_id}
+    `;
 
-    if (sampleError || !sample) {
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
-    // revealed でない場合は原則エラー。ただし「既に次ラウンドが開始済み」なら成功扱いで返す（冪等）
     if (sample.state !== 'revealed') {
-      const { data: activeSampleWhenNotRevealed } = await supabase
-        .from('samples')
-        .select('id, state')
-        .eq('session_id', participant.session_id)
-        .in('state', ['answering', 'grading'])
-        .limit(1)
-        .maybeSingle();
+      const [activeSampleWhenNotRevealed] = await sql<{ id: string; state: string }[]>`
+        SELECT id, state FROM samples
+        WHERE session_id = ${participant.session_id}
+          AND state IN ('answering', 'grading')
+        LIMIT 1
+      `;
 
       if (activeSampleWhenNotRevealed) {
         return successResponse({
@@ -58,88 +52,60 @@ export async function POST(request: NextRequest) {
       return errorResponse('このラウンドはまだ終了していません', 'ROUND_NOT_FINISHED', 400);
     }
 
-    // 全参加者がクリックしたかチェック
-    const { data: allParticipants } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('session_id', participant.session_id)
-      .eq('is_attending', true);
+    const allParticipants = await sql<{ id: string }[]>`
+      SELECT id FROM participants
+      WHERE session_id = ${participant.session_id}
+        AND is_attending = true
+    `;
 
-    const { data: allClicks } = await supabase
-      .from('round_next_clicks')
-      .select('participant_id')
-      .eq('sample_id', sample_id);
+    const allClicks = await sql<{ participant_id: string }[]>`
+      SELECT participant_id FROM round_next_clicks
+      WHERE sample_id = ${sample_id}
+    `;
 
-    const clickedParticipantIds = new Set((allClicks || []).map((c) => c.participant_id));
-    const allClicked = (allParticipants || []).length > 0 && (allParticipants || []).every((p) => clickedParticipantIds.has(p.id));
+    const clickedParticipantIds = new Set(allClicks.map((c) => c.participant_id));
+    const allClicked =
+      allParticipants.length > 0 &&
+      allParticipants.every((p) => clickedParticipantIds.has(p.id));
 
     if (!allClicked) {
       return errorResponse('全員が「次へ」を押していません', 'NOT_ALL_CLICKED', 400);
     }
 
-    // 逐次モードで既にanswering/grading状態のサンプルがある場合は、
-    // 「別の画面から次ラウンドが開始されている」とみなしてそのラウンド情報を返す
-    const { data: activeSample } = await supabase
-      .from('samples')
-      .select('id, state')
-      .eq('session_id', participant.session_id)
-      .in('state', ['answering', 'grading'])
-      .limit(1)
-      .maybeSingle();
+    const [activeSample] = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM samples
+      WHERE session_id = ${participant.session_id}
+        AND state IN ('answering', 'grading')
+      LIMIT 1
+    `;
 
     if (activeSample) {
-      // 既に進行中のラウンドがある場合は、それをクライアントに通知する
       return successResponse({
         next_sample_id: activeSample.id,
         session_completed: false,
       });
     }
 
-    // 次のサンプルを取得
-    // sort_orderの乱れで次サンプルが見つからないケースを避けるため、
-    // 「同じセッション内の、自分以外のpendingサンプル」を単純に1件取得する
-    const { data: nextSample, error: nextSampleError } = await supabase
-      .from('samples')
-      .select('id, state')
-      .eq('session_id', participant.session_id)
-      .neq('id', sample.id)
-      .eq('state', 'pending')
-      .order('sort_order')
-      .limit(1)
-      .maybeSingle();
-
-    if (nextSampleError) {
-      console.error('Next sample fetch error:', nextSampleError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
+    const [nextSample] = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM samples
+      WHERE session_id = ${participant.session_id}
+        AND id <> ${sample.id}
+        AND state = 'pending'
+      ORDER BY sort_order
+      LIMIT 1
+    `;
 
     let nextSampleId: string | null = null;
-    
-    if (nextSample && nextSample.state === 'pending') {
-      // 次のサンプルをanswering状態に変更
-      const { error: nextSampleUpdateError } = await supabase
-        .from('samples')
-        .update({ state: 'answering' })
-        .eq('id', nextSample.id);
 
-      if (nextSampleUpdateError) {
-        console.error('Next sample update error:', nextSampleUpdateError);
-        return errorResponse('次のラウンドの開始に失敗しました', 'SERVER_ERROR', 500);
-      }
-      
+    if (nextSample && nextSample.state === 'pending') {
+      await sql`
+        UPDATE samples SET state = 'answering' WHERE id = ${nextSample.id}
+      `;
       nextSampleId = nextSample.id;
     } else if (!nextSample) {
-      // 次のサンプルがない場合のみ、セッションをaggregating状態に遷移
-      const { error: sessionUpdateError } = await supabase
-        .from('sessions')
-        .update({ state: 'aggregating' })
-        .eq('id', participant.session_id);
-      
-      if (sessionUpdateError) {
-        console.error('Session update to aggregating error:', sessionUpdateError);
-        return errorResponse('セッション状態の更新に失敗しました', 'SERVER_ERROR', 500);
-      }
+      await sql`
+        UPDATE sessions SET state = 'aggregating' WHERE id = ${participant.session_id}
+      `;
     }
 
     return successResponse({

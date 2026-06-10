@@ -1,7 +1,7 @@
 // POST /api/round/finish
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { writeErrorLog } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
@@ -13,27 +13,31 @@ export async function POST(request: NextRequest) {
       return errorResponse('sample_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Sample取得
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, session_id, state, presenter_participant_id, sort_order')
-      .eq('id', sample_id)
-      .single();
+    const [sample] = await sql<
+      {
+        id: string;
+        session_id: string;
+        state: string;
+        presenter_participant_id: string;
+        sort_order: number;
+      }[]
+    >`
+      SELECT id, session_id, state, presenter_participant_id, sort_order
+      FROM samples
+      WHERE id = ${sample_id}
+    `;
 
-    if (sampleError || !sample) {
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
-    // Participant認証（Presenter）
     let isAuthorized = false;
     if (participant_token) {
-      const { data: presenter, error: presenterError } = await supabase
-        .from('participants')
-        .select('id')
-        .eq('participant_token', participant_token)
-        .single();
+      const [presenter] = await sql<{ id: string }[]>`
+        SELECT id FROM participants WHERE participant_token = ${participant_token}
+      `;
 
-      if (!presenterError && presenter) {
+      if (presenter) {
         if (sample.presenter_participant_id === presenter.id) {
           isAuthorized = true;
         } else {
@@ -42,14 +46,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // オーナー権限（Presenterが不在/無効の場合のフォールバック）
     if (!isAuthorized && owner_token) {
-      const { data: sessionOwner, error: sessionOwnerError } = await supabase
-        .from('sessions')
-        .select('id, owner_token')
-        .eq('id', sample.session_id)
-        .single();
-      if (!sessionOwnerError && sessionOwner?.owner_token === owner_token) {
+      const [sessionOwner] = await sql<{ id: string; owner_token: string }[]>`
+        SELECT id, owner_token FROM sessions WHERE id = ${sample.session_id}
+      `;
+      if (sessionOwner?.owner_token === owner_token) {
         isAuthorized = true;
       }
     }
@@ -58,7 +59,6 @@ export async function POST(request: NextRequest) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 状態チェック
     if (sample.state !== 'grading') {
       return errorResponse(
         'Round状態が不正です。grading状態の時のみ実行できます',
@@ -67,47 +67,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 採点完了: 提出済み回答ごとに採点レコードがあること
+    const grades = await sql<{ participant_id: string }[]>`
+      SELECT participant_id FROM distillery_grades WHERE sample_id = ${sample_id}
+    `;
 
-    const { data: grades } = await supabase
-      .from('distillery_grades')
-      .select('participant_id')
-      .eq('sample_id', sample_id);
+    const gradedParticipantIds = new Set(grades.map((g) => g.participant_id));
 
-    const gradedParticipantIds = new Set(grades?.map((g) => g.participant_id) || []);
+    const submittedAnswers = await sql<{ participant_id: string }[]>`
+      SELECT participant_id FROM answers
+      WHERE sample_id = ${sample_id}
+        AND status = 'submitted'
+    `;
 
-    const { data: submittedAnswers } = await supabase
-      .from('answers')
-      .select('participant_id')
-      .eq('sample_id', sample_id)
-      .eq('status', 'submitted');
-
-    const submittedIds = submittedAnswers?.map((a) => a.participant_id) || [];
+    const submittedIds = submittedAnswers.map((a) => a.participant_id);
 
     let allGraded =
       submittedIds.length > 0 && submittedIds.every((id) => gradedParticipantIds.has(id));
 
-    // プレゼンター以外に出席者がおらず、提出もない → 採点不要で Round 終了可
     if (!allGraded && submittedIds.length === 0) {
-      const { data: attending } = await supabase
-        .from('participants')
-        .select('id')
-        .eq('session_id', sample.session_id)
-        .eq('is_attending', true);
-      const nonPresenterCount =
-        (attending || []).filter((p) => p.id !== sample.presenter_participant_id).length;
+      const attending = await sql<{ id: string }[]>`
+        SELECT id FROM participants
+        WHERE session_id = ${sample.session_id}
+          AND is_attending = true
+      `;
+      const nonPresenterCount = attending.filter(
+        (p) => p.id !== sample.presenter_participant_id
+      ).length;
       if (nonPresenterCount === 0) {
         allGraded = true;
       }
     }
 
-    // オーナーのみ: 提出が一件もないときでもラウンドを締められる（テスト用・復旧用）
     if (!allGraded && owner_token) {
-      const { data: sessionOwnerRow } = await supabase
-        .from('sessions')
-        .select('owner_token')
-        .eq('id', sample.session_id)
-        .single();
+      const [sessionOwnerRow] = await sql<{ owner_token: string }[]>`
+        SELECT owner_token FROM sessions WHERE id = ${sample.session_id}
+      `;
       if (sessionOwnerRow?.owner_token === owner_token && submittedIds.length === 0) {
         allGraded = true;
       }
@@ -117,7 +111,7 @@ export async function POST(request: NextRequest) {
       sample_id: sample_id,
       presenter_id: sample.presenter_participant_id,
       submitted_count: submittedIds.length,
-      graded_count: grades?.length || 0,
+      graded_count: grades.length,
       graded_participant_ids: Array.from(gradedParticipantIds),
       all_graded: allGraded,
     });
@@ -133,42 +127,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Session mode取得
-    const { data: session } = await supabase
-      .from('sessions')
-      .select('mode')
-      .eq('id', sample.session_id)
-      .single();
+    const [session] = await sql<{ mode: string }[]>`
+      SELECT mode FROM sessions WHERE id = ${sample.session_id}
+    `;
 
-    // Round状態をrevealed（逐次）またはclosed（一斉）に変更
-    // modeが不明な場合は逐次扱いとしてrevealedにする
     const newState = session?.mode === 'simultaneous' ? 'closed' : 'revealed';
-    const { error: updateError } = await supabase
-      .from('samples')
-      .update({ state: newState })
-      .eq('id', sample_id);
+    await sql`
+      UPDATE samples SET state = ${newState} WHERE id = ${sample_id}
+    `;
 
-    if (updateError) {
-      console.error('Sample update error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    // 次のSample取得
-    const { data: nextSample } = await supabase
-      .from('samples')
-      .select('id, state')
-      .eq('session_id', sample.session_id)
-      .gt('sort_order', sample.sort_order || 0)
-      .order('sort_order')
-      .limit(1)
-      .maybeSingle();
-    
-
-    // 逐次モードでは次のラウンドを自動開始しない
-    // 参加者全員が結果確認後に「次へ」操作で開始する
-
-    // 逐次モードでは、最後のラウンドでも結果ページを表示するため
-    // ここではセッションをaggregatingに遷移させない
+    const [nextSample] = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM samples
+      WHERE session_id = ${sample.session_id}
+        AND sort_order > ${sample.sort_order ?? 0}
+      ORDER BY sort_order
+      LIMIT 1
+    `;
 
     return successResponse({
       sample_id: sample_id,

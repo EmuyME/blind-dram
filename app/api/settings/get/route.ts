@@ -1,7 +1,7 @@
 // GET /api/settings/get
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { verifyOwnerToken } from '@/lib/api-utils';
 import {
   DEFAULT_CASK_CHOICE_OPTIONS,
@@ -11,7 +11,6 @@ import {
 import { resolvedTier1NightingaleColors } from '@/lib/flavor-chart-colors';
 import { DEFAULT_FLAVOR_CHART, ensureTier1NightingaleVisibleMap } from '@/lib/default-flavor-chart';
 
-// デフォルト設定
 const DEFAULT_CASK_OPTIONS = [...DEFAULT_CASK_CHOICE_OPTIONS];
 const DEFAULT_REGION_OPTIONS = [...DEFAULT_REGION_CHOICE_OPTIONS];
 
@@ -32,59 +31,62 @@ const DEFAULT_SCORING = {
   abv_penalty_per_percent: 2,
 };
 
+function defaultSettingsResponse() {
+  return successResponse({
+    id: null,
+    name: 'デフォルト設定',
+    cask_options: DEFAULT_CASK_OPTIONS,
+    region_options: DEFAULT_REGION_OPTIONS,
+    flavor_chart: flavorChartResponse(DEFAULT_FLAVOR_CHART),
+    scoring: mergeLegacyOptionColumnsIntoScoring(DEFAULT_SCORING, DEFAULT_CASK_OPTIONS, DEFAULT_REGION_OPTIONS),
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const ownerToken = searchParams.get('owner_token');
-    const settingId = searchParams.get('id'); // 設定IDで取得（オプショナル）
+    const settingId = searchParams.get('id');
 
     if (!ownerToken) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証
     const ownerSession = await verifyOwnerToken(ownerToken);
     if (!ownerSession) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 設定取得
-    let query = supabase
-      .from('app_settings')
-      .select('id, name, cask_options, region_options, flavor_chart, scoring')
-      .eq('owner_token', ownerToken);
-
-    // 設定IDが指定されている場合はその設定を取得、指定されていない場合は最初の設定を取得
-    if (settingId) {
-      query = query.eq('id', settingId);
-    }
-
-    const { data: settings, error: settingsError } = await query.maybeSingle();
-
-    // テーブルが存在しない場合（PGRST205）またはその他のエラーの場合、デフォルト値を返す
-    if (settingsError) {
+    let settingsRows;
+    try {
+      settingsRows = settingId
+        ? await sql`
+            SELECT id, name, cask_options, region_options, flavor_chart, scoring
+            FROM app_settings
+            WHERE owner_token = ${ownerToken} AND id = ${settingId}
+            LIMIT 1
+          `
+        : await sql`
+            SELECT id, name, cask_options, region_options, flavor_chart, scoring
+            FROM app_settings
+            WHERE owner_token = ${ownerToken}
+            LIMIT 1
+          `;
+    } catch (settingsError) {
       console.error('Settings fetch error (returning defaults):', settingsError);
-      // テーブルが存在しない場合でもデフォルト値を返す（エラーにしない）
-      return successResponse({
-        id: null,
-        name: 'デフォルト設定',
-        cask_options: DEFAULT_CASK_OPTIONS,
-        region_options: DEFAULT_REGION_OPTIONS,
-        flavor_chart: flavorChartResponse(DEFAULT_FLAVOR_CHART),
-        scoring: mergeLegacyOptionColumnsIntoScoring(DEFAULT_SCORING, DEFAULT_CASK_OPTIONS, DEFAULT_REGION_OPTIONS),
-      });
+      return defaultSettingsResponse();
     }
 
-    // 設定が存在しない場合はデフォルト値を返す
+    const settings = settingsRows[0] as {
+      id: string;
+      name: string;
+      cask_options: string[] | null;
+      region_options: string[] | null;
+      flavor_chart: unknown;
+      scoring: unknown;
+    } | undefined;
     if (!settings) {
-      return successResponse({
-        id: null,
-        name: 'デフォルト設定',
-        cask_options: DEFAULT_CASK_OPTIONS,
-        region_options: DEFAULT_REGION_OPTIONS,
-        flavor_chart: flavorChartResponse(DEFAULT_FLAVOR_CHART),
-        scoring: mergeLegacyOptionColumnsIntoScoring(DEFAULT_SCORING, DEFAULT_CASK_OPTIONS, DEFAULT_REGION_OPTIONS),
-      });
+      return defaultSettingsResponse();
     }
 
     const merged = mergeLegacyOptionColumnsIntoScoring(

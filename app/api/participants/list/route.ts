@@ -1,7 +1,7 @@
 // GET /api/participants/list — 参加復帰用（join_token のみで参加者一覧を返す）
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,30 +11,24 @@ export async function GET(request: NextRequest) {
       return errorResponse('join_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id')
-      .eq('join_token', joinToken)
-      .single();
+    const sessionRows = await sql`
+      SELECT id FROM sessions WHERE join_token = ${joinToken} LIMIT 1
+    `;
+    const session = sessionRows[0] ?? null;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
-    const { data: participants, error: participantsError } = await supabase
-      .from('participants')
-      .select('id, display_name, brought_count')
-      .eq('session_id', session.id)
-      .eq('is_attending', true)
-      .order('created_at');
-
-    if (participantsError) {
-      console.error('Participants list error:', participantsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const participants = await sql`
+      SELECT id, display_name, brought_count
+      FROM participants
+      WHERE session_id = ${session.id} AND is_attending = true
+      ORDER BY created_at
+    `;
 
     return successResponse({
-      participants: participants ?? [],
+      participants,
     });
   } catch (error) {
     console.error('Unexpected error:', error);

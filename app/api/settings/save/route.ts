@@ -1,12 +1,11 @@
 // POST /api/settings/save
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql, jsonb } from '@/lib/db';
 import { verifyOwnerToken } from '@/lib/api-utils';
 import { normalizeScoringConfig, itemNeedsChoiceOptionsList } from '@/lib/scoring-schema';
 import { sanitizeTier1NightingaleColorsInput } from '@/lib/flavor-chart-colors';
 
-// デフォルト配点
 const DEFAULT_SCORING = {
   cask: 5,
   region: 2,
@@ -17,6 +16,24 @@ const DEFAULT_SCORING = {
   abv_penalty_per_percent: 2,
 };
 
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: string }).code === '23505'
+  );
+}
+
+function isTableNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: string }).code === '42P01'
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -26,13 +43,11 @@ export async function POST(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証
     const ownerSession = await verifyOwnerToken(owner_token);
     if (!ownerSession) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // バリデーション
     const settingName = name || 'デフォルト設定';
     if (typeof settingName !== 'string' || settingName.trim().length === 0) {
       return errorResponse('nameは空でない文字列である必要があります', 'INVALID_PARAMETER', 400);
@@ -116,47 +131,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 設定を保存（upsert）
-    const upsertData: Record<string, unknown> = {
-      owner_token: owner_token,
-      name: settingName.trim(),
-      cask_options: cask_options,
-      region_options: region_options,
-      flavor_chart: flavorChartToSave,
-      scoring: finalScoring,
-    };
+    const trimmedName = settingName.trim();
+    const updatedAt = new Date().toISOString();
 
-    // idが指定されている場合は更新、指定されていない場合は新規作成
-    if (id) {
-      upsertData.id = id;
-    }
-
-    const { data: savedSettings, error: upsertError } = await supabase
-      .from('app_settings')
-      .upsert(upsertData, {
-        onConflict: id ? 'id' : 'owner_token,name',
-      })
-      .select()
-      .single();
-
-    if (upsertError) {
+    let savedRows;
+    try {
+      savedRows = id
+        ? await sql`
+            INSERT INTO app_settings (
+              id, owner_token, name, cask_options, region_options, flavor_chart, scoring, updated_at
+            ) VALUES (
+              ${id}, ${owner_token}, ${trimmedName},
+              ${jsonb(cask_options)}::jsonb, ${jsonb(region_options)}::jsonb,
+              ${jsonb(flavorChartToSave)}::jsonb, ${jsonb(finalScoring)}::jsonb, ${updatedAt}
+            )
+            ON CONFLICT (id) DO UPDATE SET
+              owner_token = EXCLUDED.owner_token,
+              name = EXCLUDED.name,
+              cask_options = EXCLUDED.cask_options,
+              region_options = EXCLUDED.region_options,
+              flavor_chart = EXCLUDED.flavor_chart,
+              scoring = EXCLUDED.scoring,
+              updated_at = EXCLUDED.updated_at
+            RETURNING *
+          `
+        : await sql`
+            INSERT INTO app_settings (
+              owner_token, name, cask_options, region_options, flavor_chart, scoring, updated_at
+            ) VALUES (
+              ${owner_token}, ${trimmedName},
+              ${jsonb(cask_options)}::jsonb, ${jsonb(region_options)}::jsonb,
+              ${jsonb(flavorChartToSave)}::jsonb, ${jsonb(finalScoring)}::jsonb, ${updatedAt}
+            )
+            ON CONFLICT (owner_token, name) DO UPDATE SET
+              cask_options = EXCLUDED.cask_options,
+              region_options = EXCLUDED.region_options,
+              flavor_chart = EXCLUDED.flavor_chart,
+              scoring = EXCLUDED.scoring,
+              updated_at = EXCLUDED.updated_at
+            RETURNING *
+          `;
+    } catch (upsertError) {
       console.error('Settings upsert error:', upsertError);
-      // テーブルが存在しない場合（PGRST205）の特別なメッセージ
-      if (upsertError.code === 'PGRST205') {
+      if (isTableNotFound(upsertError)) {
         return errorResponse(
           'app_settingsテーブルが存在しません。データベースマイグレーションを実行してください。',
           'TABLE_NOT_FOUND',
-          500
+          500,
         );
       }
-      // 名前の重複エラー
-      if (upsertError.code === '23505') {
+      if (isUniqueViolation(upsertError)) {
         return errorResponse(
           '同じ名前の設定が既に存在します。別の名前を指定してください。',
           'DUPLICATE_NAME',
-          400
+          400,
         );
       }
+      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
+    }
+
+    const savedSettings = savedRows[0];
+    if (!savedSettings) {
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 

@@ -1,7 +1,7 @@
 // POST /api/owner/start-session
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql, jsonb } from '@/lib/db';
 import { mergeLegacyOptionColumnsIntoScoring, cleanOptionStrings, DEFAULT_CASK_CHOICE_OPTIONS, DEFAULT_REGION_CHOICE_OPTIONS } from '@/lib/scoring-schema';
 import { DEFAULT_FLAVOR_CHART } from '@/lib/default-flavor-chart';
 
@@ -14,18 +14,18 @@ export async function POST(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証とSession取得（mode は一斉開始時の Sample 状態遷移に必要）
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, state, mode, flavor_chart_id')
-      .eq('owner_token', owner_token)
-      .single();
+    const [session] = await sql<
+      { id: string; state: string; mode: string; flavor_chart_id: string | null }[]
+    >`
+      SELECT id, state, mode, flavor_chart_id
+      FROM sessions
+      WHERE owner_token = ${owner_token}
+    `;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 状態チェック
     if (session.state !== 'ordering') {
       return errorResponse(
         'Session状態が不正です。ordering状態の時のみ実行できます',
@@ -34,39 +34,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sample数チェック
-    const { data: samples, error: samplesError } = await supabase
-      .from('samples')
-      .select('id')
-      .eq('session_id', session.id);
+    const samples = await sql<{ id: string }[]>`
+      SELECT id FROM samples WHERE session_id = ${session.id}
+    `;
 
-    if (samplesError) {
-      console.error('Samples fetch error:', samplesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    if (!samples || samples.length === 0) {
+    if (samples.length === 0) {
       return errorResponse('Sampleが0個です。Sampleが1個以上必要です', 'NO_SAMPLES', 400);
     }
 
-    // 設定からフレーバーチャート、カスク選択肢、地域選択肢、配点を取得
-    // setting_idが指定されている場合はその設定を取得、指定されていない場合は最初の設定を取得
     const settingId = body.setting_id;
-    let settingsQuery = supabase
-      .from('app_settings')
-      .select('flavor_chart, cask_options, region_options, scoring')
-      .eq('owner_token', owner_token);
-    
-    if (settingId) {
-      settingsQuery = settingsQuery.eq('id', settingId);
-    }
-    
-    const { data: settings, error: settingsError } = await settingsQuery.maybeSingle();
+    const settingsRows = settingId
+      ? await sql<
+          {
+            flavor_chart: unknown;
+            cask_options: unknown;
+            region_options: unknown;
+            scoring: unknown;
+          }[]
+        >`
+          SELECT flavor_chart, cask_options, region_options, scoring
+          FROM app_settings
+          WHERE owner_token = ${owner_token}
+            AND id = ${settingId}
+          LIMIT 1
+        `
+      : await sql<
+          {
+            flavor_chart: unknown;
+            cask_options: unknown;
+            region_options: unknown;
+            scoring: unknown;
+          }[]
+        >`
+          SELECT flavor_chart, cask_options, region_options, scoring
+          FROM app_settings
+          WHERE owner_token = ${owner_token}
+          LIMIT 1
+        `;
 
-    if (settingsError) {
-      console.error('Settings fetch error:', settingsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const settings = settingsRows[0] ?? null;
 
     const flavorChartSnapshot = settings?.flavor_chart || DEFAULT_FLAVOR_CHART;
 
@@ -85,8 +91,8 @@ export async function POST(request: NextRequest) {
 
     const scoringSnapshot = mergeLegacyOptionColumnsIntoScoring(
       settings?.scoring || defaultScoring,
-      settings?.cask_options,
-      settings?.region_options,
+      settings?.cask_options as string[] | undefined | null,
+      settings?.region_options as string[] | undefined | null,
     );
 
     const needCaskChoice =
@@ -113,88 +119,42 @@ export async function POST(request: NextRequest) {
         : defaultRegionOptions
       : regionOptsList;
 
-    // Session状態をrunningに変更、スナップショット保存
-    // cask_options_snapshot、region_options_snapshot、scoring_snapshotはオプショナル（カラムが存在する場合のみ更新）
-    const updateData: Record<string, unknown> = {
-      state: 'running',
-      flavor_chart_snapshot: flavorChartSnapshot,
-    };
-    
-    // カラムが存在する場合のみ追加
-    try {
-      // まずカラムの存在確認（エラーが発生しない場合は存在する）
-      const testResult = await supabase
-        .from('sessions')
-        .select('cask_options_snapshot, scoring_snapshot')
-        .eq('id', session.id)
-        .limit(1);
-      
-      if (!testResult.error) {
-        updateData.cask_options_snapshot = caskOptionsSnapshot;
-        updateData.region_options_snapshot = regionOptionsSnapshot;
-        updateData.scoring_snapshot = scoringSnapshot;
-      }
-    } catch {
-      // カラムが存在しない場合はスキップ
-    }
-    
-    const { error: updateError } = await supabase
-      .from('sessions')
-      .update(updateData)
-      .eq('id', session.id);
+    await sql`
+      UPDATE sessions
+      SET
+        state = 'running',
+        flavor_chart_snapshot = ${jsonb(flavorChartSnapshot)}::jsonb,
+        cask_options_snapshot = ${jsonb(caskOptionsSnapshot)}::jsonb,
+        region_options_snapshot = ${jsonb(regionOptionsSnapshot)}::jsonb,
+        scoring_snapshot = ${jsonb(scoringSnapshot)}::jsonb
+      WHERE id = ${session.id}
+    `;
 
-    if (updateError) {
-      console.error('Session update error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    // mode は DB 上 NOT NULL のはずだが、取りこぼし・型ゆれで厳密比較だけだと分岐に入らず
-    // pending のまま残り得るため、「simultaneous 以外は逐次扱い」とする。
     const effectiveMode: 'sequential' | 'simultaneous' =
       session.mode === 'simultaneous' ? 'simultaneous' : 'sequential';
 
-    // 一斉モード: 仕様どおり、セッション開始と同時に未開始の全 Sample を回答受付にする。
-    // （これがないと session は running でも全件 pending のままになり、参加者側が永遠に「開始待ち」になる）
     if (effectiveMode === 'simultaneous') {
-      const { error: samplesActivateError } = await supabase
-        .from('samples')
-        .update({ state: 'answering' })
-        .eq('session_id', session.id)
-        .eq('state', 'pending');
-
-      if (samplesActivateError) {
-        console.error('Simultaneous samples activate error:', samplesActivateError);
-        return errorResponse('サンプル状態の更新に失敗しました', 'SERVER_ERROR', 500);
-      }
+      await sql`
+        UPDATE samples SET state = 'answering'
+        WHERE session_id = ${session.id}
+          AND state = 'pending'
+      `;
     } else {
-      // 逐次モード: sort_order 最小の pending を第1ラウンドとして自動開始する。
-      // これまで「Session を開始」後も全件 pending のため、参加者だけ「まだ開始されていません」が続いていた。
-      const { data: firstPending, error: firstPendingError } = await supabase
-        .from('samples')
-        .select('id')
-        .eq('session_id', session.id)
-        .eq('state', 'pending')
-        .order('sort_order', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (firstPendingError) {
-        console.error('Sequential first pending sample query error:', firstPendingError);
-        return errorResponse('サンプル状態の確認に失敗しました', 'SERVER_ERROR', 500);
-      }
+      const [firstPending] = await sql<{ id: string }[]>`
+        SELECT id FROM samples
+        WHERE session_id = ${session.id}
+          AND state = 'pending'
+        ORDER BY sort_order ASC
+        LIMIT 1
+      `;
 
       if (firstPending?.id) {
-        const { error: firstActivateError } = await supabase
-          .from('samples')
-          .update({ state: 'answering' })
-          .eq('id', firstPending.id)
-          .eq('session_id', session.id)
-          .eq('state', 'pending');
-
-        if (firstActivateError) {
-          console.error('Sequential first sample activate error:', firstActivateError);
-          return errorResponse('最初のラウンドの開始に失敗しました', 'SERVER_ERROR', 500);
-        }
+        await sql`
+          UPDATE samples SET state = 'answering'
+          WHERE id = ${firstPending.id}
+            AND session_id = ${session.id}
+            AND state = 'pending'
+        `;
       }
     }
 

@@ -1,7 +1,7 @@
 // POST /api/owner/force-close
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,32 +12,21 @@ export async function POST(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証とSession取得
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, state')
-      .eq('owner_token', owner_token)
-      .single();
+    const [session] = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM sessions WHERE owner_token = ${owner_token}
+    `;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 既にclosed状態の場合はエラー
     if (session.state === 'closed') {
       return errorResponse('Sessionは既に終了しています', 'ALREADY_CLOSED', 400);
     }
 
-    // Session状態をclosedに強制変更（どの状態からでも可能）
-    const { error: updateError } = await supabase
-      .from('sessions')
-      .update({ state: 'closed' })
-      .eq('id', session.id);
-
-    if (updateError) {
-      console.error('Session update error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    await sql`
+      UPDATE sessions SET state = 'closed' WHERE id = ${session.id}
+    `;
 
     return successResponse({
       session_id: session.id,

@@ -2,7 +2,7 @@
 // 既存の回答を取得する
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,25 +14,23 @@ export async function GET(request: NextRequest) {
       return errorResponse('sample_idとparticipant_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Participant認証
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id, session_id')
-      .eq('participant_token', participantToken)
-      .single();
-
-    if (participantError || !participant) {
+    const participants = await sql`
+      SELECT id, session_id FROM participants
+      WHERE participant_token = ${participantToken}
+      LIMIT 1
+    `;
+    const participant = participants[0];
+    if (!participant) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // Sample取得と状態チェック
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, session_id, state')
-      .eq('id', sampleId)
-      .single();
-
-    if (sampleError || !sample) {
+    const samples = await sql`
+      SELECT id, session_id, state FROM samples
+      WHERE id = ${sampleId}
+      LIMIT 1
+    `;
+    const sample = samples[0];
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
@@ -40,26 +38,17 @@ export async function GET(request: NextRequest) {
       return errorResponse('Sessionが一致しません', 'UNAUTHORIZED', 401);
     }
 
-    // 既存回答取得
-    const { data: answer, error: answerError } = await supabase
-      .from('answers')
-      .select('*')
-      .eq('session_id', sample.session_id)
-      .eq('sample_id', sampleId)
-      .eq('participant_id', participant.id)
-      .single();
-
-    if (answerError && answerError.code !== 'PGRST116') {
-      // PGRST116は「行が見つからない」エラー（正常）
-      console.error('Answer fetch error:', answerError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const answers = await sql`
+      SELECT * FROM answers
+      WHERE session_id = ${sample.session_id}
+        AND sample_id = ${sampleId}
+        AND participant_id = ${participant.id}
+      LIMIT 1
+    `;
+    const answer = answers[0];
 
     if (!answer) {
-      // 回答がない場合は空の回答を返す
-      return successResponse({
-        answer: null,
-      });
+      return successResponse({ answer: null });
     }
 
     return successResponse({

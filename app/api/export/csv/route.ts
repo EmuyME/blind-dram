@@ -1,11 +1,10 @@
 // GET /api/export/csv
 import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { errorResponse, isMissingPublicResultsColumn } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { errorResponse } from '@/lib/api-utils';
+import { sql } from '@/lib/db';
 import { calculateScore } from '@/lib/score-calculator';
 import type { ItemGradesMap } from '@/lib/scoring-schema';
-import type { PostgrestError } from '@supabase/supabase-js';
 
 type ParticipantRow = {
   id: string;
@@ -86,34 +85,16 @@ export async function GET(request: NextRequest) {
       return errorResponse('join_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const sessionSelectWithPublic =
-      'id, title, owner_token, state, scoring_snapshot, cask_options_snapshot, region_options_snapshot, public_results';
-    const sessionSelectWithoutPublic =
-      'id, title, owner_token, state, scoring_snapshot, cask_options_snapshot, region_options_snapshot';
+    const sessionRows = await sql`
+      SELECT id, title, owner_token, state, scoring_snapshot,
+             cask_options_snapshot, region_options_snapshot, public_results
+      FROM sessions
+      WHERE join_token = ${joinToken}
+      LIMIT 1
+    `;
+    const session = sessionRows[0] as SessionRowForCsv | undefined;
 
-    let session: SessionRowForCsv | null = null;
-    let sessionError: PostgrestError | null = null;
-
-    const first = await supabase
-      .from('sessions')
-      .select(sessionSelectWithPublic)
-      .eq('join_token', joinToken)
-      .single();
-
-    session = first.data as SessionRowForCsv | null;
-    sessionError = first.error;
-
-    if (sessionError && isMissingPublicResultsColumn(sessionError)) {
-      const retry = await supabase
-        .from('sessions')
-        .select(sessionSelectWithoutPublic)
-        .eq('join_token', joinToken)
-        .single();
-      session = retry.data as SessionRowForCsv | null;
-      sessionError = retry.error;
-    }
-
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
@@ -138,67 +119,39 @@ export async function GET(request: NextRequest) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 参加者一覧取得
-    const { data: participants, error: participantsError } = await supabase
-      .from('participants')
-      .select('id, display_name')
-      .eq('session_id', session.id)
-      .eq('is_attending', true)
-      .order('display_name');
+    const participants = await sql`
+      SELECT id, display_name FROM participants
+      WHERE session_id = ${session.id} AND is_attending = true
+      ORDER BY display_name
+    `;
 
-    if (participantsError) {
-      console.error('Participants fetch error:', participantsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const samples = await sql`
+      SELECT id, label, sort_order, presenter_participant_id FROM samples
+      WHERE session_id = ${session.id}
+      ORDER BY sort_order
+    `;
 
-    // Sample一覧取得
-    const { data: samples, error: samplesError } = await supabase
-      .from('samples')
-      .select('id, label, sort_order, presenter_participant_id')
-      .eq('session_id', session.id)
-      .order('sort_order');
+    const truths = await sql`
+      SELECT sample_id, true_cask, true_region, true_age, true_abv, true_distillery,
+             true_other1, true_other2, true_bottler_name, true_distillation_year,
+             true_bottling_year, notes
+      FROM truths
+      WHERE session_id = ${session.id}
+    `;
 
-    if (samplesError) {
-      console.error('Samples fetch error:', samplesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const answers = await sql`
+      SELECT sample_id, participant_id, status, submitted_at, guessed_cask, guessed_region,
+             guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2,
+             nose, palate, finish
+      FROM answers
+      WHERE session_id = ${session.id}
+    `;
 
-    // Truth一覧取得
-    const { data: truths, error: truthsError } = await supabase
-      .from('truths')
-      .select(
-        'sample_id, true_cask, true_region, true_age, true_abv, true_distillery, true_other1, true_other2, true_bottler_name, true_distillation_year, true_bottling_year, notes',
-      )
-      .eq('session_id', session.id);
-
-    if (truthsError) {
-      console.error('Truths fetch error:', truthsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    // 回答一覧取得（status含む。CSVは正規化（参加者×Round）で出すため、列数が増えない）
-    const { data: answers, error: answersError } = await supabase
-      .from('answers')
-      .select(
-        'sample_id, participant_id, status, submitted_at, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2, nose, palate, finish',
-      )
-      .eq('session_id', session.id);
-
-    if (answersError) {
-      console.error('Answers fetch error:', answersError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    // 採点結果取得
-    const { data: grades, error: gradesError } = await supabase
-      .from('distillery_grades')
-      .select('sample_id, participant_id, is_correct, item_grades')
-      .eq('session_id', session.id);
-
-    if (gradesError) {
-      console.error('Grades fetch error:', gradesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const grades = await sql`
+      SELECT sample_id, participant_id, is_correct, item_grades
+      FROM distillery_grades
+      WHERE session_id = ${session.id}
+    `;
 
     const scoringSnapshot = session.scoring_snapshot;
     const caskOpts = Array.isArray(session.cask_options_snapshot)

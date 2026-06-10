@@ -2,7 +2,7 @@
 // 現在のparticipant_tokenを持つ参加者を「退席扱い」にして、is_attendingをfalseにする
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,43 +13,34 @@ export async function POST(request: NextRequest) {
       return errorResponse('join_tokenとparticipant_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Session存在確認
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id')
-      .eq('join_token', join_token)
-      .single();
+    const sessionRows = await sql`
+      SELECT id FROM sessions WHERE join_token = ${join_token} LIMIT 1
+    `;
+    const session = sessionRows[0] ?? null;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
-    // 対象参加者を取得
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id, is_attending')
-      .eq('session_id', session.id)
-      .eq('participant_token', participant_token)
-      .single();
+    const participantRows = await sql`
+      SELECT id, is_attending
+      FROM participants
+      WHERE session_id = ${session.id} AND participant_token = ${participant_token}
+      LIMIT 1
+    `;
+    const participant = participantRows[0] ?? null;
 
-    if (participantError || !participant) {
+    if (!participant) {
       return errorResponse('参加者が見つかりません', 'PARTICIPANT_NOT_FOUND', 404);
     }
 
-    // すでにis_attending=falseなら何もしない
     if (participant.is_attending === false) {
       return successResponse({ updated: false });
     }
 
-    const { error: updateError } = await supabase
-      .from('participants')
-      .update({ is_attending: false })
-      .eq('id', participant.id);
-
-    if (updateError) {
-      console.error('Participant leave update error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    await sql`
+      UPDATE participants SET is_attending = false WHERE id = ${participant.id}
+    `;
 
     return successResponse({ updated: true });
   } catch (error) {
@@ -57,4 +48,3 @@ export async function POST(request: NextRequest) {
     return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
   }
 }
-

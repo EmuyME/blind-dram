@@ -1,7 +1,7 @@
 // POST /api/round/start
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,24 +12,31 @@ export async function POST(request: NextRequest) {
       return errorResponse('participant_tokenとsample_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, state, presenter_participant_id, session_id, sort_order')
-      .eq('id', sample_id)
-      .single();
+    const [sample] = await sql<
+      {
+        id: string;
+        state: string;
+        presenter_participant_id: string;
+        session_id: string;
+        sort_order: number;
+      }[]
+    >`
+      SELECT id, state, presenter_participant_id, session_id, sort_order
+      FROM samples
+      WHERE id = ${sample_id}
+    `;
 
-    if (sampleError || !sample) {
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('participant_token', participant_token)
-      .eq('session_id', sample.session_id)
-      .single();
+    const [participant] = await sql<{ id: string }[]>`
+      SELECT id FROM participants
+      WHERE participant_token = ${participant_token}
+        AND session_id = ${sample.session_id}
+    `;
 
-    if (participantError || !participant) {
+    if (!participant) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
@@ -41,7 +48,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 既に回答受付中なら冪等に成功（start-next・別タブ・二重送信などで pending 表示と DB がずれるのを吸収）
     if (sample.state === 'answering') {
       return successResponse({
         sample_id: sample_id,
@@ -58,33 +64,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Session取得（逐次モードチェック用）
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, mode')
-      .eq('id', sample.session_id)
-      .single();
+    const [session] = await sql<{ id: string; mode: string }[]>`
+      SELECT id, mode FROM sessions WHERE id = ${sample.session_id}
+    `;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
-    // 逐次モードの場合、前のラウンドがrevealedまたはclosed状態で全員が「次へ」を押すまで開始できない
     if (session.mode === 'sequential') {
-      // 前のサンプル（sort_orderが小さいもの）を取得
-      const { data: previousSample } = await supabase
-        .from('samples')
-        .select('id, state')
-        .eq('session_id', session.id)
-        .lt('sort_order', sample.sort_order || 0)
-        .order('sort_order', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [previousSample] = await sql<{ id: string; state: string }[]>`
+        SELECT id, state FROM samples
+        WHERE session_id = ${session.id}
+          AND sort_order < ${sample.sort_order ?? 0}
+        ORDER BY sort_order DESC
+        LIMIT 1
+      `;
 
-      // 前のサンプルがある場合、revealedまたはclosed状態かチェック
       if (previousSample) {
-        // 前のサンプルがpending、answering、grading状態の場合は開始不可
-        if (previousSample.state === 'pending' || previousSample.state === 'answering' || previousSample.state === 'grading') {
+        if (
+          previousSample.state === 'pending' ||
+          previousSample.state === 'answering' ||
+          previousSample.state === 'grading'
+        ) {
           return errorResponse(
             '前のラウンドが完了していません。前のラウンドを終了してから開始してください',
             'PREVIOUS_ROUND_NOT_CLOSED',
@@ -92,24 +94,22 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // 前のサンプルがclosed状態の場合は開始可能（全員が「次へ」を押した後）
-        if (previousSample.state === 'closed') {
-          // closed状態の場合は既に全員が「次へ」を押しているとみなす
-        } else if (previousSample.state === 'revealed') {
-          // 前のサンプルがrevealed状態の場合、全員が「次へ」を押したかチェック
-          const { data: allParticipants } = await supabase
-            .from('participants')
-            .select('id')
-            .eq('session_id', session.id)
-            .eq('is_attending', true);
+        if (previousSample.state === 'revealed') {
+          const allParticipants = await sql<{ id: string }[]>`
+            SELECT id FROM participants
+            WHERE session_id = ${session.id}
+              AND is_attending = true
+          `;
 
-          const { data: allClicks } = await supabase
-            .from('round_next_clicks')
-            .select('participant_id')
-            .eq('sample_id', previousSample.id);
+          const allClicks = await sql<{ participant_id: string }[]>`
+            SELECT participant_id FROM round_next_clicks
+            WHERE sample_id = ${previousSample.id}
+          `;
 
-          const clickedParticipantIds = new Set((allClicks || []).map((c) => c.participant_id));
-          const allClicked = (allParticipants || []).length > 0 && (allParticipants || []).every((p) => clickedParticipantIds.has(p.id));
+          const clickedParticipantIds = new Set(allClicks.map((c) => c.participant_id));
+          const allClicked =
+            allParticipants.length > 0 &&
+            allParticipants.every((p) => clickedParticipantIds.has(p.id));
 
           if (!allClicked) {
             return errorResponse(
@@ -122,16 +122,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Round状態をansweringに変更
-    const { error: updateError } = await supabase
-      .from('samples')
-      .update({ state: 'answering' })
-      .eq('id', sample_id);
-
-    if (updateError) {
-      console.error('Sample update error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    await sql`
+      UPDATE samples SET state = 'answering' WHERE id = ${sample_id}
+    `;
 
     return successResponse({
       sample_id: sample_id,

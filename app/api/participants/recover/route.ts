@@ -1,7 +1,7 @@
 // POST /api/participants/recover — 別端末から参加者を選択して復帰（パスワード不要）
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse, generateUUID } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,13 +16,12 @@ export async function POST(request: NextRequest) {
       return errorResponse('participant_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, state')
-      .eq('join_token', join_token)
-      .single();
+    const sessionRows = await sql`
+      SELECT id, state FROM sessions WHERE join_token = ${join_token} LIMIT 1
+    `;
+    const session = sessionRows[0] ?? null;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
@@ -30,17 +29,13 @@ export async function POST(request: NextRequest) {
       return errorResponse('このイベントは終了しています', 'SESSION_CLOSED', 409);
     }
 
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id, display_name, is_attending')
-      .eq('id', participant_id)
-      .eq('session_id', session.id)
-      .maybeSingle();
-
-    if (participantError) {
-      console.error('Participant lookup error:', participantError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const participantRows = await sql`
+      SELECT id, display_name, is_attending
+      FROM participants
+      WHERE id = ${participant_id} AND session_id = ${session.id}
+      LIMIT 1
+    `;
+    const participant = participantRows[0] ?? null;
 
     if (!participant || !participant.is_attending) {
       return errorResponse('参加者が見つかりません', 'PARTICIPANT_NOT_FOUND', 404);
@@ -48,18 +43,11 @@ export async function POST(request: NextRequest) {
 
     const participantToken = generateUUID();
 
-    const { error: updateError } = await supabase
-      .from('participants')
-      .update({
-        participant_token: participantToken,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', participant.id);
-
-    if (updateError) {
-      console.error('Participant recover error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    await sql`
+      UPDATE participants
+      SET participant_token = ${participantToken}, updated_at = NOW()
+      WHERE id = ${participant.id}
+    `;
 
     return successResponse({
       participant_id: participant.id,

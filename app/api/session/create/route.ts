@@ -1,13 +1,12 @@
 // POST /api/session/create
 import { NextRequest } from 'next/server';
-import { successResponse, errorResponse, generateUUID, generateJoinCode, isMissingPublicResultsColumn } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { successResponse, errorResponse, generateUUID, generateJoinCode } from '@/lib/api-utils';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { title, mode, flavor_chart_id, previous_session_id, previous_session_join_token } = body;
-
 
     // バリデーション
     if (!title || typeof title !== 'string' || title.trim() === '') {
@@ -25,19 +24,22 @@ export async function POST(request: NextRequest) {
     // 逐次モードで前のセッションが指定された場合、その状態をチェック
     let previousSessionId: string | null = null;
     if (mode === 'sequential' && (previous_session_id || previous_session_join_token)) {
-      const previousSessionQuery = previous_session_id
-        ? supabase.from('sessions').select('id, state').eq('id', previous_session_id).single()
-        : supabase.from('sessions').select('id, state').eq('join_token', previous_session_join_token).single();
+      const previousRows = (previous_session_id
+        ? await sql`
+            SELECT id, state FROM sessions WHERE id = ${previous_session_id} LIMIT 1
+          `
+        : await sql`
+            SELECT id, state FROM sessions WHERE join_token = ${previous_session_join_token} LIMIT 1
+          `) as { id: string; state: string }[];
 
-      const { data: previousSession, error: previousSessionError } = await previousSessionQuery;
+      const previousSession = previousRows[0] ?? null;
 
-      if (previousSessionError || !previousSession) {
+      if (!previousSession) {
         return errorResponse('前のセッションが見つかりません', 'PREVIOUS_SESSION_NOT_FOUND', 404);
       }
 
       previousSessionId = previousSession.id;
 
-      // 前のセッションの状態をチェック（publishedまたはclosedでない場合はエラー）
       if (previousSession.state !== 'published' && previousSession.state !== 'closed') {
         return errorResponse(
           `前のセッションが完了していません。現在の状態: ${previousSession.state}。結果が公開されるまで新しいセッションを開始できません`,
@@ -47,60 +49,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // トークン生成
     const ownerToken = generateUUID();
     const joinToken = generateUUID();
-    
-    // 参加コード生成（重複チェック付き）
+
     let joinCode = generateJoinCode();
     let attempts = 0;
     while (attempts < 10) {
-      const { data: existing } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('join_code', joinCode)
-        .maybeSingle();
-      
-      if (!existing) {
-        break; // 重複なし
+      const existingRows = await sql`
+        SELECT id FROM sessions WHERE join_code = ${joinCode} LIMIT 1
+      `;
+      if (!existingRows[0]) {
+        break;
       }
       joinCode = generateJoinCode();
       attempts++;
     }
 
-    // Session作成（DB に public_results 列がない環境では列なしで再試行）
-    const baseInsert = {
-      title: title.trim(),
-      owner_token: ownerToken,
-      join_token: joinToken,
-      join_code: joinCode,
-      mode,
-      state: 'registering' as const,
-      flavor_chart_id: flavor_chart_id || null,
-      flavor_chart_snapshot: null,
-      previous_session_id: previousSessionId || null,
-    };
+    const sessionRows = (await sql`
+      INSERT INTO sessions (
+        title, owner_token, join_token, join_code, mode, state,
+        flavor_chart_id, flavor_chart_snapshot, previous_session_id, public_results
+      )
+      VALUES (
+        ${title.trim()}, ${ownerToken}, ${joinToken}, ${joinCode}, ${mode}, 'registering',
+        ${flavor_chart_id || null}, null, ${previousSessionId}, true
+      )
+      RETURNING id
+    `) as { id: string }[];
 
-    let { data: session, error } = await supabase
-      .from('sessions')
-      .insert({ ...baseInsert, public_results: true })
-      .select()
-      .single();
-
-    if (error && isMissingPublicResultsColumn(error)) {
-      console.warn(
-        'sessions.public_results 列がありません。add_public_results_to_sessions.sql を Supabase に適用してください。暫定的に列なしで作成します。',
-      );
-      const retry = await supabase.from('sessions').insert(baseInsert).select().single();
-      session = retry.data;
-      error = retry.error;
-    }
-
-    if (error) {
-      console.error('Session creation error:', error);
+    const session = sessionRows[0];
+    if (!session) {
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
-
 
     return successResponse({
       session_id: session.id,

@@ -1,7 +1,7 @@
 // GET /api/results/get
 import { NextRequest } from 'next/server';
-import { successResponse, errorResponse, isMissingPublicResultsColumn } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { successResponse, errorResponse } from '@/lib/api-utils';
+import { sql } from '@/lib/db';
 import { calculateScore } from '@/lib/score-calculator';
 import {
   getAnswerSectionFlavor,
@@ -14,8 +14,6 @@ import {
 } from '@/lib/json-helpers';
 import { resolvedTier1NightingaleColors } from '@/lib/flavor-chart-colors';
 import type { ItemGradesMap } from '@/lib/scoring-schema';
-import type { PostgrestError } from '@supabase/supabase-js';
-
 type SessionRowForResults = {
   id: string;
   title: string;
@@ -29,6 +27,53 @@ type SessionRowForResults = {
   public_results?: boolean | null;
 };
 
+type ParticipantRow = { id: string; display_name: string };
+type SampleRow = { id: string; label: string; presenter_participant_id: string | null };
+type TruthRow = {
+  sample_id: string;
+  true_cask: string | null;
+  true_region: string | null;
+  true_age: number | null;
+  true_abv: number | null;
+  true_distillery: string | null;
+  true_other1: string | null;
+  true_other2: string | null;
+  true_bottler_name: string | null;
+  true_distillation_year: number | null;
+  true_bottling_year: number | null;
+  notes: string | null;
+  bottle_image_url: string | null;
+};
+type AnswerRow = {
+  sample_id: string;
+  participant_id: string;
+  guessed_cask: string | null;
+  guessed_region: string | null;
+  guessed_age: number | null;
+  guessed_abv: number | null;
+  guessed_distillery: string | null;
+  guessed_other1: string | null;
+  guessed_other2: string | null;
+  nose: unknown;
+  palate: unknown;
+  finish: unknown;
+  bottle_image_url: string | null;
+};
+type DraftAnswerRow = {
+  sample_id: string;
+  participant_id: string;
+  status: string;
+  nose: unknown;
+  palate: unknown;
+  finish: unknown;
+};
+type GradeRow = {
+  sample_id: string;
+  participant_id: string;
+  is_correct: boolean;
+  item_grades: ItemGradesMap | null;
+};
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -39,34 +84,16 @@ export async function GET(request: NextRequest) {
       return errorResponse('join_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const sessionSelectWithPublic =
-      'id, title, mode, state, flavor_chart_snapshot, scoring_snapshot, cask_options_snapshot, region_options_snapshot, owner_token, public_results';
-    const sessionSelectWithoutPublic =
-      'id, title, mode, state, flavor_chart_snapshot, scoring_snapshot, cask_options_snapshot, region_options_snapshot, owner_token';
+    const sessionRows = await sql`
+      SELECT id, title, mode, state, flavor_chart_snapshot, scoring_snapshot,
+             cask_options_snapshot, region_options_snapshot, owner_token, public_results
+      FROM sessions
+      WHERE join_token = ${joinToken}
+      LIMIT 1
+    `;
+    const session = sessionRows[0] as SessionRowForResults | undefined;
 
-    let session: SessionRowForResults | null = null;
-    let sessionError: PostgrestError | null = null;
-
-    const first = await supabase
-      .from('sessions')
-      .select(sessionSelectWithPublic)
-      .eq('join_token', joinToken)
-      .single();
-
-    session = first.data as SessionRowForResults | null;
-    sessionError = first.error;
-
-    if (sessionError && isMissingPublicResultsColumn(sessionError)) {
-      const retry = await supabase
-        .from('sessions')
-        .select(sessionSelectWithoutPublic)
-        .eq('join_token', joinToken)
-        .single();
-      session = retry.data as SessionRowForResults | null;
-      sessionError = retry.error;
-    }
-
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('Sessionが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
@@ -89,87 +116,63 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 参加者一覧取得
-    const { data: participants, error: participantsError } = await supabase
-      .from('participants')
-      .select('id, display_name')
-      .eq('session_id', session.id)
-      .eq('is_attending', true);
+    const participants = await sql`
+      SELECT id, display_name FROM participants
+      WHERE session_id = ${session.id} AND is_attending = true
+    `;
 
-    if (participantsError) {
-      console.error('Participants fetch error:', participantsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const samples = await sql`
+      SELECT id, label, presenter_participant_id FROM samples
+      WHERE session_id = ${session.id}
+      ORDER BY sort_order
+    `;
 
-    // Sample一覧取得（プレゼンター情報も取得）
-    const { data: samples, error: samplesError } = await supabase
-      .from('samples')
-      .select('id, label, presenter_participant_id')
-      .eq('session_id', session.id)
-      .order('sort_order');
+    const truths = await sql`
+      SELECT sample_id, true_cask, true_region, true_age, true_abv, true_distillery,
+             true_other1, true_other2, true_bottler_name, true_distillation_year,
+             true_bottling_year, notes, bottle_image_url
+      FROM truths
+      WHERE session_id = ${session.id}
+    `;
 
-    if (samplesError) {
-      console.error('Samples fetch error:', samplesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const answers = await sql`
+      SELECT sample_id, participant_id, guessed_cask, guessed_region, guessed_age, guessed_abv,
+             guessed_distillery, guessed_other1, guessed_other2, nose, palate, finish, bottle_image_url
+      FROM answers
+      WHERE session_id = ${session.id} AND status = 'submitted'
+    `;
 
-    // Truth一覧取得
-    const { data: truths, error: truthsError } = await supabase
-      .from('truths')
-      .select(
-        'sample_id, true_cask, true_region, true_age, true_abv, true_distillery, true_other1, true_other2, true_bottler_name, true_distillation_year, true_bottling_year, notes, bottle_image_url',
-      )
-      .eq('session_id', session.id);
-
-
-    if (truthsError) {
-      console.error('Truths fetch error:', truthsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    // 回答一覧取得
-    const { data: answers, error: answersError } = await supabase
-      .from('answers')
-      .select('sample_id, participant_id, guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2, nose, palate, finish, bottle_image_url')
-      .eq('session_id', session.id)
-      .eq('status', 'submitted');
-
-    if (answersError) {
-      console.error('Answers fetch error:', answersError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    const { data: draftAnswers, error: draftAnswersError } = await supabase
-      .from('answers')
-      .select('sample_id, participant_id, status, nose, palate, finish')
-      .eq('session_id', session.id)
-      .eq('status', 'draft');
-
-    if (draftAnswersError) {
+    const participantRows = participants as ParticipantRow[];
+    const sampleRows = samples as SampleRow[];
+    const truthRows = truths as TruthRow[];
+    const answerRows = answers as AnswerRow[];
+    let draftAnswerRows: DraftAnswerRow[] = [];
+    try {
+      draftAnswerRows = (await sql`
+        SELECT sample_id, participant_id, status, nose, palate, finish
+        FROM answers
+        WHERE session_id = ${session.id} AND status = 'draft'
+      `) as DraftAnswerRow[];
+    } catch (draftAnswersError) {
       console.error('Draft answers fetch error (flavor radar):', draftAnswersError);
     }
 
     const answersForFlavorRadar = mergeSubmittedAndPresenterDraftsForFlavorRadar(
-      answers || [],
-      draftAnswers || [],
-      samples || [],
+      answerRows,
+      draftAnswerRows,
+      sampleRows,
     );
 
-    // 採点結果取得
-    const { data: grades, error: gradesError } = await supabase
-      .from('distillery_grades')
-      .select('sample_id, participant_id, is_correct, item_grades')
-      .eq('session_id', session.id);
-
-    if (gradesError) {
-      console.error('Grades fetch error:', gradesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const gradeRows = (await sql`
+      SELECT sample_id, participant_id, is_correct, item_grades
+      FROM distillery_grades
+      WHERE session_id = ${session.id}
+    `) as GradeRow[];
 
     // 点数計算とランキング作成
     const participantScores = new Map<string, { total: number; samples: Map<string, number> }>();
 
-    (participants || []).forEach((p) => {
+    participantRows.forEach((p) => {
       participantScores.set(p.id, { total: 0, samples: new Map() });
     });
 
@@ -180,20 +183,20 @@ export async function GET(request: NextRequest) {
       ? (session.region_options_snapshot as string[])
       : [];
 
-    (samples || []).forEach((sample) => {
-      const truth = truths?.find((t) => t.sample_id === sample.id);
+    sampleRows.forEach((sample) => {
+      const truth = truthRows.find((t) => t.sample_id === sample.id);
       if (!truth) return;
 
-      (participants || []).forEach((participant) => {
+      participantRows.forEach((participant) => {
         if (sample.presenter_participant_id === participant.id) {
           return;
         }
-        const answer = answers?.find(
+        const answer = answerRows.find(
           (a) => a.sample_id === sample.id && a.participant_id === participant.id
         );
         if (!answer) return;
 
-        const grade = grades?.find(
+        const grade = gradeRows.find(
           (g) => g.sample_id === sample.id && g.participant_id === participant.id
         );
 
@@ -238,7 +241,7 @@ export async function GET(request: NextRequest) {
     // ランキング作成
     const ranking = Array.from(participantScores.entries())
       .map(([participantId, scores]) => {
-        const participant = participants?.find((p) => p.id === participantId);
+        const participant = participantRows.find((p) => p.id === participantId);
         return {
           participant_id: participantId,
           display_name: participant?.display_name || '',
@@ -274,8 +277,8 @@ export async function GET(request: NextRequest) {
         '[DEBUG_FLAVOR_RADAR] results/get',
         JSON.stringify({
           tier1_axis_count: tier1List.length,
-          submitted_count: (answers || []).length,
-          draft_count: (draftAnswers || []).length,
+          submitted_count: answerRows.length,
+          draft_count: draftAnswerRows.length,
           merged_for_radar: answersForFlavorRadar.length,
           snapshot_has_tier1: Array.isArray(
             (session.flavor_chart_snapshot as { tier1?: unknown } | null)?.tier1,
@@ -287,7 +290,7 @@ export async function GET(request: NextRequest) {
     }
 
     // サンプル別詳細
-    const sampleDetails = (samples || []).map((sample) => {
+    const sampleDetails = sampleRows.map((sample) => {
       // サンプル別レーダーチャート
       const sampleTier1Counts: Record<string, number> = {};
       tier1List.forEach((tier1) => {
@@ -305,7 +308,7 @@ export async function GET(request: NextRequest) {
       });
 
       const comments = sampleAnswersForRadar.map((answer) => {
-        const participant = participants?.find((p) => p.id === answer.participant_id);
+        const participant = participantRows.find((p) => p.id === answer.participant_id);
         return {
           participant_id: answer.participant_id,
           display_name: participant?.display_name || '',
@@ -359,7 +362,7 @@ export async function GET(request: NextRequest) {
     // ランキングにsample_scoresを追加
     const rankingsWithScores = ranking.map((r) => {
       const participantScore = participantScores.get(r.participant_id);
-      const sampleScores = (samples || []).map((sample) => ({
+      const sampleScores = sampleRows.map((sample) => ({
         sample_id: sample.id,
         sample_label: sample.label,
         score: participantScore?.samples.get(sample.id) || 0,
@@ -371,15 +374,15 @@ export async function GET(request: NextRequest) {
     });
 
     // サンプル詳細にtruthとparticipant_answersを追加
-    const sampleDetailsWithTruth = (samples || []).map((sample) => {
-      const truth = truths?.find((t) => t.sample_id === sample.id);
+    const sampleDetailsWithTruth = sampleRows.map((sample) => {
+      const truth = truthRows.find((t) => t.sample_id === sample.id);
       const presenter = sample.presenter_participant_id
-        ? participants?.find((p) => p.id === sample.presenter_participant_id)
+        ? participantRows.find((p) => p.id === sample.presenter_participant_id)
         : null;
-      const sampleAnswers = answers?.filter((a) => a.sample_id === sample.id) || [];
+      const sampleAnswers = answerRows.filter((a) => a.sample_id === sample.id);
       const participantAnswers = sampleAnswers.map((answer) => {
-        const participant = participants?.find((p) => p.id === answer.participant_id);
-        const grade = grades?.find(
+        const participant = participantRows.find((p) => p.id === answer.participant_id);
+        const grade = gradeRows.find(
           (g) => g.sample_id === sample.id && g.participant_id === answer.participant_id
         );
         const score = participantScores.get(answer.participant_id)?.samples.get(sample.id) || 0;

@@ -1,7 +1,7 @@
 // POST /api/distillery/grade（項目別手採点・従来の蒸留所○×を統合）
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql, jsonb } from '@/lib/db';
 import {
   calculateScoreExtended,
   normalizeScoringConfig,
@@ -50,23 +50,23 @@ export async function POST(request: NextRequest) {
       return errorResponse('is_correct または item_grades が必要です', 'MISSING_PARAMETER', 400);
     }
 
-    const { data: presenter, error: presenterError } = await supabase
-      .from('participants')
-      .select('id, session_id')
-      .eq('participant_token', participant_token)
-      .single();
-
-    if (presenterError || !presenter) {
+    const presenterRows = await sql`
+      SELECT id, session_id FROM participants
+      WHERE participant_token = ${participant_token}
+      LIMIT 1
+    `;
+    const presenter = presenterRows[0];
+    if (!presenter) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, session_id, state, presenter_participant_id')
-      .eq('id', sample_id)
-      .single();
-
-    if (sampleError || !sample) {
+    const sampleRows = await sql`
+      SELECT id, session_id, state, presenter_participant_id FROM samples
+      WHERE id = ${sample_id}
+      LIMIT 1
+    `;
+    const sample = sampleRows[0];
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
@@ -82,24 +82,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: targetParticipant, error: targetError } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('id', target_participant_id)
-      .eq('session_id', sample.session_id)
-      .single();
-
-    if (targetError || !targetParticipant) {
+    const targetRows = await sql`
+      SELECT id FROM participants
+      WHERE id = ${target_participant_id} AND session_id = ${sample.session_id}
+      LIMIT 1
+    `;
+    if (targetRows.length === 0) {
       return errorResponse('参加者が見つかりません', 'PARTICIPANT_NOT_FOUND', 404);
     }
 
-    const { data: existingRow } = await supabase
-      .from('distillery_grades')
-      .select('item_grades, is_correct')
-      .eq('session_id', sample.session_id)
-      .eq('sample_id', sample_id)
-      .eq('participant_id', target_participant_id)
-      .maybeSingle();
+    const existingGradeRows = await sql`
+      SELECT item_grades, is_correct FROM distillery_grades
+      WHERE session_id = ${sample.session_id}
+        AND sample_id = ${sample_id}
+        AND participant_id = ${target_participant_id}
+      LIMIT 1
+    `;
+    const existingRow = existingGradeRows[0];
 
     let patch: ItemGradesMap = item_grades_patch ? { ...item_grades_patch } : {};
     if (typeof is_correct === 'boolean' && !patch.distillery) {
@@ -128,53 +127,84 @@ export async function POST(request: NextRequest) {
       dbIsCorrect = false;
     }
 
-    const gradeData = {
-      session_id: sample.session_id,
-      sample_id: sample_id,
-      participant_id: target_participant_id,
-      is_correct: dbIsCorrect,
-      item_grades: mergedMap,
-      graded_by_participant_id: presenter.id,
-      graded_at: new Date().toISOString(),
-    };
+    const gradedAt = new Date().toISOString();
 
-    const { data: grade, error: upsertError } = await supabase
-      .from('distillery_grades')
-      .upsert(gradeData, {
-        onConflict: 'session_id,sample_id,participant_id',
-      })
-      .select('id, sample_id, participant_id, is_correct, item_grades')
-      .single();
-
-    if (upsertError) {
+    let gradeRows;
+    try {
+      gradeRows = await sql`
+        INSERT INTO distillery_grades (
+          session_id, sample_id, participant_id, is_correct,
+          item_grades, graded_by_participant_id, graded_at
+        ) VALUES (
+          ${sample.session_id}, ${sample_id}, ${target_participant_id}, ${dbIsCorrect},
+          ${jsonb(mergedMap)}::jsonb, ${presenter.id}, ${gradedAt}
+        )
+        ON CONFLICT (session_id, sample_id, participant_id)
+        DO UPDATE SET
+          is_correct = EXCLUDED.is_correct,
+          item_grades = EXCLUDED.item_grades,
+          graded_by_participant_id = EXCLUDED.graded_by_participant_id,
+          graded_at = EXCLUDED.graded_at
+        RETURNING id, sample_id, participant_id, is_correct, item_grades
+      `;
+    } catch (upsertError) {
       console.error('[DEBUG] Grade upsert error:', upsertError);
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
-    const { data: sessionRow } = await supabase
-      .from('sessions')
-      .select('scoring_snapshot, cask_options_snapshot, region_options_snapshot')
-      .eq('id', sample.session_id)
-      .single();
+    if (!gradeRows[0]) {
+      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
+    }
 
-    const { data: answerRow } = await supabase
-      .from('answers')
-      .select(
-        'guessed_cask, guessed_region, guessed_age, guessed_abv, guessed_distillery, guessed_other1, guessed_other2',
-      )
-      .eq('session_id', sample.session_id)
-      .eq('sample_id', sample_id)
-      .eq('participant_id', target_participant_id)
-      .maybeSingle();
+    const grade = gradeRows[0] as {
+      id: string;
+      sample_id: string;
+      participant_id: string;
+      is_correct: boolean;
+      item_grades: ItemGradesMap | null;
+    };
 
-    const { data: truthRow } = await supabase
-      .from('truths')
-      .select(
-        'true_cask, true_region, true_age, true_abv, true_distillery, true_other1, true_other2',
-      )
-      .eq('session_id', sample.session_id)
-      .eq('sample_id', sample_id)
-      .maybeSingle();
+    const sessionRows = await sql`
+      SELECT scoring_snapshot, cask_options_snapshot, region_options_snapshot
+      FROM sessions WHERE id = ${sample.session_id} LIMIT 1
+    `;
+    const sessionRow = sessionRows[0];
+
+    const answerRows = await sql`
+      SELECT guessed_cask, guessed_region, guessed_age, guessed_abv,
+             guessed_distillery, guessed_other1, guessed_other2
+      FROM answers
+      WHERE session_id = ${sample.session_id}
+        AND sample_id = ${sample_id}
+        AND participant_id = ${target_participant_id}
+      LIMIT 1
+    `;
+    const answerRow = answerRows[0] as {
+      guessed_cask: string | null;
+      guessed_region: string | null;
+      guessed_age: number | null;
+      guessed_abv: number | null;
+      guessed_distillery: string | null;
+      guessed_other1: string | null;
+      guessed_other2: string | null;
+    } | undefined;
+
+    const truthRows = await sql`
+      SELECT true_cask, true_region, true_age, true_abv, true_distillery,
+             true_other1, true_other2
+      FROM truths
+      WHERE session_id = ${sample.session_id} AND sample_id = ${sample_id}
+      LIMIT 1
+    `;
+    const truthRow = truthRows[0] as {
+      true_cask: string | null;
+      true_region: string | null;
+      true_age: number | null;
+      true_abv: number | null;
+      true_distillery: string | null;
+      true_other1: string | null;
+      true_other2: string | null;
+    } | undefined;
 
     const caskOpts = (sessionRow?.cask_options_snapshot as string[] | null) || [];
     const regionOpts = (sessionRow?.region_options_snapshot as string[] | null) || [];

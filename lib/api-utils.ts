@@ -1,6 +1,6 @@
 // API共通ユーティリティ
 import { NextResponse } from 'next/server';
-import { supabase } from './supabase';
+import { sql } from './db';
 
 export interface ApiError {
   error: string;
@@ -31,40 +31,36 @@ export function errorResponse(
   );
 }
 
-/** sessions.public_results 列が無い DB（マイグレーション未適用）向けのエラー判定 */
-export function isMissingPublicResultsColumn(error: { code?: string; message?: string } | null): boolean {
-  if (!error || typeof error.message !== 'string') return false;
-  return error.message.includes('public_results');
-}
-
 // 認証チェック: owner_token
 export async function verifyOwnerToken(ownerToken: string) {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('id, state')
-    .eq('owner_token', ownerToken)
-    .single();
-
-  if (error || !data) {
+  try {
+    const rows = await sql`
+      SELECT id, state
+      FROM sessions
+      WHERE owner_token = ${ownerToken}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (error) {
+    console.error('verifyOwnerToken error:', error);
     return null;
   }
-
-  return data;
 }
 
 // 認証チェック: participant_token
 export async function verifyParticipantToken(participantToken: string) {
-  const { data, error } = await supabase
-    .from('participants')
-    .select('id, session_id, display_name')
-    .eq('participant_token', participantToken)
-    .single();
-
-  if (error || !data) {
+  try {
+    const rows = await sql`
+      SELECT id, session_id, display_name
+      FROM participants
+      WHERE participant_token = ${participantToken}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (error) {
+    console.error('verifyParticipantToken error:', error);
     return null;
   }
-
-  return data;
 }
 
 // UUID生成

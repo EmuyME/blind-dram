@@ -1,8 +1,17 @@
 // GET /api/settings/list
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { verifyOwnerToken } from '@/lib/api-utils';
+
+function isTableNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: string }).code === '42P01'
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,23 +22,22 @@ export async function GET(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証
     const ownerSession = await verifyOwnerToken(ownerToken);
     if (!ownerSession) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 設定一覧取得
-    const { data: settingsList, error: settingsError } = await supabase
-      .from('app_settings')
-      .select('id, name, created_at, updated_at')
-      .eq('owner_token', ownerToken)
-      .order('created_at', { ascending: false });
-
-    if (settingsError) {
+    let settingsList;
+    try {
+      settingsList = await sql`
+        SELECT id, name, created_at, updated_at
+        FROM app_settings
+        WHERE owner_token = ${ownerToken}
+        ORDER BY created_at DESC
+      `;
+    } catch (settingsError) {
       console.error('Settings list fetch error:', settingsError);
-      // テーブルが存在しない場合でも空配列を返す
-      if (settingsError.code === 'PGRST205') {
+      if (isTableNotFound(settingsError)) {
         return successResponse({ settings: [] });
       }
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);

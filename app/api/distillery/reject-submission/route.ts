@@ -1,7 +1,7 @@
 // POST /api/distillery/reject-submission
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,25 +12,23 @@ export async function POST(request: NextRequest) {
       return errorResponse('participant_token、sample_id、target_participant_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Participant認証（Presenter）
-    const { data: presenter, error: presenterError } = await supabase
-      .from('participants')
-      .select('id, session_id')
-      .eq('participant_token', participant_token)
-      .single();
-
-    if (presenterError || !presenter) {
+    const presenterRows = await sql`
+      SELECT id, session_id FROM participants
+      WHERE participant_token = ${participant_token}
+      LIMIT 1
+    `;
+    const presenter = presenterRows[0];
+    if (!presenter) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // Sample取得とPresenter権限チェック
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, session_id, presenter_participant_id, state')
-      .eq('id', sample_id)
-      .single();
-
-    if (sampleError || !sample) {
+    const sampleRows = await sql`
+      SELECT id, session_id, presenter_participant_id, state FROM samples
+      WHERE id = ${sample_id}
+      LIMIT 1
+    `;
+    const sample = sampleRows[0];
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
@@ -38,66 +36,63 @@ export async function POST(request: NextRequest) {
       return errorResponse('Presenter権限がありません', 'NOT_PRESENTER', 403);
     }
 
-    // すでに結果公開済み/終了済みの場合は差し戻し不可（状態が破綻しやすい）
     if (sample.state === 'revealed' || sample.state === 'closed') {
       return errorResponse('このRoundは終了しているため差し戻しできません', 'INVALID_STATE', 409);
     }
 
-    // 回答取得
-    const { data: answer, error: answerError } = await supabase
-      .from('answers')
-      .select('id, version')
-      .eq('session_id', sample.session_id)
-      .eq('sample_id', sample_id)
-      .eq('participant_id', target_participant_id)
-      .single();
-
-    if (answerError || !answer) {
+    const answerRows = await sql`
+      SELECT id, version FROM answers
+      WHERE session_id = ${sample.session_id}
+        AND sample_id = ${sample_id}
+        AND participant_id = ${target_participant_id}
+      LIMIT 1
+    `;
+    const answer = answerRows[0] as { id: string; version: number };
+    if (!answer) {
       return errorResponse('回答が見つかりません', 'ANSWER_NOT_FOUND', 404);
     }
 
-    // 回答をdraftに戻す
-    const { error: updateError } = await supabase
-      .from('answers')
-      .update({
-        status: 'draft',
-        submitted_at: null,
-        version: (answer.version || 1) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', answer.id);
+    const updatedAt = new Date().toISOString();
+    const newVersion = (answer.version || 1) + 1;
 
-    if (updateError) {
+    try {
+      await sql`
+        UPDATE answers SET
+          status = 'draft',
+          submitted_at = NULL,
+          version = ${newVersion},
+          updated_at = ${updatedAt}
+        WHERE id = ${answer.id}
+      `;
+    } catch (updateError) {
       console.error('Answer update error:', updateError);
       return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
     }
 
-    // 採点済みだった場合は採点も無効化（回答が変わるため）
-    const { error: gradeDeleteError } = await supabase
-      .from('distillery_grades')
-      .delete()
-      .eq('session_id', sample.session_id)
-      .eq('sample_id', sample_id)
-      .eq('participant_id', target_participant_id);
-
-    if (gradeDeleteError) {
+    try {
+      await sql`
+        DELETE FROM distillery_grades
+        WHERE session_id = ${sample.session_id}
+          AND sample_id = ${sample_id}
+          AND participant_id = ${target_participant_id}
+      `;
+    } catch (gradeDeleteError) {
       console.error('Grade delete error:', gradeDeleteError);
-      // 差し戻し自体は成功しているため続行
     }
 
-    // 採点中に提出を差し戻したら、回答の再編集が可能な answering に戻す
     let nextSampleState = sample.state;
     if (sample.state === 'grading') {
-      const { error: sampleUpdateError } = await supabase
-        .from('samples')
-        .update({ state: 'answering' })
-        .eq('id', sample_id)
-        .eq('state', 'grading');
-
-      if (sampleUpdateError) {
+      try {
+        const updatedSamples = await sql`
+          UPDATE samples SET state = 'answering'
+          WHERE id = ${sample_id} AND state = 'grading'
+          RETURNING state
+        `;
+        if (updatedSamples.length > 0) {
+          nextSampleState = 'answering';
+        }
+      } catch (sampleUpdateError) {
         console.error('Sample state update after reject:', sampleUpdateError);
-      } else {
-        nextSampleState = 'answering';
       }
     }
 

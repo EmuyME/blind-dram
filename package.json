@@ -16,13 +16,15 @@
     "test:e2e:fix-reports": "playwright test e2e/auto-fix-from-reports.spec.ts",
     "fix-errors": "playwright test e2e/fix-all-errors.spec.ts",
     "fix-from-html": "playwright test e2e/fix-from-html-report.spec.ts",
-    "test:e2e:robust:mobile:repeat": "node ./scripts/run-e2e-repeat.mjs --runs=3 --project=\"Mobile Chrome\" --file=e2e/robust-sequential-fuzz.spec.ts"
+    "test:e2e:robust:mobile:repeat": "node ./scripts/run-e2e-repeat.mjs --runs=3 --project=\"Mobile Chrome\" --file=e2e/robust-sequential-fuzz.spec.ts",
+    "db:schema": "node ./scripts/apply-neon-schema.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.38.0",
+    "@neondatabase/serverless": "^1.1.0",
     "@upstash/ratelimit": "^2.0.5",
     "@upstash/redis": "^1.34.3",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/blob": "^2.4.0",
     "@vercel/speed-insights": "^2.0.0",
     "chart.js": "^4.4.0",
     "html-to-image": "^1.11.13",
@@ -39,8 +41,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "pg": "^8.21.0",
     "playwright": "^1.57.0",
     "tailwindcss": "^4",
     "typescript": "^5",

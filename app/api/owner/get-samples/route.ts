@@ -1,7 +1,7 @@
 // GET /api/owner/get-samples
 import { NextRequest } from 'next/server';
-import { successResponse, errorResponse, verifyOwnerToken } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { successResponse, errorResponse } from '@/lib/api-utils';
+import { sql } from '@/lib/db';
 
 type SampleRow = {
   id: string;
@@ -20,40 +20,30 @@ export async function GET(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証とSession取得
-    const session = await verifyOwnerToken(ownerToken);
+    const [session] = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM sessions WHERE owner_token = ${ownerToken}
+    `;
+
     if (!session) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 現在参加中の参加者のみ取得（退席済みの参加者は除外）
-    const { data: activeParticipants, error: participantsError } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('session_id', session.id)
-      .eq('is_attending', true);
+    const activeParticipants = await sql<{ id: string }[]>`
+      SELECT id FROM participants
+      WHERE session_id = ${session.id}
+        AND is_attending = true
+    `;
 
-    if (participantsError) {
-      console.error('Active participants fetch error:', participantsError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const activeIds = new Set(activeParticipants.map((p) => p.id));
 
-    const activeIds = new Set((activeParticipants || []).map((p) => p.id as string));
+    const samples = await sql<SampleRow[]>`
+      SELECT id, label, state, presenter_participant_id, sort_order
+      FROM samples
+      WHERE session_id = ${session.id}
+      ORDER BY sort_order
+    `;
 
-    // Sample一覧取得
-    const { data: samples, error: samplesError } = await supabase
-      .from('samples')
-      .select('id, label, state, presenter_participant_id, sort_order')
-      .eq('session_id', session.id)
-      .order('sort_order');
-
-    if (samplesError) {
-      console.error('Samples fetch error:', samplesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    // 退席済み参加者が持ち込んだSampleは除外（presenter_participant_idがnullのものは残す）
-    const filteredSamples = (samples || []).filter((s: SampleRow) => {
+    const filteredSamples = samples.filter((s) => {
       if (!s.presenter_participant_id) return true;
       return activeIds.has(s.presenter_participant_id);
     });

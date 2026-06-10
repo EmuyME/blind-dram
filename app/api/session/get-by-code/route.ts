@@ -2,7 +2,7 @@
 // 参加コードからjoin_tokenを取得
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,18 +13,19 @@ export async function GET(request: NextRequest) {
       return errorResponse('join_codeが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // 参加コードからセッションを取得
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, title, mode, state, join_token')
-      .eq('join_code', joinCode.toUpperCase())
-      .single();
+    const rows = await sql`
+      SELECT id, title, mode, state, join_token
+      FROM sessions
+      WHERE join_code = ${joinCode.toUpperCase()}
+      LIMIT 1
+    `;
 
-    if (sessionError || !session) {
+    const session = rows[0] ?? null;
+
+    if (!session) {
       return errorResponse('参加コードが見つかりません', 'SESSION_NOT_FOUND', 404);
     }
 
-    // registering状態でない場合はエラー
     if (session.state !== 'registering') {
       return errorResponse('このイベントの参加登録は既に締め切られています', 'REGISTRATION_CLOSED', 400);
     }

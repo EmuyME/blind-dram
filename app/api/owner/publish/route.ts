@@ -1,7 +1,7 @@
 // POST /api/owner/publish
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,18 +12,14 @@ export async function POST(request: NextRequest) {
       return errorResponse('owner_tokenが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Owner認証とSession取得
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, state')
-      .eq('owner_token', owner_token)
-      .single();
+    const [session] = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM sessions WHERE owner_token = ${owner_token}
+    `;
 
-    if (sessionError || !session) {
+    if (!session) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // 状態チェック
     if (session.state !== 'aggregating') {
       return errorResponse(
         'Session状態が不正です。aggregating状態の時のみ実行できます',
@@ -32,18 +28,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 全Round完了確認（pending/answering/gradingが残っていないこと）
-    const { data: samples, error: samplesError } = await supabase
-      .from('samples')
-      .select('id, state')
-      .eq('session_id', session.id);
+    const samples = await sql<{ id: string; state: string }[]>`
+      SELECT id, state FROM samples WHERE session_id = ${session.id}
+    `;
 
-    if (samplesError) {
-      console.error('Samples fetch error:', samplesError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
-
-    if (!samples || samples.length === 0) {
+    if (samples.length === 0) {
       return errorResponse('Sampleが0個です', 'NO_SAMPLES', 400);
     }
 
@@ -59,16 +48,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Session状態をpublishedに変更
-    const { error: updateError } = await supabase
-      .from('sessions')
-      .update({ state: 'published' })
-      .eq('id', session.id);
-
-    if (updateError) {
-      console.error('Session update error:', updateError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    await sql`
+      UPDATE sessions SET state = 'published' WHERE id = ${session.id}
+    `;
 
     return successResponse({
       session_id: session.id,

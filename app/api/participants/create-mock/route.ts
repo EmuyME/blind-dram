@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { generateUUID } from '@/lib/api-utils';
 
 /**
@@ -7,7 +7,6 @@ import { generateUUID } from '@/lib/api-utils';
  * 開発環境でのみ使用可能
  */
 export async function POST(request: NextRequest) {
-  // 開発環境でのみ許可
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
       { error: 'この機能は開発環境でのみ使用できます' },
@@ -33,14 +32,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // セッションを取得
-    const { data: session, error: sessionError } = await supabase
-      .from('sessions')
-      .select('id, state')
-      .eq('join_token', join_token)
-      .single();
+    const sessionRows = await sql`
+      SELECT id, state FROM sessions WHERE join_token = ${join_token} LIMIT 1
+    `;
+    const session = sessionRows[0] ?? null;
 
-    if (sessionError || !session) {
+    if (!session) {
       return NextResponse.json(
         { error: 'セッションが見つかりません' },
         { status: 404 }
@@ -56,21 +53,13 @@ export async function POST(request: NextRequest) {
 
     const displayNameTrimmed = display_name.trim();
 
-    const { data: takenRows, error: takenErr } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('session_id', session.id)
-      .eq('display_name', displayNameTrimmed)
-      .limit(1);
+    const takenRows = await sql`
+      SELECT id FROM participants
+      WHERE session_id = ${session.id} AND display_name = ${displayNameTrimmed}
+      LIMIT 1
+    `;
 
-    if (takenErr) {
-      console.error('Display name conflict check error:', takenErr);
-      return NextResponse.json(
-        { error: '参加者の作成に失敗しました', details: takenErr.message },
-        { status: 500 }
-      );
-    }
-    if (takenRows && takenRows.length > 0) {
+    if (takenRows.length > 0) {
       return NextResponse.json(
         {
           error: 'この表示名は既に別の参加者が使用しています。別の名前を入力してください',
@@ -80,25 +69,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 模擬参加者を新規登録
     const participantToken = generateUUID();
 
-    const { data: newParticipant, error: insertError } = await supabase
-      .from('participants')
-      .insert({
-        session_id: session.id,
-        display_name: displayNameTrimmed,
-        is_attending: true,
-        brought_count: brought_count,
-        participant_token: participantToken,
-      })
-      .select('id')
-      .single();
+    const newParticipantRows = await sql`
+      INSERT INTO participants (
+        session_id, display_name, is_attending, brought_count, participant_token
+      )
+      VALUES (
+        ${session.id}, ${displayNameTrimmed}, true, ${brought_count}, ${participantToken}
+      )
+      RETURNING id
+    `;
 
-    if (insertError) {
-      console.error('Participant creation error:', insertError);
+    const newParticipant = newParticipantRows[0];
+    if (!newParticipant) {
       return NextResponse.json(
-        { error: '参加者の作成に失敗しました', details: insertError.message },
+        { error: '参加者の作成に失敗しました' },
         { status: 500 }
       );
     }
@@ -109,17 +95,23 @@ export async function POST(request: NextRequest) {
       const samples = bottle_labels
         .filter((label: string) => label.trim())
         .map((label: string, index: number) => ({
-          session_id: session.id,
           label: label.trim(),
-          presenter_participant_id: participantId,
           sort_order: index,
-          state: 'pending',
         }));
 
-      const { error: samplesError } = await supabase.from('samples').insert(samples);
-
-      if (samplesError) {
-        console.error('Sample creation error:', samplesError);
+      for (const sample of samples) {
+        try {
+          await sql`
+            INSERT INTO samples (
+              session_id, label, presenter_participant_id, sort_order, state
+            )
+            VALUES (
+              ${session.id}, ${sample.label}, ${participantId}, ${sample.sort_order}, 'pending'
+            )
+          `;
+        } catch (samplesError) {
+          console.error('Sample creation error:', samplesError);
+        }
       }
     }
 

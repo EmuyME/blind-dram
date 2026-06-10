@@ -2,7 +2,7 @@
 // 「次へ」ボタンをクリックしたことを記録
 import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,91 +13,72 @@ export async function POST(request: NextRequest) {
       return errorResponse('participant_tokenとsample_idが必要です', 'MISSING_PARAMETER', 400);
     }
 
-    // Participant認証
-    const { data: participant, error: participantError } = await supabase
-      .from('participants')
-      .select('id, session_id')
-      .eq('participant_token', participant_token)
-      .single();
+    const [participant] = await sql<{ id: string; session_id: string }[]>`
+      SELECT id, session_id FROM participants
+      WHERE participant_token = ${participant_token}
+    `;
 
-    if (participantError || !participant) {
+    if (!participant) {
       return errorResponse('認証トークンが不正です', 'UNAUTHORIZED', 401);
     }
 
-    // Sample取得と状態チェック
-    const { data: sample, error: sampleError } = await supabase
-      .from('samples')
-      .select('id, session_id, state, sort_order')
-      .eq('id', sample_id)
-      .eq('session_id', participant.session_id)
-      .single();
+    const [sample] = await sql<{ id: string; session_id: string; state: string; sort_order: number }[]>`
+      SELECT id, session_id, state, sort_order
+      FROM samples
+      WHERE id = ${sample_id}
+        AND session_id = ${participant.session_id}
+    `;
 
-    if (sampleError || !sample) {
+    if (!sample) {
       return errorResponse('Sampleが見つかりません', 'SAMPLE_NOT_FOUND', 404);
     }
 
-    // revealed状態でない場合はエラー
     if (sample.state !== 'revealed') {
       return errorResponse('このラウンドはまだ終了していません', 'ROUND_NOT_FINISHED', 400);
     }
 
-    // 既にクリック済みかチェック（存在しない場合も正常系なので maybeSingle を使う）
-    const { data: existingClick } = await supabase
-      .from('round_next_clicks')
-      .select('id')
-      .eq('sample_id', sample_id)
-      .eq('participant_id', participant.id)
-      .maybeSingle();
+    const [existingClick] = await sql<{ id: string }[]>`
+      SELECT id FROM round_next_clicks
+      WHERE sample_id = ${sample_id}
+        AND participant_id = ${participant.id}
+      LIMIT 1
+    `;
 
     if (existingClick) {
-      // 既にクリック済みの場合は成功を返す
       return successResponse({ already_clicked: true });
     }
 
-    // 「次へ」クリックを記録
-    const { error: insertError } = await supabase
-      .from('round_next_clicks')
-      .insert({
-        sample_id: sample_id,
-        participant_id: participant.id,
-      });
+    await sql`
+      INSERT INTO round_next_clicks (sample_id, participant_id)
+      VALUES (${sample_id}, ${participant.id})
+    `;
 
-    if (insertError) {
-      console.error('Round next click insert error:', insertError);
-      return errorResponse('サーバーエラーが発生しました', 'SERVER_ERROR', 500);
-    }
+    const allParticipants = await sql<{ id: string }[]>`
+      SELECT id FROM participants
+      WHERE session_id = ${participant.session_id}
+        AND is_attending = true
+    `;
 
-    // 全参加者がクリックしたかチェック
-    const { data: allParticipants } = await supabase
-      .from('participants')
-      .select('id')
-      .eq('session_id', participant.session_id)
-      .eq('is_attending', true);
+    const allClicks = await sql<{ participant_id: string }[]>`
+      SELECT participant_id FROM round_next_clicks
+      WHERE sample_id = ${sample_id}
+    `;
 
-    const { data: allClicks } = await supabase
-      .from('round_next_clicks')
-      .select('participant_id')
-      .eq('sample_id', sample_id);
+    const clickedParticipantIds = new Set(allClicks.map((c) => c.participant_id));
+    const allClicked =
+      allParticipants.length > 0 &&
+      allParticipants.every((p) => clickedParticipantIds.has(p.id));
 
-    const clickedParticipantIds = new Set((allClicks || []).map((c) => c.participant_id));
-    const allClicked = (allParticipants || []).length > 0 && (allParticipants || []).every((p) => clickedParticipantIds.has(p.id));
-
-    // 全員がクリックした場合でも、次のサンプルはすぐに開始しない
-    // ユーザーが明示的に「次のラウンドへ進む」ボタンをクリックするまで待つ
-    // これにより、全員が結果を確認する時間を確保できる
-    
     let nextSampleId: string | null = null;
     if (allClicked) {
-      // 次のサンプルのIDを取得（状態は変更しない）
-      const nextSampleResult = await supabase
-        .from('samples')
-        .select('id, state')
-        .eq('session_id', participant.session_id)
-        .gt('sort_order', sample.sort_order || 0)
-        .order('sort_order')
-        .limit(1)
-        .maybeSingle();
-      nextSampleId = nextSampleResult.data?.id || null;
+      const [nextSample] = await sql<{ id: string }[]>`
+        SELECT id FROM samples
+        WHERE session_id = ${participant.session_id}
+          AND sort_order > ${sample.sort_order ?? 0}
+        ORDER BY sort_order
+        LIMIT 1
+      `;
+      nextSampleId = nextSample?.id || null;
     }
 
     return successResponse({

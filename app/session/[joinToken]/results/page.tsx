@@ -20,6 +20,8 @@ import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
 import { captureElementToPngDataUrl } from '@/lib/capture-ranking-png';
 import { buildResultsPageUrl } from '@/lib/results-share';
+import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
+import { ResultsPosterCapture } from '@/components/results/ResultsPosterCapture';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
 import { PresenterTastingTier2Summary } from '@/components/flavor/PresenterTastingTier2Summary';
@@ -34,23 +36,6 @@ import {
   FLAVOR_NIGHTINGALE_PRESENTER_DETAIL_CAPTION,
   PARTICIPANT_SAMPLE_RADAR_CAPTION,
 } from '@/lib/nightingale-chart-captions';
-
-function flavorCommentRowHasContent(
-  comment:
-    | {
-        nose?: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null };
-        palate?: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null };
-        finish?: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null };
-      }
-    | undefined
-): boolean {
-  if (!comment) return false;
-  const sec = (x: { tier1_tags?: string[]; tier2_terms?: string[]; text?: string | null } | undefined) =>
-    (x?.tier1_tags?.length ?? 0) > 0 ||
-    (x?.tier2_terms?.length ?? 0) > 0 ||
-    !!((x?.text ?? '').trim().length > 0);
-  return sec(comment.nose) || sec(comment.palate) || sec(comment.finish);
-}
 
 interface Results {
   session: {
@@ -176,6 +161,7 @@ export default function ResultsPage() {
   const [participantToken, setParticipantToken] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const rankingCaptureRef = useRef<HTMLDivElement | null>(null);
+  const posterCaptureRef = useRef<HTMLDivElement | null>(null);
   const [isRankingImageBusy, setIsRankingImageBusy] = useState(false);
   const [isPublishingRankingUrl, setIsPublishingRankingUrl] = useState(false);
   const [rankingImageUrl, setRankingImageUrl] = useState<string | null>(null);
@@ -292,6 +278,31 @@ export default function ResultsPage() {
     showToast(ok ? '順位表画像のURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
   };
 
+  const capturePosterPng = async (): Promise<string | null> => {
+    if (!results?.rankings?.length) {
+      showToast('順位データがありません', 'error');
+      return null;
+    }
+
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    await new Promise<void>((r) => setTimeout(r, 120));
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready.catch(() => undefined);
+    }
+
+    const el = posterCaptureRef.current;
+    if (!el) {
+      showToast('結果レポートを撮影できませんでした。しばらくして再度お試しください。', 'error');
+      return null;
+    }
+
+    await preloadImagesInElement(el);
+    await new Promise<void>((r) => setTimeout(r, 80));
+    return captureElementToPngDataUrl(el);
+  };
+
   const captureRankingPng = async (): Promise<string | null> => {
     if (!results?.rankings?.length) {
       showToast('順位データがありません', 'error');
@@ -320,12 +331,12 @@ export default function ResultsPage() {
   const handleDownloadRankingImage = async () => {
     setIsRankingImageBusy(true);
     try {
-      const pngDataUrl = await captureRankingPng();
+      const pngDataUrl = await capturePosterPng();
       if (!pngDataUrl || !results) return;
 
-      const base = sanitizeDownloadBasename(results.session.title, 'ranking');
+      const base = sanitizeDownloadBasename(results.session.title, 'results');
       const day = new Date().toISOString().split('T')[0];
-      const filename = `${base}_ranking_${day}.png`;
+      const filename = `${base}_results_${day}.png`;
 
       const a = document.createElement('a');
       a.href = pngDataUrl;
@@ -334,7 +345,7 @@ export default function ResultsPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      showToast('順位表の画像をダウンロードしました', 'success');
+      showToast('結果レポートの画像をダウンロードしました', 'success');
     } catch (e) {
       console.error(e);
       showToast('画像の作成に失敗しました', 'error');
@@ -495,7 +506,7 @@ export default function ResultsPage() {
               disabled={isRankingImageBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isRankingImageBusy ? '画像を作成中…' : '順位表の画像をダウンロード'}
+              {isRankingImageBusy ? '画像を作成中…' : '結果レポートの画像をダウンロード'}
             </Button>
             <Button
               variant="primary"
@@ -901,6 +912,32 @@ export default function ResultsPage() {
           type={toast.type}
           onClose={hideToast}
         />
+      )}
+
+      {/* 結果ポスター（画面外レンダリング・画像キャプチャ用） */}
+      {results && joinToken && (
+        <div
+          aria-hidden
+          className="fixed left-[-12000px] top-0 pointer-events-none opacity-100"
+        >
+          <div ref={posterCaptureRef}>
+            <ResultsPosterCapture
+              results={results}
+              joinToken={joinToken}
+              ownerToken={typeof window !== 'undefined' ? getOwnerToken(joinToken) : null}
+              resultsPageUrl={
+                typeof window !== 'undefined'
+                  ? buildResultsPageUrl(
+                      window.location.origin,
+                      joinToken,
+                      getOwnerToken(joinToken),
+                      results.session.public_results !== false,
+                    )
+                  : undefined
+              }
+            />
+          </div>
+        </div>
       )}
     </div>
   );

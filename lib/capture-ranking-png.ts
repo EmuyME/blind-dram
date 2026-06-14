@@ -1,5 +1,13 @@
 /** 順位表 DOM 要素を PNG の data URL に変換 */
 
+const MAX_CANVAS_DIMENSION = 16384;
+
+function safePixelRatio(width: number, height: number, requested = 2): number {
+  const maxSide = Math.max(width, height);
+  if (maxSide * requested <= MAX_CANVAS_DIMENSION) return requested;
+  return Math.max(1, MAX_CANVAS_DIMENSION / maxSide);
+}
+
 export async function captureElementToPngDataUrl(el: HTMLElement): Promise<string> {
   const overflowEl = el.querySelector('.overflow-x-auto') as HTMLElement | null;
   const tableEl = el.querySelector('table') as HTMLElement | null;
@@ -9,6 +17,7 @@ export async function captureElementToPngDataUrl(el: HTMLElement): Promise<strin
   const prevElWidth = el.style.width;
   const captureWidth = Math.max(el.scrollWidth, tableEl?.scrollWidth ?? 0, el.clientWidth);
   const captureHeight = Math.max(el.scrollHeight, tableEl?.scrollHeight ?? 0, el.clientHeight);
+  const pixelRatio = safePixelRatio(captureWidth, captureHeight);
 
   if (overflowEl) {
     overflowEl.style.overflow = 'visible';
@@ -21,7 +30,7 @@ export async function captureElementToPngDataUrl(el: HTMLElement): Promise<strin
     const { toPng } = await import('html-to-image');
     return await toPng(el, {
       backgroundColor: '#262626',
-      pixelRatio: 2,
+      pixelRatio,
       cacheBust: true,
       width: captureWidth,
       height: captureHeight,
@@ -32,7 +41,7 @@ export async function captureElementToPngDataUrl(el: HTMLElement): Promise<strin
     const html2canvas = (await import('html2canvas')).default;
     const canvas = await html2canvas(el, {
       backgroundColor: '#262626',
-      scale: 2,
+      scale: pixelRatio,
       logging: false,
       useCORS: true,
       allowTaint: true,

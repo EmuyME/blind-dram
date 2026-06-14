@@ -145,7 +145,6 @@ function BottlePhoto({ url, alt }: { url?: string | null; alt: string }) {
       <img
         src={url}
         alt={alt}
-        crossOrigin="anonymous"
         className="w-20 h-20 rounded-lg object-cover border border-white/10 flex-shrink-0"
       />
     );
@@ -192,9 +191,13 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
     <div
       className="bg-neutral-900 text-stone-100"
       style={{ width: POSTER_WIDTH_PX, fontFamily: 'system-ui, sans-serif' }}
+      data-poster-capture-root
     >
       {/* Header */}
-      <div className="px-8 pt-8 pb-6 border-b border-white/10">
+      <div
+        data-poster-capture-chunk
+        className="px-8 pt-8 pb-6 border-b border-white/10 bg-neutral-900"
+      >
         <p className="text-sm font-semibold text-bd-accent tracking-wide uppercase">Blind Dram 結果レポート</p>
         <h1 className="text-3xl font-semibold text-stone-100 mt-2 tracking-tight">{results.session.title}</h1>
         <p className="text-sm text-stone-400 mt-2">
@@ -203,8 +206,8 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
         </p>
       </div>
 
-      <div className="px-8 py-6 space-y-10">
-        {/* §1 Ranking */}
+      {/* §1 Ranking */}
+      <div data-poster-capture-chunk className="px-8 py-6 bg-neutral-900">
         <section>
           <PosterSectionHeading>§1 総合順位</PosterSectionHeading>
           <PosterPodium rankings={results.rankings} peers={peers} />
@@ -246,19 +249,22 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
             </table>
           </div>
         </section>
+      </div>
 
-        {/* §2 Sample details */}
-        <section>
-          <PosterSectionHeading>§2 サンプル別詳細</PosterSectionHeading>
-          <div className="space-y-6">
-            {results.sample_details.map((sample) => {
-              const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
-              const truth = sample.truth;
-              return (
-                <div
-                  key={sample.sample_id}
-                  className="rounded-xl border border-white/10 bg-neutral-800/60 p-5"
-                >
+      {/* §2 Sample details */}
+      <div data-poster-capture-chunk className="px-8 pt-6 pb-2 bg-neutral-900">
+        <PosterSectionHeading>§2 サンプル別詳細</PosterSectionHeading>
+      </div>
+      {results.sample_details.map((sample) => {
+        const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
+        const truth = sample.truth;
+        return (
+          <div
+            key={sample.sample_id}
+            data-poster-capture-chunk
+            className="px-8 py-3 bg-neutral-900"
+          >
+            <div className="rounded-xl border border-white/10 bg-neutral-800/60 p-5">
                   <div className="flex items-start gap-4 mb-4">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-semibold text-stone-100">
@@ -301,20 +307,21 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
                     />
                   </div>
                 </div>
-              );
-            })}
           </div>
-        </section>
+        );
+      })}
 
-        {/* §3 Participants */}
-        <section>
-          <PosterSectionHeading>§3 参加者別サマリー</PosterSectionHeading>
-          <div className="space-y-6">
-            {results.rankings.map((participant) => (
-              <div
-                key={participant.participant_id}
-                className="rounded-xl border border-white/10 bg-neutral-800/60 p-5"
-              >
+      {/* §3 Participants */}
+      <div data-poster-capture-chunk className="px-8 pt-6 pb-2 bg-neutral-900">
+        <PosterSectionHeading>§3 参加者別サマリー</PosterSectionHeading>
+      </div>
+      {results.rankings.map((participant) => (
+        <div
+          key={participant.participant_id}
+          data-poster-capture-chunk
+          className="px-8 py-3 bg-neutral-900"
+        >
+          <div className="rounded-xl border border-white/10 bg-neutral-800/60 p-5">
                 <div className="mb-4 p-3 rounded-lg bg-neutral-700/80 border border-white/10">
                   <p className="text-lg font-semibold text-stone-100">
                     {disambiguatedDisplayName(participant.display_name, participant.participant_id, peers)}
@@ -377,14 +384,15 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
                     );
                   })}
                 </div>
-              </div>
-            ))}
           </div>
-        </section>
-      </div>
+        </div>
+      ))}
 
       {/* Footer */}
-      <div className="px-8 py-5 border-t border-white/10 text-center">
+      <div
+        data-poster-capture-chunk
+        className="px-8 py-5 border-t border-white/10 text-center bg-neutral-900"
+      >
         <p className="text-xs text-stone-500 break-all">{footerUrl}</p>
         <p className="text-xs text-stone-600 mt-1">© Blind Dram</p>
       </div>

@@ -18,9 +18,10 @@ import { BottleTruthMetaSummary } from '@/components/common/BottleTruthMeta';
 import type { ItemGradesMap } from '@/lib/scoring-schema';
 import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils';
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
-import { captureElementToPngDataUrl } from '@/lib/capture-ranking-png';
+import { captureElementToPngDataUrl, withCaptureVisible } from '@/lib/capture-ranking-png';
 import { buildResultsPageUrl } from '@/lib/results-share';
 import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
+import { savePngDataUrl } from '@/lib/download-png';
 import { ResultsPosterCapture } from '@/components/results/ResultsPosterCapture';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
@@ -161,6 +162,7 @@ export default function ResultsPage() {
   const [participantToken, setParticipantToken] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const rankingCaptureRef = useRef<HTMLDivElement | null>(null);
+  const posterCaptureWrapperRef = useRef<HTMLDivElement | null>(null);
   const posterCaptureRef = useRef<HTMLDivElement | null>(null);
   const [isRankingImageBusy, setIsRankingImageBusy] = useState(false);
   const [isPublishingRankingUrl, setIsPublishingRankingUrl] = useState(false);
@@ -292,15 +294,18 @@ export default function ResultsPage() {
       await document.fonts.ready.catch(() => undefined);
     }
 
+    const wrapper = posterCaptureWrapperRef.current;
     const el = posterCaptureRef.current;
-    if (!el) {
+    if (!wrapper || !el) {
       showToast('結果レポートを撮影できませんでした。しばらくして再度お試しください。', 'error');
       return null;
     }
 
-    await preloadImagesInElement(el);
-    await new Promise<void>((r) => setTimeout(r, 80));
-    return captureElementToPngDataUrl(el);
+    return withCaptureVisible(wrapper, async () => {
+      await preloadImagesInElement(el);
+      await new Promise<void>((r) => setTimeout(r, 150));
+      return captureElementToPngDataUrl(el);
+    });
   };
 
   const captureRankingPng = async (): Promise<string | null> => {
@@ -338,16 +343,17 @@ export default function ResultsPage() {
       const day = new Date().toISOString().split('T')[0];
       const filename = `${base}_results_${day}.png`;
 
-      const a = document.createElement('a');
-      a.href = pngDataUrl;
-      a.download = filename;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      showToast('結果レポートの画像をダウンロードしました', 'success');
+      const saveResult = await savePngDataUrl(filename, pngDataUrl);
+      if (saveResult === 'share') {
+        showToast('共有シートから画像を保存できます', 'success');
+      } else if (saveResult === 'open') {
+        showToast('画像を開きました。長押しして「写真に追加」で保存できます', 'success');
+      } else {
+        showToast('結果レポートの画像をダウンロードしました', 'success');
+      }
     } catch (e) {
       console.error(e);
+      if ((e as Error)?.name === 'AbortError') return;
       showToast('画像の作成に失敗しました', 'error');
     } finally {
       setIsRankingImageBusy(false);
@@ -917,8 +923,9 @@ export default function ResultsPage() {
       {/* 結果ポスター（画面外レンダリング・画像キャプチャ用） */}
       {results && joinToken && (
         <div
+          ref={posterCaptureWrapperRef}
           aria-hidden
-          className="fixed left-[-12000px] top-0 pointer-events-none opacity-100"
+          className="fixed left-0 top-0 -z-10 opacity-0 pointer-events-none overflow-visible"
         >
           <div ref={posterCaptureRef}>
             <ResultsPosterCapture

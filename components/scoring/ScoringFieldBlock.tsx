@@ -3,12 +3,13 @@
 import type { ScoringItemConfig, ScoringItemKey } from '@/lib/scoring-schema';
 import { optionsForItem } from '@/lib/scoring-schema';
 import { DistilleryPickerAssist } from '@/components/common/DistilleryPickerAssist';
+import { NumericFreeInput } from '@/components/scoring/NumericFreeInput';
 
 export type GuessBundle = {
   guessed_cask?: string;
   guessed_region?: string;
-  guessed_age?: number;
-  guessed_abv?: number;
+  guessed_age?: string | number;
+  guessed_abv?: string | number;
   guessed_distillery?: string;
   guessed_other1?: string;
   guessed_other2?: string;
@@ -17,8 +18,8 @@ export type GuessBundle = {
 export type TruthBundle = {
   true_cask?: string;
   true_region?: string;
-  true_age?: number;
-  true_abv?: number;
+  true_age?: string | number;
+  true_abv?: string | number;
   true_distillery?: string;
   true_other1?: string;
   true_other2?: string;
@@ -147,7 +148,7 @@ export function ScoringFieldBlock(props: Props) {
                   const v = e.target.value;
                   onChange({
                     ...value,
-                    guessed_age: v === '' ? undefined : parseInt(v, 10),
+                    guessed_age: v === '' ? undefined : v,
                   });
                 }}
                 className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
@@ -163,25 +164,15 @@ export function ScoringFieldBlock(props: Props) {
           );
         }
         return (
-          <div>
-            <label className="block text-base font-medium text-stone-100 mb-2">{label}</label>
-            <input
-              type="number"
-              name="guessed_age"
-              min={0}
-              step={cfg.freeValueType === 'decimal1' ? 0.1 : 1}
-              value={value.guessed_age ?? ''}
-              disabled={disabled}
-              onChange={(e) => {
-                const raw = e.target.value;
-                onChange({
-                  ...value,
-                  guessed_age: raw === '' ? undefined : parseFloat(raw),
-                });
-              }}
-              className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
-            />
-          </div>
+          <NumericFreeInput
+            name="guessed_age"
+            label={label}
+            value={value.guessed_age}
+            disabled={disabled}
+            decimal={cfg.freeValueType === 'decimal1'}
+            min={0}
+            onChange={(next) => onChange({ ...value, guessed_age: next })}
+          />
         );
       case 'abv':
         if (cfg.inputType === 'choice') {
@@ -196,7 +187,7 @@ export function ScoringFieldBlock(props: Props) {
                   const v = e.target.value;
                   onChange({
                     ...value,
-                    guessed_abv: v === '' ? undefined : parseFloat(v),
+                    guessed_abv: v === '' ? undefined : v,
                   });
                 }}
                 className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
@@ -212,26 +203,16 @@ export function ScoringFieldBlock(props: Props) {
           );
         }
         return (
-          <div>
-            <label className="block text-base font-medium text-stone-100 mb-2">{label}</label>
-            <input
-              type="number"
-              name="guessed_abv"
-              min={0}
-              max={100}
-              step={cfg.freeValueType === 'decimal1' ? 0.1 : 1}
-              value={value.guessed_abv ?? ''}
-              disabled={disabled}
-              onChange={(e) => {
-                const raw = e.target.value;
-                onChange({
-                  ...value,
-                  guessed_abv: raw === '' ? undefined : parseFloat(raw),
-                });
-              }}
-              className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
-            />
-          </div>
+          <NumericFreeInput
+            name="guessed_abv"
+            label={label}
+            value={value.guessed_abv}
+            disabled={disabled}
+            decimal={cfg.freeValueType !== 'int'}
+            min={0}
+            max={100}
+            onChange={(next) => onChange({ ...value, guessed_abv: next })}
+          />
         );
       case 'distillery':
         if (cfg.inputType === 'choice') {
@@ -447,7 +428,7 @@ export function ScoringFieldBlock(props: Props) {
                 const v = e.target.value;
                 onChange({
                   ...value,
-                  true_age: v === '' ? undefined : parseInt(v, 10),
+                  true_age: v === '' ? undefined : v,
                 });
               }}
               className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
@@ -463,25 +444,16 @@ export function ScoringFieldBlock(props: Props) {
         );
       }
       return (
-        <div>
-          <label className="block text-sm font-semibold text-stone-100 mb-2">{label}</label>
-          <input
-            type="number"
-            name="true_age"
-            min={0}
-            step={cfg.freeValueType === 'decimal1' ? 0.1 : 1}
-            value={value.true_age ?? ''}
-            disabled={disabled}
-            onChange={(e) => {
-              const raw = e.target.value;
-              onChange({
-                ...value,
-                true_age: raw === '' ? undefined : parseFloat(raw),
-              });
-            }}
-            className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
-          />
-        </div>
+        <NumericFreeInput
+          name="true_age"
+          label={label}
+          value={value.true_age}
+          disabled={disabled}
+          decimal={cfg.freeValueType === 'decimal1'}
+          min={0}
+          className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
+          onChange={(next) => onChange({ ...value, true_age: next })}
+        />
       );
     case 'abv':
       if (cfg.inputType === 'choice') {
@@ -496,7 +468,7 @@ export function ScoringFieldBlock(props: Props) {
                 const v = e.target.value;
                 onChange({
                   ...value,
-                  true_abv: v === '' ? undefined : parseFloat(v),
+                  true_abv: v === '' ? undefined : v,
                 });
               }}
               className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
@@ -512,26 +484,17 @@ export function ScoringFieldBlock(props: Props) {
         );
       }
       return (
-        <div>
-          <label className="block text-sm font-semibold text-stone-100 mb-2">{label}</label>
-          <input
-            type="number"
-            name="true_abv"
-            min={0}
-            max={100}
-            step={cfg.freeValueType === 'decimal1' ? 0.1 : 1}
-            value={value.true_abv ?? ''}
-            disabled={disabled}
-            onChange={(e) => {
-              const raw = e.target.value;
-              onChange({
-                ...value,
-                true_abv: raw === '' ? undefined : parseFloat(raw),
-              });
-            }}
-            className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
-          />
-        </div>
+        <NumericFreeInput
+          name="true_abv"
+          label={label}
+          value={value.true_abv}
+          disabled={disabled}
+          decimal={cfg.freeValueType !== 'int'}
+          min={0}
+          max={100}
+          className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all disabled:opacity-50"
+          onChange={(next) => onChange({ ...value, true_abv: next })}
+        />
       );
     case 'distillery':
       if (cfg.inputType === 'choice') {

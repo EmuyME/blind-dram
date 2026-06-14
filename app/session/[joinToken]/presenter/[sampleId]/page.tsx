@@ -30,8 +30,8 @@ import { DEFAULT_FLAVOR_CHART } from '@/lib/default-flavor-chart';
 interface Truth {
   true_cask?: string;
   true_region?: string;
-  true_age?: number;
-  true_abv?: number;
+  true_age?: string | number;
+  true_abv?: string | number;
   true_distillery?: string;
   true_other1?: string;
   true_other2?: string;
@@ -66,8 +66,8 @@ function formatTier1WithIntensity(tags?: string[], intensity?: Record<string, nu
 interface PresenterOwnAnswer {
   guessed_cask?: string;
   guessed_region?: string;
-  guessed_age?: number;
-  guessed_abv?: number;
+  guessed_age?: string | number;
+  guessed_abv?: string | number;
   guessed_distillery?: string;
   guessed_other1?: string;
   guessed_other2?: string;
@@ -101,8 +101,8 @@ interface Participant {
   status: 'draft' | 'submitted' | 'graded';
   guessed_cask?: string | null;
   guessed_region?: string | null;
-  guessed_age?: number | null;
-  guessed_abv?: number | null;
+  guessed_age?: string | number | null;
+  guessed_abv?: string | number | null;
   guessed_distillery?: string | null;
   guessed_other1?: string | null;
   guessed_other2?: string | null;
@@ -122,8 +122,8 @@ type ApiParticipantProgressRow = {
   submitted_at?: string | null;
   guessed_cask?: string | null;
   guessed_region?: string | null;
-  guessed_age?: number | null;
-  guessed_abv?: number | null;
+  guessed_age?: string | number | null;
+  guessed_abv?: string | number | null;
   guessed_distillery?: string | null;
   guessed_other1?: string | null;
   guessed_other2?: string | null;
@@ -160,8 +160,8 @@ const DEFAULT_REGION_OPTIONS = ['スコットランド', 'アイルランド', '
 function presenterCoreGuessesLookEmpty(a: {
   guessed_cask?: string;
   guessed_region?: string;
-  guessed_age?: number;
-  guessed_abv?: number;
+  guessed_age?: string | number;
+  guessed_abv?: string | number;
   guessed_distillery?: string;
 }): boolean {
   return (
@@ -192,18 +192,25 @@ function ParticipantGuessSummary({
       case 'region':
         value = participant.guessed_region || '未入力';
         break;
-      case 'age':
+      case 'age': {
+        const v = participant.guessed_age;
         value =
-          participant.guessed_age != null && Number.isFinite(participant.guessed_age)
-            ? String(participant.guessed_age)
+          v != null && v !== '' && (typeof v === 'number' ? Number.isFinite(v) : String(v).trim())
+            ? String(v)
             : '未入力';
         break;
-      case 'abv':
-        value =
-          participant.guessed_abv != null && Number.isFinite(participant.guessed_abv)
-            ? `${participant.guessed_abv}%`
-            : '未入力';
+      }
+      case 'abv': {
+        const v = participant.guessed_abv;
+        if (v == null || v === '') {
+          value = '未入力';
+        } else if (typeof v === 'string' && (/\d\s*-\s*\d/.test(v) || /-\s*$/.test(v))) {
+          value = v;
+        } else {
+          value = `${v}%`;
+        }
         break;
+      }
       case 'distillery':
         value = participant.guessed_distillery || '未入力';
         break;
@@ -507,8 +514,8 @@ export default function PresenterPage() {
       const next: PresenterOwnAnswer = {
         guessed_cask: (existingAnswer.guessed_cask as string) || '',
         guessed_region: (existingAnswer.guessed_region as string) || '',
-        guessed_age: (existingAnswer.guessed_age as number) || undefined,
-        guessed_abv: (existingAnswer.guessed_abv as number) || undefined,
+        guessed_age: (existingAnswer.guessed_age as string | number) || undefined,
+        guessed_abv: (existingAnswer.guessed_abv as string | number) || undefined,
         guessed_distillery: (existingAnswer.guessed_distillery as string) || '',
         guessed_other1: (existingAnswer.guessed_other1 as string) || '',
         guessed_other2: (existingAnswer.guessed_other2 as string) || '',

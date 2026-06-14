@@ -21,8 +21,8 @@ import { DEFAULT_FLAVOR_CHART } from '@/lib/default-flavor-chart';
 interface Answer {
   guessed_cask?: string;
   guessed_region?: string;
-  guessed_age?: number;
-  guessed_abv?: number;
+  guessed_age?: string | number;
+  guessed_abv?: string | number;
   guessed_distillery?: string;
   guessed_other1?: string;
   guessed_other2?: string;
@@ -115,6 +115,25 @@ const mergeLooseTrimmedText = (local?: string, remote?: string): string => {
   return remote ?? '';
 };
 
+const mergeOptionalAgeAbv = (
+  local?: string | number,
+  remote?: string | number,
+): string | number | undefined => {
+  const hasRemote =
+    remote !== null &&
+    remote !== undefined &&
+    remote !== '' &&
+    (typeof remote === 'number' ? Number.isFinite(remote) : String(remote).trim() !== '');
+  if (hasRemote) return remote;
+  const hasLocal =
+    local !== null &&
+    local !== undefined &&
+    local !== '' &&
+    (typeof local === 'number' ? Number.isFinite(local) : String(local).trim() !== '');
+  if (hasLocal) return local;
+  return undefined;
+};
+
 const mergeOptionalNumber = (local?: number, remote?: number): number | undefined => {
   if (typeof remote === 'number' && Number.isFinite(remote)) return remote;
   if (typeof local === 'number' && Number.isFinite(local)) return local;
@@ -125,8 +144,8 @@ const mergeAnswerFromSilentPoll = (prev: Answer, server: Answer): Answer => {
   const next: Answer = {
     guessed_cask: mergeLooseTrimmedText(prev.guessed_cask, server.guessed_cask),
     guessed_region: mergeLooseTrimmedText(prev.guessed_region, server.guessed_region),
-    guessed_age: mergeOptionalNumber(prev.guessed_age, server.guessed_age),
-    guessed_abv: mergeOptionalNumber(prev.guessed_abv, server.guessed_abv),
+    guessed_age: mergeOptionalAgeAbv(prev.guessed_age, server.guessed_age),
+    guessed_abv: mergeOptionalAgeAbv(prev.guessed_abv, server.guessed_abv),
     guessed_distillery: mergeLooseTrimmedText(prev.guessed_distillery, server.guessed_distillery),
     guessed_other1: mergeLooseTrimmedText(prev.guessed_other1, server.guessed_other1),
     guessed_other2: mergeLooseTrimmedText(prev.guessed_other2, server.guessed_other2),
@@ -692,7 +711,11 @@ export default function RoundPage() {
       const cfg = scoringFull.items[key];
       if (!cfg.enabled || cfg.maxPoints <= 0) return true;
       const t = (s?: string) => !!(s || '').trim();
-      const n = (x?: number) => typeof x === 'number' && Number.isFinite(x);
+      const n = (x?: string | number) => {
+        if (x === null || x === undefined || x === '') return false;
+        if (typeof x === 'number') return Number.isFinite(x);
+        return String(x).trim() !== '' && Number.isFinite(parseFloat(String(x)));
+      };
       switch (key) {
         case 'cask':
           return t(a.guessed_cask);

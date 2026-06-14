@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { TapEnlargeImage } from '@/components/common/TapEnlargeImage';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
@@ -636,12 +636,9 @@ export default function RoundResultPage() {
                   )}
                 </div>
                 {truth.bottle_image_url && (
-                  <Image
+                  <TapEnlargeImage
                     src={truth.bottle_image_url}
                     alt={`Sample ${sample_detail.sample_label} ボトル画像`}
-                    width={80}
-                    height={80}
-                    className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg border border-white/10 flex-shrink-0"
                   />
                 )}
               </div>

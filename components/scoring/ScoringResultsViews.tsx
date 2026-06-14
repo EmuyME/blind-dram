@@ -4,7 +4,7 @@ import { CorrectnessBadge } from '@/components/common/CorrectnessBadge';
 import {
   SCORING_ITEM_KEYS,
   normalizeScoringConfig,
-  resultItemCorrectnessBadge,
+  resultItemBadgeState,
   type ItemGradesMap,
   type AnswerScoreInput,
   type TruthScoreInput,
@@ -15,8 +15,8 @@ import { disambiguatedDisplayName } from '@/lib/participant-display';
 export type ScoringResultsTruth = {
   true_cask?: string | null;
   true_region?: string | null;
-  true_age?: number | null;
-  true_abv?: number | null;
+  true_age?: string | number | null;
+  true_abv?: string | number | null;
   true_distillery?: string | null;
   true_other1?: string | null;
   true_other2?: string | null;
@@ -27,8 +27,8 @@ export type ScoringResultsAnswer = {
   display_name: string;
   guessed_cask: string | null | undefined;
   guessed_region: string | null | undefined;
-  guessed_age: number | null | undefined;
-  guessed_abv: number | null | undefined;
+  guessed_age: string | number | null | undefined;
+  guessed_abv: string | number | null | undefined;
   guessed_distillery: string | null | undefined;
   guessed_other1?: string | null | undefined;
   guessed_other2?: string | null | undefined;
@@ -61,6 +61,32 @@ function toTruthInput(t: ScoringResultsTruth): TruthScoreInput {
   };
 }
 
+function hasAgeAbvValue(v: string | number | null | undefined): boolean {
+  if (v === null || v === undefined || v === '') return false;
+  if (typeof v === 'number') return Number.isFinite(v);
+  return String(v).trim() !== '';
+}
+
+function formatAgeDisplay(v: string | number | null | undefined, suffix = ''): string {
+  if (!hasAgeAbvValue(v)) return suffix ? '—' : '-';
+  if (typeof v === 'number' && Number.isFinite(v)) return `${v}${suffix}`;
+  const s = String(v).trim();
+  if (/\d\s*-\s*\d/.test(s) || /-\s*$/.test(s)) return s;
+  const n = parseFloat(s);
+  if (Number.isFinite(n) && !s.includes('-')) return `${n}${suffix}`;
+  return s;
+}
+
+function formatAbvDisplay(v: string | number | null | undefined, withPercent = true): string {
+  if (!hasAgeAbvValue(v)) return withPercent ? '-' : '—';
+  if (typeof v === 'number' && Number.isFinite(v)) return `${v}%`;
+  const s = String(v).trim();
+  if (/\d\s*-\s*\d/.test(s) || /-\s*$/.test(s) || s === '-39.9') return s;
+  const n = parseFloat(s.replace(/%/g, ''));
+  if (Number.isFinite(n) && !/\d-\d/.test(s)) return `${n}%`;
+  return s;
+}
+
 function guessCellText(key: ScoringItemKey, a: AnswerScoreInput): string {
   switch (key) {
     case 'cask':
@@ -68,9 +94,9 @@ function guessCellText(key: ScoringItemKey, a: AnswerScoreInput): string {
     case 'region':
       return a.guessed_region || '-';
     case 'age':
-      return a.guessed_age != null && Number.isFinite(a.guessed_age) ? String(a.guessed_age) : '-';
+      return formatAgeDisplay(a.guessed_age);
     case 'abv':
-      return a.guessed_abv != null && Number.isFinite(a.guessed_abv) ? `${a.guessed_abv}%` : '-';
+      return formatAbvDisplay(a.guessed_abv);
     case 'distillery':
       return a.guessed_distillery || '-';
     case 'other1':
@@ -89,9 +115,9 @@ function truthSubtitleText(key: ScoringItemKey, t: TruthScoreInput): string {
     case 'region':
       return t.true_region || '—';
     case 'age':
-      return t.true_age != null && Number.isFinite(t.true_age) ? `${t.true_age}年` : '—';
+      return formatAgeDisplay(t.true_age, '年');
     case 'abv':
-      return t.true_abv != null && Number.isFinite(t.true_abv) ? `${t.true_abv}%` : '—';
+      return formatAbvDisplay(t.true_abv, false);
     case 'distillery':
       return t.true_distillery || '—';
     case 'other1':
@@ -116,9 +142,9 @@ function truthKeyHasContent(key: ScoringItemKey, t: TruthScoreInput): boolean {
     case 'other2':
       return typeof t.true_other2 === 'string' && t.true_other2.trim() !== '';
     case 'age':
-      return t.true_age != null && Number.isFinite(t.true_age);
+      return hasAgeAbvValue(t.true_age);
     case 'abv':
-      return t.true_abv != null && Number.isFinite(t.true_abv);
+      return hasAgeAbvValue(t.true_abv);
     default:
       return false;
   }
@@ -147,9 +173,9 @@ function answerKeyHasContent(key: ScoringItemKey, a: AnswerScoreInput): boolean 
       return typeof v === 'string' && v.trim() !== '';
     }
     case 'age':
-      return a.guessed_age != null && Number.isFinite(a.guessed_age);
+      return hasAgeAbvValue(a.guessed_age);
     case 'abv':
-      return a.guessed_abv != null && Number.isFinite(a.guessed_abv);
+      return hasAgeAbvValue(a.guessed_abv);
     default:
       return false;
   }
@@ -298,20 +324,31 @@ export function DynamicScoringResultsTable({
                   {disambiguatedDisplayName(answer.display_name, answer.participant_id, answerPeers)}
                 </td>
                 {keys.map((key) => {
-                  const badge = resultItemCorrectnessBadge(
+                  const badge = resultItemBadgeState(
                     key,
                     full.items[key],
                     aIn,
                     tIn,
                     grade,
                   );
+                  const badgeValue =
+                    badge.kind === 'correct'
+                      ? true
+                      : badge.kind === 'wrong'
+                        ? false
+                        : badge.kind === 'partial'
+                          ? ('partial' as const)
+                          : null;
                   return (
                     <td key={key} className="py-3 px-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-stone-100 break-words max-w-[200px]">
                           {guessCellText(key, aIn)}
                         </span>
-                        <CorrectnessBadge value={badge} />
+                        <CorrectnessBadge
+                          value={badgeValue}
+                          partialScore={badge.kind === 'partial' ? badge.earned : undefined}
+                        />
                       </div>
                     </td>
                   );

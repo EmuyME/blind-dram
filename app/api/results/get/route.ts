@@ -25,6 +25,8 @@ type SessionRowForResults = {
   region_options_snapshot?: unknown;
   owner_token: string;
   public_results?: boolean | null;
+  results_ranking_image_url?: string | null;
+  results_ranking_image_updated_at?: string | null;
 };
 
 type ParticipantRow = { id: string; display_name: string };
@@ -86,7 +88,8 @@ export async function GET(request: NextRequest) {
 
     const sessionRows = await sql`
       SELECT id, title, mode, state, flavor_chart_snapshot, scoring_snapshot,
-             cask_options_snapshot, region_options_snapshot, owner_token, public_results
+             cask_options_snapshot, region_options_snapshot, owner_token, public_results,
+             results_ranking_image_url, results_ranking_image_updated_at
       FROM sessions
       WHERE join_token = ${joinToken}
       LIMIT 1
@@ -479,6 +482,11 @@ export async function GET(request: NextRequest) {
         title: session.title,
         mode: session.mode,
         state: session.state,
+        public_results: session.public_results !== false,
+      },
+      share: {
+        ranking_image_url: session.results_ranking_image_url ?? null,
+        ranking_image_updated_at: session.results_ranking_image_updated_at ?? null,
       },
       scoring_snapshot: session.scoring_snapshot ?? null,
       rankings: rankingsWithScores,

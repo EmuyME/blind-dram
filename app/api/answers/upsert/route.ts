@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 import { sql, jsonb } from '@/lib/db';
 import { writeLog, writeErrorLog } from '@/lib/logger';
+import { normalizeAgeAbvStorage } from '@/lib/storage-value';
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,8 +91,8 @@ export async function POST(request: NextRequest) {
       version: number;
       guessed_cask: string | null;
       guessed_region: string | null;
-      guessed_age: number | null;
-      guessed_abv: number | null;
+      guessed_age: string | null;
+      guessed_abv: string | null;
       guessed_distillery: string | null;
       guessed_other1: string | null;
       guessed_other2: string | null;
@@ -118,8 +119,8 @@ export async function POST(request: NextRequest) {
         version: number;
         guessed_cask: string | null;
         guessed_region: string | null;
-        guessed_age: number | null;
-        guessed_abv: number | null;
+        guessed_age: string | null;
+        guessed_abv: string | null;
         guessed_distillery: string | null;
         guessed_other1: string | null;
         guessed_other2: string | null;
@@ -139,24 +140,14 @@ export async function POST(request: NextRequest) {
     const newVersion = existingAnswer ? existingAnswer.version + 1 : 1;
     const submittedAt = status === 'submitted' ? new Date().toISOString() : null;
 
-    let guessedAbvNumeric: number | null = null;
-    if (guessed_abv) {
-      if (typeof guessed_abv === 'string') {
-        const cleaned = guessed_abv.replace(/%/g, '').trim();
-        const parsed = parseFloat(cleaned);
-        guessedAbvNumeric = isNaN(parsed) ? null : parsed;
-      } else if (typeof guessed_abv === 'number') {
-        guessedAbvNumeric = guessed_abv;
-      }
-    }
+    let finalGuessedAge = normalizeAgeAbvStorage(guessed_age);
+    let finalGuessedAbv = normalizeAgeAbvStorage(guessed_abv);
 
     let finalStatus = status;
     let finalVersion = newVersion;
     let finalSubmittedAt: string | null = submittedAt;
     let finalGuessedCask = guessed_cask || null;
     let finalGuessedRegion = guessed_region || null;
-    let finalGuessedAge = guessed_age || null;
-    let finalGuessedAbv = guessedAbvNumeric;
     let finalGuessedDistillery = guessed_distillery || null;
     let finalGuessedOther1 =
       typeof guessed_other1 === 'string' ? guessed_other1.trim() || null : guessed_other1 ?? null;

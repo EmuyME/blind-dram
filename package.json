@@ -17,7 +17,9 @@
     "fix-errors": "playwright test e2e/fix-all-errors.spec.ts",
     "fix-from-html": "playwright test e2e/fix-from-html-report.spec.ts",
     "test:e2e:robust:mobile:repeat": "node ./scripts/run-e2e-repeat.mjs --runs=3 --project=\"Mobile Chrome\" --file=e2e/robust-sequential-fuzz.spec.ts",
-    "db:schema": "node ./scripts/apply-neon-schema.mjs"
+    "db:schema": "node ./scripts/apply-neon-schema.mjs",
+    "db:migrate:age-abv-text": "node ./scripts/apply-neon-migration.mjs alter_age_abv_to_text",
+    "db:migrate:results-image": "node ./scripts/apply-neon-migration.mjs add_results_ranking_image_url"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

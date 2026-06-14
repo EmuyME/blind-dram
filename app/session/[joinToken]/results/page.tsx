@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { TapEnlargeImage } from '@/components/common/TapEnlargeImage';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
@@ -18,6 +18,8 @@ import { BottleTruthMetaSummary } from '@/components/common/BottleTruthMeta';
 import type { ItemGradesMap } from '@/lib/scoring-schema';
 import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils';
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
+import { captureElementToPngDataUrl } from '@/lib/capture-ranking-png';
+import { buildResultsPageUrl } from '@/lib/results-share';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
 import { PresenterTastingTier2Summary } from '@/components/flavor/PresenterTastingTier2Summary';
@@ -56,6 +58,11 @@ interface Results {
     title: string;
     mode: 'sequential' | 'simultaneous';
     state: string;
+    public_results?: boolean;
+  };
+  share?: {
+    ranking_image_url: string | null;
+    ranking_image_updated_at?: string | null;
   };
   scoring_snapshot?: unknown;
   rankings: Array<{
@@ -170,6 +177,8 @@ export default function ResultsPage() {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const rankingCaptureRef = useRef<HTMLDivElement | null>(null);
   const [isRankingImageBusy, setIsRankingImageBusy] = useState(false);
+  const [isPublishingRankingUrl, setIsPublishingRankingUrl] = useState(false);
+  const [rankingImageUrl, setRankingImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!joinToken) return;
@@ -233,6 +242,7 @@ export default function ResultsPage() {
 
       if (result.data) {
         setResults(result.data);
+        setRankingImageUrl(result.data.share?.ranking_image_url ?? null);
       } else {
         showToast('結果データが見つかりません', 'error');
       }
@@ -267,56 +277,55 @@ export default function ResultsPage() {
     showToast(ok ? '順位表をコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
   };
 
-  const handleDownloadRankingImage = async () => {
+  const handleCopyResultsPageUrl = async () => {
+    if (typeof window === 'undefined' || !joinToken) return;
+    const ownerToken = getOwnerToken(joinToken);
+    const publicResults = results?.session.public_results !== false;
+    const url = buildResultsPageUrl(window.location.origin, joinToken, ownerToken, publicResults);
+    const ok = await copyToClipboard(url);
+    showToast(ok ? '結果ページのURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  };
+
+  const handleCopyRankingImageUrl = async () => {
+    if (!rankingImageUrl) return;
+    const ok = await copyToClipboard(rankingImageUrl);
+    showToast(ok ? '順位表画像のURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  };
+
+  const captureRankingPng = async (): Promise<string | null> => {
     if (!results?.rankings?.length) {
       showToast('順位データがありません', 'error');
-      return;
+      return null;
     }
 
+    if (activeTab !== 'ranking') {
+      flushSync(() => setActiveTab('ranking'));
+    }
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    await new Promise<void>((r) => setTimeout(r, 80));
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready.catch(() => undefined);
+    }
+
+    const el = rankingCaptureRef.current;
+    if (!el) {
+      showToast('順位表を撮影できませんでした。しばらくして再度お試しください。', 'error');
+      return null;
+    }
+    return captureElementToPngDataUrl(el);
+  };
+
+  const handleDownloadRankingImage = async () => {
     setIsRankingImageBusy(true);
     try {
-      if (activeTab !== 'ranking') {
-        flushSync(() => setActiveTab('ranking'));
-      }
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-      await new Promise<void>((r) => setTimeout(r, 80));
-      if (typeof document !== 'undefined' && document.fonts?.ready) {
-        await document.fonts.ready.catch(() => undefined);
-      }
-
-      const el = rankingCaptureRef.current;
-      if (!el) {
-        showToast('順位表を撮影できませんでした。しばらくして再度お試しください。', 'error');
-        return;
-      }
+      const pngDataUrl = await captureRankingPng();
+      if (!pngDataUrl || !results) return;
 
       const base = sanitizeDownloadBasename(results.session.title, 'ranking');
       const day = new Date().toISOString().split('T')[0];
       const filename = `${base}_ranking_${day}.png`;
-
-      let pngDataUrl: string;
-      try {
-        const { toPng } = await import('html-to-image');
-        pngDataUrl = await toPng(el, {
-          backgroundColor: '#262626',
-          pixelRatio: 2,
-          cacheBust: true,
-        });
-      } catch (pngErr) {
-        console.warn('html-to-image failed, falling back to html2canvas', pngErr);
-        const html2canvas = (await import('html2canvas')).default;
-        const canvas = await html2canvas(el, {
-          backgroundColor: '#262626',
-          scale: 2,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          foreignObjectRendering: true,
-        });
-        pngDataUrl = canvas.toDataURL('image/png');
-      }
 
       const a = document.createElement('a');
       a.href = pngDataUrl;
@@ -331,6 +340,48 @@ export default function ResultsPage() {
       showToast('画像の作成に失敗しました', 'error');
     } finally {
       setIsRankingImageBusy(false);
+    }
+  };
+
+  const handlePublishRankingImageUrl = async () => {
+    const ownerToken = getOwnerToken(joinToken);
+    if (!ownerToken) {
+      showToast('オーナー画面から開くと順位表画像の公開URLを発行できます', 'error');
+      return;
+    }
+
+    setIsPublishingRankingUrl(true);
+    try {
+      const pngDataUrl = await captureRankingPng();
+      if (!pngDataUrl) return;
+
+      const blob = await fetch(pngDataUrl).then((r) => r.blob());
+      const formData = new FormData();
+      formData.append('owner_token', ownerToken);
+      formData.append('file', blob, 'ranking.png');
+
+      const response = await fetch('/api/owner/publish-ranking-image', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        showToast(result.error || '公開URLの発行に失敗しました', 'error');
+        return;
+      }
+
+      const url = result.data?.public_url as string | undefined;
+      if (!url) {
+        showToast('公開URLの取得に失敗しました', 'error');
+        return;
+      }
+      setRankingImageUrl(url);
+      showToast('順位表画像の公開URLを発行しました', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('公開URLの発行に失敗しました', 'error');
+    } finally {
+      setIsPublishingRankingUrl(false);
     }
   };
 
@@ -414,8 +465,13 @@ export default function ResultsPage() {
             <div>
               <h2 className="ui-h3">共有</h2>
               <p className="text-sm ui-muted mt-1">
-                順位表のみをテキストまたは画像で共有できます。
+                結果ページのURLや順位表画像で、いつでも結果を共有できます（結果公開後）。
               </p>
+              {results.session.public_results === false && (
+                <p className="text-xs text-amber-200/80 mt-2">
+                  限定公開中です。共有URLにはオーナー権限が含まれます。全員に公開する場合はオーナー画面から変更してください。
+                </p>
+              )}
             </div>
             {participantId && (
               <div className="text-xs text-stone-400">
@@ -427,18 +483,55 @@ export default function ResultsPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button variant="secondary" onClick={handleCopyResultsPageUrl} className="w-full">
+              結果ページのURLをコピー
+            </Button>
             <Button variant="secondary" onClick={handleCopyRankingText} className="w-full">
               順位表をテキストでコピー
             </Button>
             <Button
               variant="primary"
               onClick={handleDownloadRankingImage}
-              disabled={isRankingImageBusy}
+              disabled={isRankingImageBusy || isPublishingRankingUrl}
               className="w-full"
             >
               {isRankingImageBusy ? '画像を作成中…' : '順位表の画像をダウンロード'}
             </Button>
+            <Button
+              variant="primary"
+              onClick={handlePublishRankingImageUrl}
+              disabled={isRankingImageBusy || isPublishingRankingUrl}
+              className="w-full"
+            >
+              {isPublishingRankingUrl ? '公開URLを発行中…' : '順位表画像の公開URLを発行'}
+            </Button>
           </div>
+
+          {rankingImageUrl && (
+            <div className="mt-4 rounded-xl border border-white/10 bg-neutral-900/40 p-4 space-y-3">
+              <p className="text-sm font-medium text-stone-200">順位表画像（公開URL）</p>
+              <a
+                href={rankingImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-xs text-sky-300 break-all hover:underline"
+              >
+                {rankingImageUrl}
+              </a>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={handleCopyRankingImageUrl} className="text-sm">
+                  画像URLをコピー
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => window.open(rankingImageUrl, '_blank', 'noopener,noreferrer')}
+                  className="text-sm"
+                >
+                  画像を開く
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* タブ */}
@@ -541,12 +634,9 @@ export default function ResultsPage() {
                       )}
                     </div>
                     {truth.bottle_image_url && (
-                      <Image
+                      <TapEnlargeImage
                         src={truth.bottle_image_url}
                         alt={`Sample ${sample.sample_label} ボトル画像`}
-                        width={80}
-                        height={80}
-                        className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg border border-white/10 flex-shrink-0"
                       />
                     )}
                   </div>

@@ -8,7 +8,8 @@ import { SampleOrderList } from '@/components/common/SampleOrderList';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
-import { copyToClipboard, openLineJoinInviteShare } from '@/lib/utils';
+import { copyToClipboard, openLineJoinInviteShare, setOwnerToken as persistOwnerToken } from '@/lib/utils';
+import { buildResultsPageUrl } from '@/lib/results-share';
 import { normalizeScoringConfig, mergeLegacyOptionColumnsIntoScoring, type FullScoringConfig, DEFAULT_CASK_CHOICE_OPTIONS, DEFAULT_REGION_CHOICE_OPTIONS } from '@/lib/scoring-schema';
 import { resolvedTier1NightingaleColors, type Tier1NightingaleRgb } from '@/lib/flavor-chart-colors';
 import { DEFAULT_FLAVOR_CHART, ensureTier1NightingaleVisibleMap } from '@/lib/default-flavor-chart';
@@ -45,6 +46,7 @@ interface Session {
   join_code?: string | null;
   /** true のとき全員が結果を閲覧可能。false のときは owner_token 付きでのみ閲覧 */
   public_results?: boolean;
+  results_ranking_image_url?: string | null;
 }
 
 interface Participant {
@@ -112,6 +114,12 @@ export default function OwnerPage() {
   }, [params]);
   
   const [joinToken, setJoinToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (joinToken && ownerToken) {
+      persistOwnerToken(joinToken, ownerToken);
+    }
+  }, [joinToken, ownerToken]);
   
   // クエリからjoin_tokenを取得（クライアントでのみ取得）
   // 未指定の場合はowner_tokenからjoin_tokenを取得
@@ -1195,6 +1203,65 @@ export default function OwnerPage() {
               >
                 結果を見る
               </Button>
+            </div>
+
+            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-stone-100 tracking-tight">結果の共有</h3>
+              <p className="text-sm text-stone-400 leading-relaxed">
+                結果公開後は、下のURLからいつでも最終結果を閲覧できます。順位表画像の公開URLは結果ページから発行できます。
+              </p>
+              {joinToken && typeof window !== 'undefined' && (
+                <div className="space-y-2">
+                  <p className="text-xs text-stone-500">結果ページ</p>
+                  <p className="text-xs text-sky-300 break-all">
+                    {buildResultsPageUrl(
+                      window.location.origin,
+                      joinToken,
+                      ownerToken,
+                      session.public_results !== false,
+                    )}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={async () => {
+                      const url = buildResultsPageUrl(
+                        window.location.origin,
+                        joinToken,
+                        ownerToken,
+                        session.public_results !== false,
+                      );
+                      const ok = await copyToClipboard(url);
+                      showToast(ok ? '結果ページのURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+                    }}
+                  >
+                    結果ページのURLをコピー
+                  </Button>
+                </div>
+              )}
+              {session.results_ranking_image_url && (
+                <div className="space-y-2 pt-2 border-t border-white/10">
+                  <p className="text-xs text-stone-500">順位表画像（公開URL）</p>
+                  <a
+                    href={session.results_ranking_image_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-xs text-sky-300 break-all hover:underline"
+                  >
+                    {session.results_ranking_image_url}
+                  </a>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(session.results_ranking_image_url || '');
+                      showToast(ok ? '画像URLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+                    }}
+                  >
+                    順位表画像のURLをコピー
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">

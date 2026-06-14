@@ -357,8 +357,8 @@ function scoreNumericAuto(
 export interface AnswerScoreInput {
   guessed_cask: string | null;
   guessed_region: string | null;
-  guessed_age: number | null;
-  guessed_abv: number | null;
+  guessed_age: string | number | null;
+  guessed_abv: string | number | null;
   guessed_distillery: string | null;
   guessed_other1?: string | null;
   guessed_other2?: string | null;
@@ -367,8 +367,8 @@ export interface AnswerScoreInput {
 export interface TruthScoreInput {
   true_cask: string | null;
   true_region: string | null;
-  true_age: number | null;
-  true_abv: number | null;
+  true_age: string | number | null;
+  true_abv: string | number | null;
   true_distillery: string | null;
   true_other1?: string | null;
   true_other2?: string | null;
@@ -388,6 +388,220 @@ function gradeForKey(g: GradeScoreInput, key: ScoringItemKey): ItemGrade | undef
   return undefined;
 }
 
+function hasAgeAbvValue(v: string | number | null | undefined): boolean {
+  if (v === null || v === undefined || v === '') return false;
+  if (typeof v === 'number') return Number.isFinite(v);
+  return String(v).trim() !== '';
+}
+
+function itemHasGuessValue(key: ScoringItemKey, answer: AnswerScoreInput): boolean {
+  switch (key) {
+    case 'cask':
+      return !!normStr(answer.guessed_cask);
+    case 'region':
+      return !!normStr(answer.guessed_region);
+    case 'age':
+      return hasAgeAbvValue(answer.guessed_age);
+    case 'abv':
+      return hasAgeAbvValue(answer.guessed_abv);
+    case 'distillery':
+      return !!normStr(answer.guessed_distillery);
+    case 'other1':
+      return !!normStr(answer.guessed_other1);
+    case 'other2':
+      return !!normStr(answer.guessed_other2);
+    default:
+      return false;
+  }
+}
+
+function itemHasTruthValue(key: ScoringItemKey, truth: TruthScoreInput): boolean {
+  switch (key) {
+    case 'cask':
+      return !!normStr(truth.true_cask);
+    case 'region':
+      return !!normStr(truth.true_region);
+    case 'age':
+      return hasAgeAbvValue(truth.true_age);
+    case 'abv':
+      return hasAgeAbvValue(truth.true_abv);
+    case 'distillery':
+      return !!normStr(truth.true_distillery);
+    case 'other1':
+      return !!normStr(truth.true_other1);
+    case 'other2':
+      return !!normStr(truth.true_other2);
+    default:
+      return false;
+  }
+}
+
+/** 1 項目の得点（calculateScoreExtended と同じロジック） */
+export function scoreSingleItem(
+  key: ScoringItemKey,
+  it: ScoringItemConfig,
+  answer: AnswerScoreInput,
+  truth: TruthScoreInput,
+  grade: GradeScoreInput,
+  caskOptions: string[],
+  regionOptions: string[],
+): number {
+  if (!it.enabled || it.maxPoints <= 0) return 0;
+
+  switch (key) {
+    case 'cask': {
+      const gCask = normStr(answer.guessed_cask);
+      const tCask = normStr(truth.true_cask);
+      if (it.inputType === 'choice') {
+        return gCask && tCask && gCask === tCask ? it.maxPoints : 0;
+      }
+      const fv = it.freeValueType || 'string';
+      if (it.freeGrading === 'manual') {
+        return scoreManualItem(it.maxPoints, gradeForKey(grade, 'cask'));
+      }
+      if (fv === 'string') {
+        return normStr(answer.guessed_cask) && normStr(answer.guessed_cask) === normStr(truth.true_cask)
+          ? it.maxPoints
+          : 0;
+      }
+      return scoreNumericAuto(
+        parseGuessNumber(answer.guessed_cask, fv),
+        parseGuessNumber(truth.true_cask, fv),
+        it.maxPoints,
+        it.penaltyStep || 1,
+        it.penaltyPointsPerStep ?? 1,
+      );
+    }
+    case 'region': {
+      const gReg = normStr(answer.guessed_region);
+      const tReg = normStr(truth.true_region);
+      if (it.inputType === 'choice') {
+        return gReg && tReg && gReg === tReg ? it.maxPoints : 0;
+      }
+      const fv = it.freeValueType || 'string';
+      if (it.freeGrading === 'manual') {
+        return scoreManualItem(it.maxPoints, gradeForKey(grade, 'region'));
+      }
+      if (fv === 'string') {
+        return normStr(answer.guessed_region) && normStr(answer.guessed_region) === normStr(truth.true_region)
+          ? it.maxPoints
+          : 0;
+      }
+      return scoreNumericAuto(
+        parseGuessNumber(answer.guessed_region, fv),
+        parseGuessNumber(truth.true_region, fv),
+        it.maxPoints,
+        it.penaltyStep || 1,
+        it.penaltyPointsPerStep ?? 1,
+      );
+    }
+    case 'age': {
+      if (it.inputType === 'choice') {
+        const ga = normStr(String(answer.guessed_age ?? ''));
+        const ta = normStr(String(truth.true_age ?? ''));
+        return ga && ta && ga === ta ? it.maxPoints : 0;
+      }
+      if (it.freeGrading === 'manual') {
+        return scoreManualItem(it.maxPoints, gradeForKey(grade, 'age'));
+      }
+      const kind = it.freeValueType === 'decimal1' ? 'decimal1' : 'int';
+      return scoreNumericAuto(
+        parseGuessNumber(answer.guessed_age, kind),
+        parseGuessNumber(truth.true_age, kind),
+        it.maxPoints,
+        it.penaltyStep || 1,
+        it.penaltyPointsPerStep ?? 1,
+      );
+    }
+    case 'abv': {
+      if (it.inputType === 'choice') {
+        const ga = normStr(String(answer.guessed_abv ?? ''));
+        const ta = normStr(String(truth.true_abv ?? ''));
+        return ga && ta && ga === ta ? it.maxPoints : 0;
+      }
+      if (it.freeGrading === 'manual') {
+        return scoreManualItem(it.maxPoints, gradeForKey(grade, 'abv'));
+      }
+      const kind = it.freeValueType === 'int' ? 'int' : 'decimal1';
+      return scoreNumericAuto(
+        parseGuessNumber(answer.guessed_abv, kind),
+        parseGuessNumber(truth.true_abv, kind),
+        it.maxPoints,
+        it.penaltyStep || 1,
+        it.penaltyPointsPerStep ?? 1,
+      );
+    }
+    case 'distillery': {
+      if (it.inputType === 'choice') {
+        const opts = optionsForItem('distillery', it, caskOptions, regionOptions);
+        const g = normStr(answer.guessed_distillery);
+        const t = normStr(truth.true_distillery);
+        if (opts.length >= 2) {
+          return g && t && g === t ? it.maxPoints : 0;
+        }
+        if (it.freeGrading === 'manual') {
+          return scoreManualItem(it.maxPoints, gradeForKey(grade, 'distillery'));
+        }
+        return g && t && g === t ? it.maxPoints : 0;
+      }
+      if (it.freeGrading === 'manual') {
+        return scoreManualItem(it.maxPoints, gradeForKey(grade, 'distillery'));
+      }
+      const fv = it.freeValueType || 'string';
+      if (fv === 'string') {
+        return normStr(answer.guessed_distillery) &&
+          normStr(answer.guessed_distillery) === normStr(truth.true_distillery)
+          ? it.maxPoints
+          : 0;
+      }
+      return scoreNumericAuto(
+        parseGuessNumber(answer.guessed_distillery, fv),
+        parseGuessNumber(truth.true_distillery, fv),
+        it.maxPoints,
+        it.penaltyStep || 1,
+        it.penaltyPointsPerStep ?? 1,
+      );
+    }
+    case 'other1':
+    case 'other2': {
+      const gk = key === 'other1' ? answer.guessed_other1 : answer.guessed_other2;
+      const tk = key === 'other1' ? truth.true_other1 : truth.true_other2;
+      if (it.inputType === 'choice') {
+        return normStr(gk) && normStr(gk) === normStr(tk) ? it.maxPoints : 0;
+      }
+      if (it.freeGrading === 'manual') {
+        return scoreManualItem(it.maxPoints, gradeForKey(grade, key));
+      }
+      const fv = it.freeValueType || 'string';
+      if (fv === 'string') {
+        return normStr(gk) && normStr(gk) === normStr(tk) ? it.maxPoints : 0;
+      }
+      return scoreNumericAuto(
+        parseGuessNumber(gk, fv),
+        parseGuessNumber(tk, fv),
+        it.maxPoints,
+        it.penaltyStep || 1,
+        it.penaltyPointsPerStep ?? 1,
+      );
+    }
+    default:
+      return 0;
+  }
+}
+
+export function calculateItemScore(
+  key: ScoringItemKey,
+  answer: AnswerScoreInput,
+  truth: TruthScoreInput,
+  grade: GradeScoreInput,
+  configRaw: unknown,
+  caskOptions: string[],
+  regionOptions: string[],
+): number {
+  const cfg = normalizeScoringConfig(configRaw).items;
+  return scoreSingleItem(key, cfg[key], answer, truth, grade, caskOptions, regionOptions);
+}
+
 export function calculateScoreExtended(
   answer: AnswerScoreInput,
   truth: TruthScoreInput,
@@ -398,156 +612,9 @@ export function calculateScoreExtended(
 ): number {
   const cfg = normalizeScoringConfig(configRaw).items;
   let score = 0;
-
-  const gCask = normStr(answer.guessed_cask);
-  const tCask = normStr(truth.true_cask);
-  if (cfg.cask.enabled && cfg.cask.maxPoints > 0) {
-    if (cfg.cask.inputType === 'choice') {
-      if (gCask && tCask && gCask === tCask) score += cfg.cask.maxPoints;
-    } else {
-      const guess = answer.guessed_cask;
-      const tr = truth.true_cask;
-      const fv = cfg.cask.freeValueType || 'string';
-      if (cfg.cask.freeGrading === 'manual') {
-        score += scoreManualItem(cfg.cask.maxPoints, gradeForKey(grade, 'cask'));
-      } else if (fv === 'string') {
-        if (normStr(guess) && normStr(guess) === normStr(tr)) score += cfg.cask.maxPoints;
-      } else {
-        const gn = parseGuessNumber(guess, fv);
-        const tn = parseGuessNumber(tr, fv);
-        score += scoreNumericAuto(
-          gn,
-          tn,
-          cfg.cask.maxPoints,
-          cfg.cask.penaltyStep || 1,
-          cfg.cask.penaltyPointsPerStep ?? 1,
-        );
-      }
-    }
+  for (const key of SCORING_ITEM_KEYS) {
+    score += scoreSingleItem(key, cfg[key], answer, truth, grade, caskOptions, regionOptions);
   }
-
-  const gReg = normStr(answer.guessed_region);
-  const tReg = normStr(truth.true_region);
-  if (cfg.region.enabled && cfg.region.maxPoints > 0) {
-    if (cfg.region.inputType === 'choice') {
-      if (gReg && tReg && gReg === tReg) score += cfg.region.maxPoints;
-    } else {
-      const guess = answer.guessed_region;
-      const tr = truth.true_region;
-      const fv = cfg.region.freeValueType || 'string';
-      if (cfg.region.freeGrading === 'manual') {
-        score += scoreManualItem(cfg.region.maxPoints, gradeForKey(grade, 'region'));
-      } else if (fv === 'string') {
-        if (normStr(guess) && normStr(guess) === normStr(tr)) score += cfg.region.maxPoints;
-      } else {
-        const gn = parseGuessNumber(guess, fv);
-        const tn = parseGuessNumber(tr, fv);
-        score += scoreNumericAuto(
-          gn,
-          tn,
-          cfg.region.maxPoints,
-          cfg.region.penaltyStep || 1,
-          cfg.region.penaltyPointsPerStep ?? 1,
-        );
-      }
-    }
-  }
-
-  if (cfg.age.enabled && cfg.age.maxPoints > 0) {
-    if (cfg.age.freeGrading === 'manual') {
-      score += scoreManualItem(cfg.age.maxPoints, gradeForKey(grade, 'age'));
-    } else {
-      const gn = parseGuessNumber(answer.guessed_age, 'int');
-      const tn = parseGuessNumber(truth.true_age, 'int');
-      score += scoreNumericAuto(
-        gn,
-        tn,
-        cfg.age.maxPoints,
-        cfg.age.penaltyStep || 1,
-        cfg.age.penaltyPointsPerStep ?? 1,
-      );
-    }
-  }
-
-  if (cfg.abv.enabled && cfg.abv.maxPoints > 0) {
-    if (cfg.abv.freeGrading === 'manual') {
-      score += scoreManualItem(cfg.abv.maxPoints, gradeForKey(grade, 'abv'));
-    } else {
-      const kind = cfg.abv.freeValueType === 'int' ? 'int' : 'decimal1';
-      const gn = parseGuessNumber(answer.guessed_abv, kind);
-      const tn = parseGuessNumber(truth.true_abv, kind);
-      score += scoreNumericAuto(
-        gn,
-        tn,
-        cfg.abv.maxPoints,
-        cfg.abv.penaltyStep || 1,
-        cfg.abv.penaltyPointsPerStep ?? 1,
-      );
-    }
-  }
-
-  if (cfg.distillery.enabled && cfg.distillery.maxPoints > 0) {
-    if (cfg.distillery.inputType === 'choice') {
-      const opts = optionsForItem('distillery', cfg.distillery, caskOptions, regionOptions);
-      const g = normStr(answer.guessed_distillery);
-      const t = normStr(truth.true_distillery);
-      if (opts.length >= 2) {
-        if (g && t && g === t) score += cfg.distillery.maxPoints;
-      } else if (cfg.distillery.freeGrading === 'manual') {
-        score += scoreManualItem(cfg.distillery.maxPoints, gradeForKey(grade, 'distillery'));
-      } else {
-        if (g && t && g === t) score += cfg.distillery.maxPoints;
-      }
-    } else if (cfg.distillery.freeGrading === 'manual') {
-      score += scoreManualItem(cfg.distillery.maxPoints, gradeForKey(grade, 'distillery'));
-    } else {
-      const fv = cfg.distillery.freeValueType || 'string';
-      if (fv === 'string') {
-        if (
-          normStr(answer.guessed_distillery) &&
-          normStr(answer.guessed_distillery) === normStr(truth.true_distillery)
-        ) {
-          score += cfg.distillery.maxPoints;
-        }
-      } else {
-        const gn = parseGuessNumber(answer.guessed_distillery, fv);
-        const tn = parseGuessNumber(truth.true_distillery, fv);
-        score += scoreNumericAuto(
-          gn,
-          tn,
-          cfg.distillery.maxPoints,
-          cfg.distillery.penaltyStep || 1,
-          cfg.distillery.penaltyPointsPerStep ?? 1,
-        );
-      }
-    }
-  }
-
-  for (const ok of ['other1', 'other2'] as const) {
-    const it = cfg[ok];
-    if (!it.enabled || it.maxPoints <= 0) continue;
-    const gk = ok === 'other1' ? answer.guessed_other1 : answer.guessed_other2;
-    const tk = ok === 'other1' ? truth.true_other1 : truth.true_other2;
-    if (it.freeGrading === 'manual') {
-      score += scoreManualItem(it.maxPoints, gradeForKey(grade, ok));
-    } else {
-      const fv = it.freeValueType || 'string';
-      if (fv === 'string') {
-        if (normStr(gk) && normStr(gk) === normStr(tk)) score += it.maxPoints;
-      } else {
-        const gn = parseGuessNumber(gk, fv);
-        const tn = parseGuessNumber(tk, fv);
-        score += scoreNumericAuto(
-          gn,
-          tn,
-          it.maxPoints,
-          it.penaltyStep || 1,
-          it.penaltyPointsPerStep ?? 1,
-        );
-      }
-    }
-  }
-
   return score;
 }
 
@@ -563,7 +630,49 @@ export function itemNeedsManualGrading(key: ScoringItemKey, it: ScoringItemConfi
 }
 
 /**
- * 結果テーブル用: 項目が「満点一致」なら true、明確に外れなら false、部分点・未採点・両方空などは null
+ * 結果テーブル用バッジ状態
+ * 0点=不正解、満点=正解、それ以外=部分点
+ */
+export type ResultItemBadgeState =
+  | { kind: 'correct' }
+  | { kind: 'wrong' }
+  | { kind: 'partial'; earned: number }
+  | { kind: 'unknown' };
+
+export function resultItemBadgeState(
+  key: ScoringItemKey,
+  cfg: ScoringItemConfig,
+  answer: AnswerScoreInput,
+  truth: TruthScoreInput,
+  grade: { is_correct?: boolean | null; item_grades?: ItemGradesMap | null } | null | undefined,
+  caskOptions: string[] = [],
+  regionOptions: string[] = [],
+): ResultItemBadgeState {
+  if (!cfg.enabled || cfg.maxPoints <= 0) return { kind: 'unknown' };
+
+  const gIn: GradeScoreInput = {
+    is_correct: grade?.is_correct ?? null,
+    item_grades: grade?.item_grades ?? undefined,
+  };
+
+  if (!itemHasGuessValue(key, answer) && !itemHasTruthValue(key, truth)) {
+    return { kind: 'unknown' };
+  }
+
+  if (itemNeedsManualGrading(key, cfg) && !gradeForKey(gIn, key)?.verdict) {
+    return { kind: 'unknown' };
+  }
+
+  const earned = scoreSingleItem(key, cfg, answer, truth, gIn, caskOptions, regionOptions);
+  const max = cfg.maxPoints;
+
+  if (earned <= 0) return { kind: 'wrong' };
+  if (earned >= max) return { kind: 'correct' };
+  return { kind: 'partial', earned };
+}
+
+/**
+ * @deprecated resultItemBadgeState を使用してください
  */
 export function resultItemCorrectnessBadge(
   key: ScoringItemKey,
@@ -572,114 +681,10 @@ export function resultItemCorrectnessBadge(
   truth: TruthScoreInput,
   grade: { is_correct?: boolean | null; item_grades?: ItemGradesMap | null } | null | undefined,
 ): boolean | null {
-  if (!cfg.enabled || cfg.maxPoints <= 0) return null;
-
-  const gIn: GradeScoreInput = {
-    is_correct: grade?.is_correct ?? null,
-    item_grades: grade?.item_grades ?? undefined,
-  };
-
-  if (itemNeedsManualGrading(key, cfg)) {
-    const ig = gradeForKey(gIn, key);
-    if (ig?.verdict === 'correct') return true;
-    if (ig?.verdict === 'wrong') return false;
-    return null;
-  }
-
-  if (cfg.inputType === 'choice') {
-    let gs = '';
-    let ts = '';
-    switch (key) {
-      case 'cask':
-        gs = String(answer.guessed_cask ?? '');
-        ts = String(truth.true_cask ?? '');
-        break;
-      case 'region':
-        gs = String(answer.guessed_region ?? '');
-        ts = String(truth.true_region ?? '');
-        break;
-      case 'age':
-        gs = answer.guessed_age == null || !Number.isFinite(answer.guessed_age) ? '' : String(answer.guessed_age);
-        ts = truth.true_age == null || !Number.isFinite(truth.true_age) ? '' : String(truth.true_age);
-        break;
-      case 'abv':
-        gs = answer.guessed_abv == null || !Number.isFinite(answer.guessed_abv) ? '' : String(answer.guessed_abv);
-        ts = truth.true_abv == null || !Number.isFinite(truth.true_abv) ? '' : String(truth.true_abv);
-        break;
-      case 'distillery':
-        gs = String(answer.guessed_distillery ?? '');
-        ts = String(truth.true_distillery ?? '');
-        break;
-      case 'other1':
-        gs = String(answer.guessed_other1 ?? '');
-        ts = String(truth.true_other1 ?? '');
-        break;
-      case 'other2':
-        gs = String(answer.guessed_other2 ?? '');
-        ts = String(truth.true_other2 ?? '');
-        break;
-      default:
-        return null;
-    }
-    if (!normStr(gs) && !normStr(ts)) return null;
-    return normStr(gs) === normStr(ts);
-  }
-
-  const fv = cfg.freeValueType || 'string';
-  if (fv === 'int' || fv === 'decimal1') {
-    let rawG: string | number | null | undefined;
-    let rawT: string | number | null | undefined;
-    switch (key) {
-      case 'age':
-        rawG = answer.guessed_age;
-        rawT = truth.true_age;
-        break;
-      case 'abv':
-        rawG = answer.guessed_abv;
-        rawT = truth.true_abv;
-        break;
-      case 'distillery':
-        rawG = answer.guessed_distillery;
-        rawT = truth.true_distillery;
-        break;
-      case 'other1':
-        rawG = answer.guessed_other1;
-        rawT = truth.true_other1;
-        break;
-      case 'other2':
-        rawG = answer.guessed_other2;
-        rawT = truth.true_other2;
-        break;
-      default:
-        return null;
-    }
-    const gn = parseGuessNumber(rawG, fv);
-    const tn = parseGuessNumber(rawT, fv);
-    if (gn === null && tn === null) return null;
-    if (gn === null || tn === null) return false;
-    return gn === tn;
-  }
-
-  let rawG: string | null | undefined;
-  let rawT: string | null | undefined;
-  switch (key) {
-    case 'distillery':
-      rawG = answer.guessed_distillery ?? undefined;
-      rawT = truth.true_distillery ?? undefined;
-      break;
-    case 'other1':
-      rawG = answer.guessed_other1 ?? undefined;
-      rawT = truth.true_other1 ?? undefined;
-      break;
-    case 'other2':
-      rawG = answer.guessed_other2 ?? undefined;
-      rawT = truth.true_other2 ?? undefined;
-      break;
-    default:
-      return null;
-  }
-  if (!normStr(rawG) && !normStr(rawT)) return null;
-  return normStr(rawG) === normStr(rawT);
+  const state = resultItemBadgeState(key, cfg, answer, truth, grade);
+  if (state.kind === 'correct') return true;
+  if (state.kind === 'wrong') return false;
+  return null;
 }
 
 export function isParticipantManualGradingComplete(

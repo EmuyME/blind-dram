@@ -3,15 +3,10 @@ import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/api-utils';
 import { sql } from '@/lib/db';
 import { writeErrorLog } from '@/lib/logger';
+import { normalizeAgeAbvStorage } from '@/lib/storage-value';
 
-function parseTrueAge(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null;
-  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
-  if (typeof v === 'string') {
-    const n = parseInt(v.trim(), 10);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
+function parseTrueAge(v: unknown): string | null {
+  return normalizeAgeAbvStorage(v);
 }
 
 export async function POST(request: NextRequest) {
@@ -91,18 +86,8 @@ export async function POST(request: NextRequest) {
         ? bottle_image_url.trim() || null
         : bottle_image_url ?? null;
 
-    let trueAbvNumeric: number | null = null;
-    if (true_abv) {
-      if (typeof true_abv === 'string') {
-        const cleaned = true_abv.replace(/%/g, '').trim();
-        const parsed = parseFloat(cleaned);
-        trueAbvNumeric = isNaN(parsed) ? null : parsed;
-      } else if (typeof true_abv === 'number') {
-        trueAbvNumeric = true_abv;
-      }
-    }
-
     const trueAgeParsed = parseTrueAge(true_age);
+    const trueAbvStored = normalizeAgeAbvStorage(true_abv);
     const other1Norm =
       typeof true_other1 === 'string' ? true_other1.trim() || null : true_other1 ?? null;
     const other2Norm =
@@ -121,7 +106,7 @@ export async function POST(request: NextRequest) {
           notes, bottle_image_url, updated_at
         ) VALUES (
           ${sample.session_id}, ${sample_id}, ${participant.id},
-          ${trueCaskNorm}, ${trueRegionNorm}, ${trueAgeParsed}, ${trueAbvNumeric}, ${trueDistilleryNorm},
+          ${trueCaskNorm}, ${trueRegionNorm}, ${trueAgeParsed}, ${trueAbvStored}, ${trueDistilleryNorm},
           ${other1Norm}, ${other2Norm}, ${trueBottlerName},
           ${distillationYear}, ${bottlingYear},
           ${notesNorm}, ${bottleImageNorm}, ${updatedAt}

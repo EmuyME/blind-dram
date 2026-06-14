@@ -1,6 +1,7 @@
 ﻿import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { PullToRefresh } from '@/components/common/PullToRefresh';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="antialiased selection:bg-bd-accent/25 selection:text-stone-50">
+        <PullToRefresh />
         {children}
         <footer className="py-6 px-4 text-center" aria-label="著作権表記・クレジット">
           <p className="select-none text-[10px] font-extralight tracking-[0.18em] text-stone-500/42">

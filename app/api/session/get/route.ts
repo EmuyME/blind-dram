@@ -17,6 +17,8 @@ type SessionRowFetched = {
   join_code: string | null;
   join_token: string | null;
   public_results: boolean | null;
+  results_ranking_image_url: string | null;
+  results_ranking_image_updated_at: string | null;
 };
 
 export async function GET(request: NextRequest) {
@@ -34,7 +36,8 @@ export async function GET(request: NextRequest) {
           SELECT
             id, title, mode, state, flavor_chart_snapshot,
             cask_options_snapshot, region_options_snapshot, scoring_snapshot,
-            created_at, updated_at, join_code, join_token, public_results
+            created_at, updated_at, join_code, join_token, public_results,
+            results_ranking_image_url, results_ranking_image_updated_at
           FROM sessions
           WHERE join_token = ${joinToken}
           LIMIT 1
@@ -43,7 +46,8 @@ export async function GET(request: NextRequest) {
           SELECT
             id, title, mode, state, flavor_chart_snapshot,
             cask_options_snapshot, region_options_snapshot, scoring_snapshot,
-            created_at, updated_at, join_code, join_token, public_results
+            created_at, updated_at, join_code, join_token, public_results,
+            results_ranking_image_url, results_ranking_image_updated_at
           FROM sessions
           WHERE owner_token = ${ownerToken}
           LIMIT 1
@@ -67,6 +71,8 @@ export async function GET(request: NextRequest) {
       join_code: session.join_code ?? null,
       join_token: session.join_token ?? null,
       public_results: session.public_results !== false,
+      results_ranking_image_url: session.results_ranking_image_url ?? null,
+      results_ranking_image_updated_at: session.results_ranking_image_updated_at ?? null,
       created_at: session.created_at,
       updated_at: session.updated_at,
     });

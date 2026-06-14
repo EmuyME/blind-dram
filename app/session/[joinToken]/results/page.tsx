@@ -26,6 +26,7 @@ import {
 import { buildResultsPageUrl } from '@/lib/results-share';
 import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
 import { saveMultiplePngDataUrls, savePngDataUrl } from '@/lib/download-png';
+import { buildArchiveExportFilenames } from '@/lib/results-export-layout';
 import { ResultsExportCapture } from '@/components/results/export/ResultsExportCapture';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
@@ -319,17 +320,6 @@ export default function ResultsPage() {
     return `${base}_share_${day}.png`;
   };
 
-  const buildArchiveFilenames = (title: string, sampleLabels: string[]) => {
-    const base = sanitizeDownloadBasename(title, 'archive');
-    const day = new Date().toISOString().split('T')[0];
-    const names = [`${base}_archive_${day}_01_順位.png`];
-    sampleLabels.forEach((label, i) => {
-      const safe = sanitizeDownloadBasename(label, `sample${i + 1}`);
-      names.push(`${base}_archive_${day}_${String(i + 2).padStart(2, '0')}_${safe}.png`);
-    });
-    return names;
-  };
-
   const handleDownloadShareImage = async () => {
     setIsShareImageBusy(true);
     try {
@@ -359,10 +349,7 @@ export default function ResultsPage() {
       const pngDataUrls = await captureExportPages('archive');
       if (!pngDataUrls?.length || !results) return;
 
-      const filenames = buildArchiveFilenames(
-        results.session.title,
-        results.sample_details.map((s) => s.sample_label),
-      );
+      const filenames = buildArchiveExportFilenames(results.session.title, results);
       const saveResult = await saveMultiplePngDataUrls(
         filenames.slice(0, pngDataUrls.length),
         pngDataUrls,

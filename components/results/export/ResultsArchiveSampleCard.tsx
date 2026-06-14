@@ -9,37 +9,23 @@ import {
 } from '@/lib/results-export-design';
 import { formatSampleHeadingLabel } from '@/lib/json-helpers';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
-import {
-  flavorCommentRowHasContent,
-  flavorSectionHasContent,
-  resultsHaveAnyFlavorComments,
-  type ResultsPosterData,
-  type ResultsPosterFlavorSection,
-  type ResultsPosterSampleDetail,
-} from '@/lib/results-poster';
-
-function FlavorCell({ section }: { section: ResultsPosterFlavorSection }) {
-  if (!flavorSectionHasContent(section)) return <>—</>;
-  const tier1 = (section.tier1_tags ?? []).join('、');
-  const tier2 = (section.tier2_terms ?? []).join('、');
-  const text = (section.text ?? '').trim();
-  const combined = [tier1, tier2, text].filter(Boolean).join(' / ');
-  return <>{truncateText(combined, 36)}</>;
-}
+import type { ResultsPosterData, ResultsPosterSampleDetail } from '@/lib/results-poster';
 
 function BottleImage({ url, alt }: { url?: string | null; alt: string }) {
+  const w = 200;
+  const h = 260;
   if (url) {
     return (
       <img
         src={url}
         alt={alt}
         style={{
-          width: 280,
-          height: 360,
+          width: w,
+          height: h,
           objectFit: 'cover',
-          borderRadius: 16,
-          border: `3px solid ${exportColors.rule}`,
-          boxShadow: '0 12px 32px rgba(44,36,24,0.12)',
+          borderRadius: 12,
+          border: `2px solid ${exportColors.rule}`,
+          flexShrink: 0,
         }}
       />
     );
@@ -47,16 +33,17 @@ function BottleImage({ url, alt }: { url?: string | null; alt: string }) {
   return (
     <div
       style={{
-        width: 280,
-        height: 360,
-        borderRadius: 16,
+        width: w,
+        height: h,
+        borderRadius: 12,
         border: `2px dashed ${exportColors.rule}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         color: exportColors.inkLight,
-        fontSize: 20,
+        fontSize: 16,
         background: 'rgba(255,255,255,0.35)',
+        flexShrink: 0,
       }}
     >
       写真なし
@@ -82,7 +69,6 @@ export function ResultsArchiveSampleCard({
     display_name: a.display_name,
   }));
   const truthLines = formatTruthLines(snap, truth);
-  const includeFlavors = resultsHaveAnyFlavorComments(results);
   const notes = (truth.notes ?? '').trim();
 
   return (
@@ -90,36 +76,37 @@ export function ResultsArchiveSampleCard({
       exportKind="archive"
       pageLabel={`${formatSampleHeadingLabel(sample.sample_label)} (${pageIndex}/${totalPages})`}
     >
-      <div style={{ display: 'flex', gap: 32, marginBottom: 28 }}>
+      <div style={{ display: 'flex', gap: 24, marginBottom: 20 }}>
         <BottleImage url={truth.bottle_image_url} alt={sample.sample_label} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2
             style={{
               margin: 0,
-              fontSize: 36,
+              fontSize: 30,
               fontFamily: 'Georgia, "Times New Roman", serif',
               color: exportColors.ink,
+              lineHeight: 1.2,
             }}
           >
             {formatSampleHeadingLabel(sample.sample_label)}
           </h2>
           {sample.presenter_name && (
-            <p style={{ margin: '8px 0 0', fontSize: 22, color: exportColors.inkMuted }}>
+            <p style={{ margin: '6px 0 0', fontSize: 18, color: exportColors.inkMuted }}>
               持ち込み: {sample.presenter_name}
             </p>
           )}
           <div
             style={{
-              marginTop: 20,
-              padding: '16px 20px',
+              marginTop: 14,
+              padding: '12px 14px',
               background: 'rgba(255,255,255,0.55)',
-              borderRadius: 12,
+              borderRadius: 10,
               border: `1px solid ${exportColors.rule}`,
             }}
           >
-            <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: exportColors.accentDark }}>正解</p>
+            <p style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 700, color: exportColors.accentDark }}>正解</p>
             {truthLines.map((line) => (
-              <p key={line} style={{ margin: '4px 0', fontSize: 20, lineHeight: 1.35 }}>
+              <p key={line} style={{ margin: '3px 0', fontSize: 17, lineHeight: 1.35 }}>
                 {line}
               </p>
             ))}
@@ -128,31 +115,31 @@ export function ResultsArchiveSampleCard({
       </div>
 
       {notes.length > 0 && (
-        <p style={{ margin: '0 0 20px', fontSize: 20, color: exportColors.inkMuted, lineHeight: 1.4 }}>
+        <p style={{ margin: '0 0 16px', fontSize: 17, color: exportColors.inkMuted, lineHeight: 1.4 }}>
           <span style={{ fontWeight: 700 }}>メモ: </span>
-          {truncateText(notes, 120)}
+          {truncateText(notes, 100)}
         </p>
       )}
 
-      <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${exportColors.rule}`, marginBottom: 20 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 19 }}>
+      <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${exportColors.rule}` }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 17 }}>
           <thead>
             <tr style={{ background: 'rgba(255,255,255,0.65)' }}>
-              <th style={{ padding: '10px 12px', textAlign: 'left' }}>参加者</th>
-              <th style={{ padding: '10px 8px', textAlign: 'right', width: 56 }}>点</th>
-              <th style={{ padding: '10px 12px', textAlign: 'left' }}>推測</th>
+              <th style={{ padding: '8px 10px', textAlign: 'left', width: '28%' }}>参加者</th>
+              <th style={{ padding: '8px 6px', textAlign: 'right', width: 48 }}>点</th>
+              <th style={{ padding: '8px 10px', textAlign: 'left' }}>推測</th>
             </tr>
           </thead>
           <tbody>
             {sample.participant_answers.map((a) => (
               <tr key={a.participant_id} style={{ borderTop: `1px solid ${exportColors.rule}` }}>
-                <td style={{ padding: '10px 12px', fontWeight: 600 }}>
+                <td style={{ padding: '8px 10px', fontWeight: 600 }}>
                   {disambiguatedDisplayName(a.display_name, a.participant_id, peers)}
                 </td>
-                <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 800, color: exportColors.accentDark }}>
+                <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: exportColors.accentDark }}>
                   {a.score}
                 </td>
-                <td style={{ padding: '10px 12px', color: exportColors.inkMuted }}>
+                <td style={{ padding: '8px 10px', color: exportColors.inkMuted, lineHeight: 1.3 }}>
                   {formatGuessSummary(snap, a)}
                 </td>
               </tr>
@@ -160,46 +147,6 @@ export function ResultsArchiveSampleCard({
           </tbody>
         </table>
       </div>
-
-      {includeFlavors && (
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: exportColors.accentDark }}>
-            フレーバーコメント
-          </p>
-          <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${exportColors.rule}` }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
-              <thead>
-                <tr style={{ background: 'rgba(255,255,255,0.65)' }}>
-                  <th style={{ padding: '8px', textAlign: 'left' }}>参加者</th>
-                  <th style={{ padding: '8px', textAlign: 'left' }}>N</th>
-                  <th style={{ padding: '8px', textAlign: 'left' }}>P</th>
-                  <th style={{ padding: '8px', textAlign: 'left' }}>F</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(sample.comments ?? [])
-                  .filter((c) => flavorCommentRowHasContent(c))
-                  .map((c) => (
-                    <tr key={c.participant_id} style={{ borderTop: `1px solid ${exportColors.rule}` }}>
-                      <td style={{ padding: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {disambiguatedDisplayName(c.display_name, c.participant_id, peers)}
-                      </td>
-                      <td style={{ padding: '8px', color: exportColors.inkMuted }}>
-                        <FlavorCell section={c.nose} />
-                      </td>
-                      <td style={{ padding: '8px', color: exportColors.inkMuted }}>
-                        <FlavorCell section={c.palate} />
-                      </td>
-                      <td style={{ padding: '8px', color: exportColors.inkMuted }}>
-                        <FlavorCell section={c.finish} />
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </ExportCanvas>
   );
 }

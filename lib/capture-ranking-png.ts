@@ -1,4 +1,4 @@
-/** DOM 要素を PNG の data URL に変換（モバイル向け分割キャプチャ対応） */
+/** DOM 要素を PNG の data URL に変換 */
 
 import {
   getDefaultPixelRatio,
@@ -17,27 +17,6 @@ function safePixelRatio(width: number, height: number, requested?: number): numb
   const maxSide = Math.max(width, height);
   if (maxSide * base <= maxDim) return base;
   return Math.max(1, maxDim / maxSide);
-}
-
-function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Failed to load captured image'));
-    img.src = dataUrl;
-  });
-}
-
-function dataUrlToCanvas(dataUrl: string): Promise<HTMLCanvasElement> {
-  return loadImageFromDataUrl(dataUrl).then((img) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D context unavailable');
-    ctx.drawImage(img, 0, 0);
-    return canvas;
-  });
 }
 
 function applyCaptureLayout(el: HTMLElement): {
@@ -133,7 +112,7 @@ async function captureWithHtmlToImage(
   });
 }
 
-async function captureSingleElementToPngDataUrl(el: HTMLElement, opts?: CaptureOpts): Promise<string> {
+export async function captureSingleElementToPngDataUrl(el: HTMLElement, opts?: CaptureOpts): Promise<string> {
   const layout = applyCaptureLayout(el);
   const pixelRatio = safePixelRatio(layout.captureWidth, layout.captureHeight, opts?.pixelRatio);
 
@@ -185,62 +164,7 @@ async function captureSingleElementToPngDataUrl(el: HTMLElement, opts?: CaptureO
   }
 }
 
-function stitchCanvasesToDataUrl(parts: HTMLCanvasElement[], sourceWidth: number): string {
-  const maxDim = getMaxCanvasDimension();
-  const naturalHeight = parts.reduce((sum, p) => sum + p.height, 0);
-  const naturalWidth = Math.max(sourceWidth, ...parts.map((p) => p.width));
-  const heightScale = Math.min(1, maxDim / naturalHeight);
-  const widthScale = Math.min(1, maxDim / naturalWidth);
-  const scale = Math.min(heightScale, widthScale);
-  const outW = Math.max(1, Math.round(naturalWidth * scale));
-  const outH = Math.max(1, Math.round(naturalHeight * scale));
-
-  const out = document.createElement('canvas');
-  out.width = outW;
-  out.height = outH;
-  const ctx = out.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D context unavailable');
-  ctx.fillStyle = '#262626';
-  ctx.fillRect(0, 0, outW, outH);
-
-  let y = 0;
-  for (const part of parts) {
-    const drawH = Math.round(part.height * scale);
-    const drawW = Math.round(part.width * scale);
-    ctx.drawImage(part, 0, 0, part.width, part.height, 0, y, drawW, drawH);
-    y += drawH;
-  }
-
-  return out.toDataURL('image/png');
-}
-
-async function capturePosterChunksToPngDataUrl(
-  rootEl: HTMLElement,
-  chunks: HTMLElement[],
-): Promise<string> {
-  const sourceWidth = rootEl.scrollWidth || rootEl.clientWidth;
-  const canvases: HTMLCanvasElement[] = [];
-
-  for (const chunk of chunks) {
-    const chunkHeight = chunk.scrollHeight || chunk.clientHeight;
-    if (chunkHeight <= 0) continue;
-
-    const dataUrl = await captureSingleElementToPngDataUrl(chunk, { pixelRatio: 1 });
-    canvases.push(await dataUrlToCanvas(dataUrl));
-  }
-
-  if (canvases.length === 0) {
-    throw new Error('No poster chunks captured');
-  }
-  if (canvases.length === 1) {
-    return canvases[0].toDataURL('image/png');
-  }
-  return stitchCanvasesToDataUrl(canvases, sourceWidth);
-}
-
 function shouldUseChunkedCapture(el: HTMLElement): boolean {
-  const chunks = el.querySelectorAll('[data-poster-capture-chunk]');
-  if (chunks.length > 0) return true;
   const height = Math.max(el.scrollHeight, el.clientHeight);
   return height > getMaxChunkHeight();
 }
@@ -284,17 +208,29 @@ export async function withCaptureVisible<T>(wrapper: HTMLElement, fn: () => Prom
   }
 }
 
-export async function captureElementToPngDataUrl(el: HTMLElement): Promise<string> {
-  const chunkEls = Array.from(el.querySelectorAll('[data-poster-capture-chunk]')) as HTMLElement[];
+/** ポスター各ページを高解像度のまま個別にキャプチャ（結合・縮小なし） */
+export async function capturePosterPagesToPngDataUrls(rootEl: HTMLElement): Promise<string[]> {
+  const pages = Array.from(rootEl.querySelectorAll('[data-poster-capture-page]')) as HTMLElement[];
+  if (pages.length === 0) {
+    return [await captureSingleElementToPngDataUrl(rootEl)];
+  }
 
-  if (chunkEls.length > 0) {
-    return capturePosterChunksToPngDataUrl(el, chunkEls);
+  const results: string[] = [];
+  for (const page of pages) {
+    results.push(await captureSingleElementToPngDataUrl(page));
+  }
+  return results;
+}
+
+export async function captureElementToPngDataUrl(el: HTMLElement): Promise<string> {
+  const pages = el.querySelectorAll('[data-poster-capture-page]');
+  if (pages.length > 0) {
+    const all = await capturePosterPagesToPngDataUrls(el);
+    return all[0] ?? '';
   }
 
   if (shouldUseChunkedCapture(el)) {
-    throw new Error(
-      'Poster is too tall for single capture and has no capture chunks. Add data-poster-capture-chunk markers.',
-    );
+    throw new Error('Element is too tall for single capture.');
   }
 
   return captureSingleElementToPngDataUrl(el);

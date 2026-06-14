@@ -18,10 +18,15 @@ import { BottleTruthMetaSummary } from '@/components/common/BottleTruthMeta';
 import type { ItemGradesMap } from '@/lib/scoring-schema';
 import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils';
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
-import { captureElementToPngDataUrl, withCaptureVisible } from '@/lib/capture-ranking-png';
+import {
+  captureElementToPngDataUrl,
+  capturePosterPagesToPngDataUrls,
+  withCaptureVisible,
+} from '@/lib/capture-ranking-png';
 import { buildResultsPageUrl } from '@/lib/results-share';
 import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
-import { savePngDataUrl } from '@/lib/download-png';
+import { buildPosterPagePlan } from '@/lib/results-poster-layout';
+import { saveMultiplePngDataUrls } from '@/lib/download-png';
 import { ResultsPosterCapture } from '@/components/results/ResultsPosterCapture';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
@@ -280,7 +285,7 @@ export default function ResultsPage() {
     showToast(ok ? '順位表画像のURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
   };
 
-  const capturePosterPng = async (): Promise<string | null> => {
+  const capturePosterPngs = async (): Promise<string[] | null> => {
     if (!results?.rankings?.length) {
       showToast('順位データがありません', 'error');
       return null;
@@ -304,8 +309,22 @@ export default function ResultsPage() {
     return withCaptureVisible(wrapper, async () => {
       await preloadImagesInElement(el);
       await new Promise<void>((r) => setTimeout(r, 150));
-      return captureElementToPngDataUrl(el);
+      return capturePosterPagesToPngDataUrls(el);
     });
+  };
+
+  const buildPosterFilenames = (title: string, sampleCount: number): string[] => {
+    const base = sanitizeDownloadBasename(title, 'results');
+    const day = new Date().toISOString().split('T')[0];
+    const plan = buildPosterPagePlan(sampleCount);
+    const names: string[] = [`${base}_results_${day}_01_順位.png`];
+    for (let i = 0; i < plan.samplePageCount; i++) {
+      names.push(`${base}_results_${day}_${String(2 + i).padStart(2, '0')}_サンプル.png`);
+    }
+    names.push(
+      `${base}_results_${day}_${String(plan.totalPages).padStart(2, '0')}_参加者.png`,
+    );
+    return names;
   };
 
   const captureRankingPng = async (): Promise<string | null> => {
@@ -336,20 +355,24 @@ export default function ResultsPage() {
   const handleDownloadRankingImage = async () => {
     setIsRankingImageBusy(true);
     try {
-      const pngDataUrl = await capturePosterPng();
-      if (!pngDataUrl || !results) return;
+      const pngDataUrls = await capturePosterPngs();
+      if (!pngDataUrls?.length || !results) return;
 
-      const base = sanitizeDownloadBasename(results.session.title, 'results');
-      const day = new Date().toISOString().split('T')[0];
-      const filename = `${base}_results_${day}.png`;
-
-      const saveResult = await savePngDataUrl(filename, pngDataUrl);
-      if (saveResult === 'share') {
-        showToast('共有シートから画像を保存できます', 'success');
-      } else if (saveResult === 'open') {
-        showToast('画像を開きました。長押しして「写真に追加」で保存できます', 'success');
+      const filenames = buildPosterFilenames(
+        results.session.title,
+        results.sample_details.length,
+      );
+      const saveResult = await saveMultiplePngDataUrls(
+        filenames.slice(0, pngDataUrls.length),
+        pngDataUrls,
+      );
+      const n = saveResult.count;
+      if (saveResult.mode === 'share') {
+        showToast(`${n}枚の画像を共有できます`, 'success');
+      } else if (saveResult.mode === 'open') {
+        showToast('画像を開きました。長押しして保存できます', 'success');
       } else {
-        showToast('結果レポートの画像をダウンロードしました', 'success');
+        showToast(`${n}枚の結果レポート画像をダウンロードしました`, 'success');
       }
     } catch (e) {
       console.error(e);
@@ -512,7 +535,7 @@ export default function ResultsPage() {
               disabled={isRankingImageBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isRankingImageBusy ? '画像を作成中…' : '結果レポートの画像をダウンロード'}
+              {isRankingImageBusy ? '画像を作成中…' : '結果レポートの画像をダウンロード（複数枚）'}
             </Button>
             <Button
               variant="primary"

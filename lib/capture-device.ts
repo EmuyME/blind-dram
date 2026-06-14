@@ -27,9 +27,8 @@ export function getMaxChunkHeight(): number {
   return 8000;
 }
 
-/** モバイルでは pixelRatio を抑える */
+/** モバイルでもページ単位なら高解像度を狙う */
 export function getDefaultPixelRatio(): number {
-  if (isIOS()) return 1;
-  if (isMobileCapture()) return 1.5;
+  if (isMobileCapture()) return 2;
   return 2;
 }

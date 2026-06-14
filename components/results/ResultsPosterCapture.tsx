@@ -1,14 +1,14 @@
 'use client';
 
-import {
-  DynamicParticipantGuessGrid,
-  DynamicScoringResultsTable,
-  DynamicTruthSummary,
-} from '@/components/scoring/ScoringResultsViews';
-import { BottleTruthMetaSummary } from '@/components/common/BottleTruthMeta';
-import { formatSampleHeadingLabel, clampTier1Intensity } from '@/lib/json-helpers';
+import { DynamicScoringResultsTable, DynamicTruthSummary } from '@/components/scoring/ScoringResultsViews';
+import { formatSampleHeadingLabel } from '@/lib/json-helpers';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { buildResultsPageUrl } from '@/lib/results-share';
+import {
+  buildPosterPagePlan,
+  chunkArray,
+  samplesPerPosterPage,
+} from '@/lib/results-poster-layout';
 import {
   flavorCommentRowHasContent,
   flavorSectionHasContent,
@@ -20,74 +20,42 @@ import {
 
 const POSTER_WIDTH_PX = 1080;
 
-function PosterSectionHeading({ children }: { children: React.ReactNode }) {
+function PosterPage({
+  pageIndex,
+  totalPages,
+  title,
+  children,
+}: {
+  pageIndex: number;
+  totalPages: number;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-1 h-7 rounded-full bg-bd-accent flex-shrink-0" />
-      <h2 className="text-xl font-semibold text-stone-100 tracking-tight">{children}</h2>
+    <div
+      data-poster-capture-page
+      className="bg-neutral-900 text-stone-100"
+      style={{ width: POSTER_WIDTH_PX, fontFamily: 'system-ui, sans-serif' }}
+    >
+      <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold text-bd-accent tracking-wide">Blind Dram 結果レポート</p>
+          <p className="text-sm font-semibold text-stone-200 mt-0.5">{title}</p>
+        </div>
+        <p className="text-xs text-stone-500 whitespace-nowrap">
+          {pageIndex}/{totalPages}
+        </p>
+      </div>
+      <div className="px-6 py-5">{children}</div>
     </div>
   );
 }
 
-function PosterFlavorChip({
-  children,
-  tone = 'neutral',
-}: {
-  children: React.ReactNode;
-  tone?: 'neutral' | 'accent';
-}) {
-  const toneClass =
-    tone === 'accent'
-      ? 'bg-bd-accent/15 text-bd-accent-dim border-bd-accent/30'
-      : 'bg-neutral-800 text-stone-200 border-white/10';
+function PosterSectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${toneClass}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function PosterFlavorSection({
-  label,
-  flavor,
-}: {
-  label: string;
-  flavor: ResultsPosterFlavorSection | null | undefined;
-}) {
-  const tier1 = (flavor?.tier1_tags || []).filter(Boolean);
-  const tier1Int = flavor?.tier1_intensity || {};
-  const tier2 = (flavor?.tier2_terms || []).filter(Boolean);
-  const text = (flavor?.text || '').trim();
-  if (!flavorSectionHasContent(flavor)) return null;
-
-  return (
-    <div className="rounded-lg border border-white/10 bg-neutral-900/40 p-2.5">
-      <p className="text-xs font-semibold text-stone-300 mb-2">{label}</p>
-      <div className="space-y-2">
-        {tier1.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tier1.map((t) => {
-              const raw = tier1Int[t];
-              const lv = raw != null && Number.isFinite(raw) ? clampTier1Intensity(raw) : null;
-              return (
-                <PosterFlavorChip key={`t1-${label}-${t}`} tone="accent">
-                  {lv != null ? `${t}（${lv}）` : t}
-                </PosterFlavorChip>
-              );
-            })}
-          </div>
-        )}
-        {tier2.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tier2.map((t) => (
-              <PosterFlavorChip key={`t2-${label}-${t}`}>{t}</PosterFlavorChip>
-            ))}
-          </div>
-        )}
-        {!!text && <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-wrap">{text}</p>}
-      </div>
+    <div className="flex items-center gap-2 mb-4">
+      <div className="w-1 h-5 rounded-full bg-bd-accent flex-shrink-0" />
+      <h2 className="text-lg font-semibold text-stone-100">{children}</h2>
     </div>
   );
 }
@@ -106,7 +74,7 @@ function PosterPodium({
   if (slots.length === 0) return null;
 
   return (
-    <div className="flex items-end justify-center gap-4 mb-6">
+    <div className="flex items-end justify-center gap-3 mb-5">
       {slots.map((entry) => {
         const isFirst = entry.rank === 1;
         return (
@@ -115,23 +83,18 @@ function PosterPodium({
             className={`flex flex-col items-center text-center ${isFirst ? 'order-2' : entry.rank === 2 ? 'order-1' : 'order-3'}`}
           >
             <div
-              className={`rounded-xl border border-white/10 bg-neutral-800 px-4 py-3 ${
-                isFirst ? 'min-w-[140px] border-bd-accent/40' : 'min-w-[120px]'
+              className={`rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 ${
+                isFirst ? 'min-w-[120px] border-bd-accent/40' : 'min-w-[100px]'
               }`}
             >
-              <div className={`font-bold text-bd-accent ${isFirst ? 'text-2xl' : 'text-xl'}`}>
+              <div className={`font-bold text-bd-accent ${isFirst ? 'text-xl' : 'text-lg'}`}>
                 {entry.rank}位
               </div>
-              <div className={`font-semibold text-stone-100 mt-1 ${isFirst ? 'text-base' : 'text-sm'}`}>
+              <div className={`font-semibold text-stone-100 mt-0.5 text-sm`}>
                 {disambiguatedDisplayName(entry.display_name, entry.participant_id, peers)}
               </div>
-              <div className={`text-bd-accent font-semibold mt-1 ${isFirst ? 'text-lg' : 'text-base'}`}>
-                {entry.total_score}点
-              </div>
+              <div className="text-bd-accent font-semibold text-sm mt-0.5">{entry.total_score}点</div>
             </div>
-            <div
-              className={`mt-1 rounded-t-lg bg-bd-accent/20 w-full ${isFirst ? 'h-16' : entry.rank === 2 ? 'h-10' : 'h-8'}`}
-            />
           </div>
         );
       })}
@@ -139,21 +102,34 @@ function PosterPodium({
   );
 }
 
-function BottlePhoto({ url, alt }: { url?: string | null; alt: string }) {
+function BottlePhoto({ url, alt, size = 56 }: { url?: string | null; alt: string; size?: number }) {
   if (url) {
     return (
       <img
         src={url}
         alt={alt}
-        className="w-20 h-20 rounded-lg object-cover border border-white/10 flex-shrink-0"
+        className="rounded-md object-cover border border-white/10 flex-shrink-0"
+        style={{ width: size, height: size }}
       />
     );
   }
   return (
-    <div className="w-20 h-20 rounded-lg border border-white/10 bg-neutral-800 flex items-center justify-center text-stone-500 text-[10px] flex-shrink-0">
+    <div
+      className="rounded-md border border-white/10 bg-neutral-800 flex items-center justify-center text-stone-500 text-[9px] flex-shrink-0"
+      style={{ width: size, height: size }}
+    >
       写真なし
     </div>
   );
+}
+
+function formatFlavorCompact(section: ResultsPosterFlavorSection | undefined | null): string {
+  if (!flavorSectionHasContent(section)) return '—';
+  const tier1 = (section?.tier1_tags ?? []).join('、');
+  const tier2 = (section?.tier2_terms ?? []).join('、');
+  const text = (section?.text ?? '').trim();
+  const parts = [tier1, tier2, text].filter(Boolean);
+  return parts.join(' / ') || '—';
 }
 
 export type ResultsPosterCaptureProps = {
@@ -187,119 +163,105 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
         )
       : '');
 
+  const pagePlan = buildPosterPagePlan(sampleCount);
+  const sampleChunks = chunkArray(results.sample_details, samplesPerPosterPage());
+  let pageNo = 0;
+
   return (
-    <div
-      className="bg-neutral-900 text-stone-100"
-      style={{ width: POSTER_WIDTH_PX, fontFamily: 'system-ui, sans-serif' }}
-      data-poster-capture-root
-    >
-      {/* Header */}
-      <div
-        data-poster-capture-chunk
-        className="px-8 pt-8 pb-6 border-b border-white/10 bg-neutral-900"
+    <div data-poster-capture-root>
+      {/* ページ1: 順位表 */}
+      <PosterPage
+        pageIndex={++pageNo}
+        totalPages={pagePlan.totalPages}
+        title={results.session.title}
       >
-        <p className="text-sm font-semibold text-bd-accent tracking-wide uppercase">Blind Dram 結果レポート</p>
-        <h1 className="text-3xl font-semibold text-stone-100 mt-2 tracking-tight">{results.session.title}</h1>
-        <p className="text-sm text-stone-400 mt-2">
+        <p className="text-xs text-stone-400 mb-4">
           {sessionModeLabel(results.session.mode)} · {capturedDate} · 参加者{participantCount}名 / サンプル
           {sampleCount}本
         </p>
-      </div>
-
-      {/* §1 Ranking */}
-      <div data-poster-capture-chunk className="px-8 py-6 bg-neutral-900">
-        <section>
-          <PosterSectionHeading>§1 総合順位</PosterSectionHeading>
-          <PosterPodium rankings={results.rankings} peers={peers} />
-          <div className="rounded-xl border border-white/10 bg-neutral-800/60 p-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-2 px-3 text-stone-300 font-semibold">順位</th>
-                  <th className="text-left py-2 px-3 text-stone-300 font-semibold">参加者</th>
-                  <th className="text-right py-2 px-3 text-stone-300 font-semibold">合計</th>
-                  {results.rankings[0]?.sample_scores?.map((s) => (
-                    <th key={s.sample_id} className="text-right py-2 px-3 text-stone-300 font-semibold">
-                      {s.sample_label}
-                    </th>
+        <PosterSectionHeading>総合順位</PosterSectionHeading>
+        <PosterPodium rankings={results.rankings} peers={peers} />
+        <div className="rounded-lg border border-white/10 bg-neutral-800/60 p-3 overflow-x-auto [&_table]:text-xs [&_td]:py-1.5 [&_th]:py-1.5">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="text-left px-2 text-stone-300 font-semibold">順位</th>
+                <th className="text-left px-2 text-stone-300 font-semibold">参加者</th>
+                <th className="text-right px-2 text-stone-300 font-semibold">合計</th>
+                {results.rankings[0]?.sample_scores?.map((s) => (
+                  <th key={s.sample_id} className="text-right px-2 text-stone-300 font-semibold">
+                    {s.sample_label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results.rankings.map((ranking) => (
+                <tr
+                  key={ranking.participant_id}
+                  className={`border-b border-white/5 ${ranking.rank === 1 ? 'bg-bd-accent/10' : ''}`}
+                >
+                  <td className="px-2 font-semibold">{ranking.rank}</td>
+                  <td className="px-2 break-words max-w-[140px]">
+                    {disambiguatedDisplayName(ranking.display_name, ranking.participant_id, peers)}
+                  </td>
+                  <td className="px-2 text-right font-semibold text-bd-accent">{ranking.total_score}</td>
+                  {ranking.sample_scores?.map((s) => (
+                    <td key={s.sample_id} className="px-2 text-right">
+                      {s.score}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {results.rankings.map((ranking) => (
-                  <tr
-                    key={ranking.participant_id}
-                    className={`border-b border-white/5 ${ranking.rank === 1 ? 'bg-bd-accent/10' : ''}`}
-                  >
-                    <td className="py-2 px-3 font-semibold">{ranking.rank}</td>
-                    <td className="py-2 px-3 break-words max-w-[160px]">
-                      {disambiguatedDisplayName(ranking.display_name, ranking.participant_id, peers)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-semibold text-bd-accent text-base">
-                      {ranking.total_score}
-                    </td>
-                    {ranking.sample_scores?.map((s) => (
-                      <td key={s.sample_id} className="py-2 px-3 text-right">
-                        {s.score}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[10px] text-stone-500 mt-4 break-all">{footerUrl}</p>
+      </PosterPage>
 
-      {/* §2 Sample details */}
-      <div data-poster-capture-chunk className="px-8 pt-6 pb-2 bg-neutral-900">
-        <PosterSectionHeading>§2 サンプル別詳細</PosterSectionHeading>
-      </div>
-      {results.sample_details.map((sample) => {
-        const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
-        const truth = sample.truth;
-        return (
-          <div
-            key={sample.sample_id}
-            data-poster-capture-chunk
-            className="px-8 py-3 bg-neutral-900"
-          >
-            <div className="rounded-xl border border-white/10 bg-neutral-800/60 p-5">
-                  <div className="flex items-start gap-4 mb-4">
+      {/* ページ2〜: サンプル詳細（数本ずつ） */}
+      {sampleChunks.map((chunk, chunkIndex) => (
+        <PosterPage
+          key={`samples-${chunkIndex}`}
+          pageIndex={++pageNo}
+          totalPages={pagePlan.totalPages}
+          title={`${results.session.title} — サンプル詳細`}
+        >
+          <PosterSectionHeading>
+            サンプル詳細 ({chunkIndex * samplesPerPosterPage() + 1}〜
+            {chunkIndex * samplesPerPosterPage() + chunk.length})
+          </PosterSectionHeading>
+          <div className="space-y-4">
+            {chunk.map((sample) => {
+              const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
+              const truth = sample.truth;
+              return (
+                <div
+                  key={sample.sample_id}
+                  className="rounded-lg border border-white/10 bg-neutral-800/60 p-3"
+                >
+                  <div className="flex items-start gap-3 mb-2">
+                    <BottlePhoto url={truth.bottle_image_url} alt={sample.sample_label} size={48} />
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-stone-100">
+                      <h3 className="text-sm font-semibold text-stone-100">
                         {formatSampleHeadingLabel(sample.sample_label)}
                       </h3>
                       {sample.presenter_name && (
-                        <p className="text-sm text-stone-400 mt-1">持ち込み: {sample.presenter_name}</p>
+                        <p className="text-xs text-stone-400">持込: {sample.presenter_name}</p>
                       )}
                     </div>
-                    <BottlePhoto
-                      url={truth.bottle_image_url}
-                      alt={`${sample.sample_label} ボトル画像`}
-                    />
                   </div>
-
-                  <div className="mb-4 p-3 rounded-lg border border-white/10 bg-neutral-700/80">
-                    <p className="text-sm font-semibold text-stone-200 mb-2">正解</p>
+                  <div className="mb-2 p-2 rounded-md border border-white/10 bg-neutral-700/80 text-xs [&_*]:text-xs">
+                    <p className="font-semibold text-stone-300 mb-1">正解</p>
                     <DynamicTruthSummary scoringSnapshot={snap} truth={truth} />
-                    <BottleTruthMetaSummary
-                      true_bottler_name={truth.true_bottler_name ?? undefined}
-                      true_distillation_year={truth.true_distillation_year ?? null}
-                      true_bottling_year={truth.true_bottling_year ?? null}
-                      alwaysShow
-                    />
                   </div>
-
                   {(truth.notes ?? '').trim().length > 0 && (
-                    <div className="mb-4 p-3 rounded-lg border border-bd-accent/25 bg-neutral-800/80">
-                      <p className="text-sm font-semibold text-stone-200 mb-1">メモ</p>
-                      <p className="text-sm text-stone-300 whitespace-pre-wrap leading-relaxed">{truth.notes}</p>
-                    </div>
+                    <p className="text-xs text-stone-400 mb-2 line-clamp-2">
+                      <span className="text-stone-500">メモ: </span>
+                      {truth.notes}
+                    </p>
                   )}
-
-                  <div>
-                    <p className="text-sm font-semibold text-stone-200 mb-3">参加者の回答</p>
+                  <div className="[&_table]:text-[11px] [&_td]:py-1 [&_th]:py-1 [&_td]:px-1.5 [&_th]:px-1.5">
                     <DynamicScoringResultsTable
                       scoringSnapshot={snap}
                       truth={truth}
@@ -307,95 +269,97 @@ export function ResultsPosterCapture({ results, joinToken, ownerToken, resultsPa
                     />
                   </div>
                 </div>
+              );
+            })}
           </div>
-        );
-      })}
-
-      {/* §3 Participants */}
-      <div data-poster-capture-chunk className="px-8 pt-6 pb-2 bg-neutral-900">
-        <PosterSectionHeading>§3 参加者別サマリー</PosterSectionHeading>
-      </div>
-      {results.rankings.map((participant) => (
-        <div
-          key={participant.participant_id}
-          data-poster-capture-chunk
-          className="px-8 py-3 bg-neutral-900"
-        >
-          <div className="rounded-xl border border-white/10 bg-neutral-800/60 p-5">
-                <div className="mb-4 p-3 rounded-lg bg-neutral-700/80 border border-white/10">
-                  <p className="text-lg font-semibold text-stone-100">
-                    {disambiguatedDisplayName(participant.display_name, participant.participant_id, peers)}
-                  </p>
-                  <p className="text-sm text-stone-400 mt-1">
-                    {participant.rank}位 · 合計 {participant.total_score}点
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  {results.sample_details.map((sample) => {
-                    const answer = sample.participant_answers.find(
-                      (a) => a.participant_id === participant.participant_id,
-                    );
-                    const comment = sample.comments?.find(
-                      (c) => c.participant_id === participant.participant_id,
-                    );
-                    const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
-                    const hasFlavor =
-                      includeFlavors && comment && flavorCommentRowHasContent(comment);
-
-                    if (!answer && !hasFlavor) return null;
-
-                    return (
-                      <div
-                        key={sample.sample_id}
-                        className="rounded-lg border border-white/10 bg-neutral-700/60 p-3"
-                      >
-                        <div className="flex items-start gap-3 mb-2">
-                          <BottlePhoto
-                            url={sample.truth.bottle_image_url}
-                            alt={`${sample.sample_label} ボトル`}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-stone-100">
-                              {formatSampleHeadingLabel(sample.sample_label)}
-                            </p>
-                            {sample.presenter_name && (
-                              <p className="text-xs text-stone-400">持ち込み: {sample.presenter_name}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {answer && (
-                          <div className="p-2.5 rounded-lg bg-neutral-800/80 mb-2">
-                            <p className="text-xs font-medium text-stone-400 mb-1.5">推測</p>
-                            <DynamicParticipantGuessGrid scoringSnapshot={snap} answer={answer} />
-                          </div>
-                        )}
-
-                        {hasFlavor && comment && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium text-stone-400">フレーバーコメント</p>
-                            <PosterFlavorSection label="Nose" flavor={comment.nose} />
-                            <PosterFlavorSection label="Palate" flavor={comment.palate} />
-                            <PosterFlavorSection label="Finish" flavor={comment.finish} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-          </div>
-        </div>
+        </PosterPage>
       ))}
 
-      {/* Footer */}
-      <div
-        data-poster-capture-chunk
-        className="px-8 py-5 border-t border-white/10 text-center bg-neutral-900"
+      {/* 最終ページ: 参加者サマリー（マトリクス） */}
+      <PosterPage
+        pageIndex={++pageNo}
+        totalPages={pagePlan.totalPages}
+        title={`${results.session.title} — 参加者`}
       >
-        <p className="text-xs text-stone-500 break-all">{footerUrl}</p>
-        <p className="text-xs text-stone-600 mt-1">© Blind Dram</p>
-      </div>
+        <PosterSectionHeading>参加者別得点</PosterSectionHeading>
+        <div className="rounded-lg border border-white/10 bg-neutral-800/60 p-3 overflow-x-auto mb-5">
+          <table className="min-w-full text-xs">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="text-left py-1.5 px-2 text-stone-300">参加者</th>
+                <th className="text-right py-1.5 px-2 text-stone-300">順位</th>
+                <th className="text-right py-1.5 px-2 text-stone-300">合計</th>
+                {results.sample_details.map((s) => (
+                  <th key={s.sample_id} className="text-right py-1.5 px-2 text-stone-300">
+                    {s.sample_label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results.rankings.map((p) => (
+                <tr key={p.participant_id} className="border-b border-white/5">
+                  <td className="py-1.5 px-2 text-stone-100">
+                    {disambiguatedDisplayName(p.display_name, p.participant_id, peers)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right">{p.rank}</td>
+                  <td className="py-1.5 px-2 text-right font-semibold text-bd-accent">{p.total_score}</td>
+                  {results.sample_details.map((s) => {
+                    const ans = s.participant_answers.find((a) => a.participant_id === p.participant_id);
+                    return (
+                      <td key={s.sample_id} className="py-1.5 px-2 text-right">
+                        {ans?.score ?? '—'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {includeFlavors && (
+          <>
+            <PosterSectionHeading>フレーバーコメント</PosterSectionHeading>
+            <div className="rounded-lg border border-white/10 bg-neutral-800/60 p-3 overflow-x-auto">
+              <table className="min-w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-1 px-2 text-stone-300">参加者</th>
+                    <th className="text-left py-1 px-2 text-stone-300">Sample</th>
+                    <th className="text-left py-1 px-2 text-stone-300">Nose</th>
+                    <th className="text-left py-1 px-2 text-stone-300">Palate</th>
+                    <th className="text-left py-1 px-2 text-stone-300">Finish</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.rankings.flatMap((p) =>
+                    results.sample_details
+                      .map((s) => {
+                        const comment = s.comments?.find((c) => c.participant_id === p.participant_id);
+                        if (!comment || !flavorCommentRowHasContent(comment)) return null;
+                        return (
+                          <tr key={`${p.participant_id}-${s.sample_id}`} className="border-b border-white/5 align-top">
+                            <td className="py-1 px-2 text-stone-200 whitespace-nowrap">
+                              {disambiguatedDisplayName(p.display_name, p.participant_id, peers)}
+                            </td>
+                            <td className="py-1 px-2 text-stone-300 whitespace-nowrap">{s.sample_label}</td>
+                            <td className="py-1 px-2 text-stone-300 max-w-[180px]">{formatFlavorCompact(comment.nose)}</td>
+                            <td className="py-1 px-2 text-stone-300 max-w-[180px]">{formatFlavorCompact(comment.palate)}</td>
+                            <td className="py-1 px-2 text-stone-300 max-w-[180px]">{formatFlavorCompact(comment.finish)}</td>
+                          </tr>
+                        );
+                      })
+                      .filter(Boolean),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        <p className="text-[10px] text-stone-500 mt-4 break-all">{footerUrl}</p>
+      </PosterPage>
     </div>
   );
 }

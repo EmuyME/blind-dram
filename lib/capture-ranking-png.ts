@@ -6,6 +6,7 @@ import {
   getMaxChunkHeight,
   isMobileCapture,
 } from '@/lib/capture-device';
+import { EXPORT_HEIGHT_PX, EXPORT_WIDTH_PX } from '@/lib/results-export-design';
 
 type CaptureOpts = {
   pixelRatio?: number;
@@ -34,8 +35,13 @@ function applyCaptureLayout(el: HTMLElement): {
   const prevWidth = overflowEl?.style.width ?? '';
   const prevElOverflow = el.style.overflow;
   const prevElWidth = el.style.width;
-  const captureWidth = Math.max(el.scrollWidth, tableEl?.scrollWidth ?? 0, el.clientWidth);
-  const captureHeight = Math.max(el.scrollHeight, tableEl?.scrollHeight ?? 0, el.clientHeight);
+  const isFixedExport = el.hasAttribute('data-export-fixed-size');
+  const captureWidth = isFixedExport
+    ? EXPORT_WIDTH_PX
+    : Math.max(el.scrollWidth, tableEl?.scrollWidth ?? 0, el.clientWidth);
+  const captureHeight = isFixedExport
+    ? EXPORT_HEIGHT_PX
+    : Math.max(el.scrollHeight, tableEl?.scrollHeight ?? 0, el.clientHeight);
 
   if (overflowEl) {
     overflowEl.style.overflow = 'visible';
@@ -43,6 +49,9 @@ function applyCaptureLayout(el: HTMLElement): {
   }
   el.style.overflow = 'visible';
   el.style.width = `${captureWidth}px`;
+  if (isFixedExport) {
+    el.style.height = `${captureHeight}px`;
+  }
 
   return {
     overflowEl,
@@ -78,8 +87,9 @@ async function captureWithHtml2Canvas(
   pixelRatio: number,
 ): Promise<string> {
   const html2canvas = (await import('html2canvas')).default;
+  const bg = el.hasAttribute('data-export-capture-page') ? '#F8F4EC' : '#262626';
   const canvas = await html2canvas(el, {
-    backgroundColor: '#262626',
+    backgroundColor: bg,
     scale: pixelRatio,
     logging: false,
     useCORS: true,
@@ -102,8 +112,9 @@ async function captureWithHtmlToImage(
   pixelRatio: number,
 ): Promise<string> {
   const { toPng } = await import('html-to-image');
+  const bg = el.hasAttribute('data-export-capture-page') ? '#F8F4EC' : '#262626';
   return await toPng(el, {
-    backgroundColor: '#262626',
+    backgroundColor: bg,
     pixelRatio,
     cacheBust: true,
     width: captureWidth,
@@ -209,6 +220,25 @@ export async function withCaptureVisible<T>(wrapper: HTMLElement, fn: () => Prom
 }
 
 /** ポスター各ページを高解像度のまま個別にキャプチャ（結合・縮小なし） */
+export async function captureExportPagesToPngDataUrls(
+  rootEl: HTMLElement,
+  kind: 'share' | 'archive',
+): Promise<string[]> {
+  const selector =
+    kind === 'share'
+      ? '[data-export-capture-page][data-export-kind="share"]'
+      : '[data-export-capture-page][data-export-kind="archive"]';
+  const pages = Array.from(rootEl.querySelectorAll(selector)) as HTMLElement[];
+  if (pages.length === 0) {
+    throw new Error(`No export pages found for kind: ${kind}`);
+  }
+  const results: string[] = [];
+  for (const page of pages) {
+    results.push(await captureSingleElementToPngDataUrl(page));
+  }
+  return results;
+}
+
 export async function capturePosterPagesToPngDataUrls(rootEl: HTMLElement): Promise<string[]> {
   const pages = Array.from(rootEl.querySelectorAll('[data-poster-capture-page]')) as HTMLElement[];
   if (pages.length === 0) {

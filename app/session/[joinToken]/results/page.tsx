@@ -20,14 +20,13 @@ import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
 import {
   captureElementToPngDataUrl,
-  capturePosterPagesToPngDataUrls,
+  captureExportPagesToPngDataUrls,
   withCaptureVisible,
 } from '@/lib/capture-ranking-png';
 import { buildResultsPageUrl } from '@/lib/results-share';
 import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
-import { buildPosterPagePlan } from '@/lib/results-poster-layout';
-import { saveMultiplePngDataUrls } from '@/lib/download-png';
-import { ResultsPosterCapture } from '@/components/results/ResultsPosterCapture';
+import { saveMultiplePngDataUrls, savePngDataUrl } from '@/lib/download-png';
+import { ResultsExportCapture } from '@/components/results/export/ResultsExportCapture';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
 import { PresenterTastingTier2Summary } from '@/components/flavor/PresenterTastingTier2Summary';
@@ -169,7 +168,8 @@ export default function ResultsPage() {
   const rankingCaptureRef = useRef<HTMLDivElement | null>(null);
   const posterCaptureWrapperRef = useRef<HTMLDivElement | null>(null);
   const posterCaptureRef = useRef<HTMLDivElement | null>(null);
-  const [isRankingImageBusy, setIsRankingImageBusy] = useState(false);
+  const [isShareImageBusy, setIsShareImageBusy] = useState(false);
+  const [isArchiveImageBusy, setIsArchiveImageBusy] = useState(false);
   const [isPublishingRankingUrl, setIsPublishingRankingUrl] = useState(false);
   const [rankingImageUrl, setRankingImageUrl] = useState<string | null>(null);
 
@@ -285,7 +285,7 @@ export default function ResultsPage() {
     showToast(ok ? '順位表画像のURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
   };
 
-  const capturePosterPngs = async (): Promise<string[] | null> => {
+  const captureExportPages = async (kind: 'share' | 'archive'): Promise<string[] | null> => {
     if (!results?.rankings?.length) {
       showToast('順位データがありません', 'error');
       return null;
@@ -302,29 +302,86 @@ export default function ResultsPage() {
     const wrapper = posterCaptureWrapperRef.current;
     const el = posterCaptureRef.current;
     if (!wrapper || !el) {
-      showToast('結果レポートを撮影できませんでした。しばらくして再度お試しください。', 'error');
+      showToast('画像を撮影できませんでした。しばらくして再度お試しください。', 'error');
       return null;
     }
 
     return withCaptureVisible(wrapper, async () => {
       await preloadImagesInElement(el);
       await new Promise<void>((r) => setTimeout(r, 150));
-      return capturePosterPagesToPngDataUrls(el);
+      return captureExportPagesToPngDataUrls(el, kind);
     });
   };
 
-  const buildPosterFilenames = (title: string, sampleCount: number): string[] => {
-    const base = sanitizeDownloadBasename(title, 'results');
+  const buildShareFilename = (title: string) => {
+    const base = sanitizeDownloadBasename(title, 'share');
     const day = new Date().toISOString().split('T')[0];
-    const plan = buildPosterPagePlan(sampleCount);
-    const names: string[] = [`${base}_results_${day}_01_順位.png`];
-    for (let i = 0; i < plan.samplePageCount; i++) {
-      names.push(`${base}_results_${day}_${String(2 + i).padStart(2, '0')}_サンプル.png`);
-    }
-    names.push(
-      `${base}_results_${day}_${String(plan.totalPages).padStart(2, '0')}_参加者.png`,
-    );
+    return `${base}_share_${day}.png`;
+  };
+
+  const buildArchiveFilenames = (title: string, sampleLabels: string[]) => {
+    const base = sanitizeDownloadBasename(title, 'archive');
+    const day = new Date().toISOString().split('T')[0];
+    const names = [`${base}_archive_${day}_01_順位.png`];
+    sampleLabels.forEach((label, i) => {
+      const safe = sanitizeDownloadBasename(label, `sample${i + 1}`);
+      names.push(`${base}_archive_${day}_${String(i + 2).padStart(2, '0')}_${safe}.png`);
+    });
     return names;
+  };
+
+  const handleDownloadShareImage = async () => {
+    setIsShareImageBusy(true);
+    try {
+      const pngDataUrls = await captureExportPages('share');
+      if (!pngDataUrls?.length || !results) return;
+
+      const saveResult = await savePngDataUrl(buildShareFilename(results.session.title), pngDataUrls[0]);
+      if (saveResult === 'share') {
+        showToast('共有シートから画像を保存できます', 'success');
+      } else if (saveResult === 'open') {
+        showToast('画像を開きました。長押しして保存できます', 'success');
+      } else {
+        showToast('シェア用画像をダウンロードしました', 'success');
+      }
+    } catch (e) {
+      console.error(e);
+      if ((e as Error)?.name === 'AbortError') return;
+      showToast('画像の作成に失敗しました', 'error');
+    } finally {
+      setIsShareImageBusy(false);
+    }
+  };
+
+  const handleDownloadArchiveImages = async () => {
+    setIsArchiveImageBusy(true);
+    try {
+      const pngDataUrls = await captureExportPages('archive');
+      if (!pngDataUrls?.length || !results) return;
+
+      const filenames = buildArchiveFilenames(
+        results.session.title,
+        results.sample_details.map((s) => s.sample_label),
+      );
+      const saveResult = await saveMultiplePngDataUrls(
+        filenames.slice(0, pngDataUrls.length),
+        pngDataUrls,
+      );
+      const n = saveResult.count;
+      if (saveResult.mode === 'share') {
+        showToast(`${n}枚のアーカイブ画像を共有できます`, 'success');
+      } else if (saveResult.mode === 'open') {
+        showToast('画像を開きました。長押しして保存できます', 'success');
+      } else {
+        showToast(`${n}枚のアーカイブ画像をダウンロードしました`, 'success');
+      }
+    } catch (e) {
+      console.error(e);
+      if ((e as Error)?.name === 'AbortError') return;
+      showToast('画像の作成に失敗しました', 'error');
+    } finally {
+      setIsArchiveImageBusy(false);
+    }
   };
 
   const captureRankingPng = async (): Promise<string | null> => {
@@ -350,37 +407,6 @@ export default function ResultsPage() {
       return null;
     }
     return captureElementToPngDataUrl(el);
-  };
-
-  const handleDownloadRankingImage = async () => {
-    setIsRankingImageBusy(true);
-    try {
-      const pngDataUrls = await capturePosterPngs();
-      if (!pngDataUrls?.length || !results) return;
-
-      const filenames = buildPosterFilenames(
-        results.session.title,
-        results.sample_details.length,
-      );
-      const saveResult = await saveMultiplePngDataUrls(
-        filenames.slice(0, pngDataUrls.length),
-        pngDataUrls,
-      );
-      const n = saveResult.count;
-      if (saveResult.mode === 'share') {
-        showToast(`${n}枚の画像を共有できます`, 'success');
-      } else if (saveResult.mode === 'open') {
-        showToast('画像を開きました。長押しして保存できます', 'success');
-      } else {
-        showToast(`${n}枚の結果レポート画像をダウンロードしました`, 'success');
-      }
-    } catch (e) {
-      console.error(e);
-      if ((e as Error)?.name === 'AbortError') return;
-      showToast('画像の作成に失敗しました', 'error');
-    } finally {
-      setIsRankingImageBusy(false);
-    }
   };
 
   const handlePublishRankingImageUrl = async () => {
@@ -505,7 +531,7 @@ export default function ResultsPage() {
             <div>
               <h2 className="ui-h3">共有</h2>
               <p className="text-sm ui-muted mt-1">
-                結果ページのURLや順位表画像で、いつでも結果を共有できます（結果公開後）。
+                シェア用（1枚）とアーカイブ用（順位＋サンプル別）の画像を保存できます。
               </p>
               {results.session.public_results === false && (
                 <p className="text-xs text-amber-200/80 mt-2">
@@ -531,17 +557,25 @@ export default function ResultsPage() {
             </Button>
             <Button
               variant="primary"
-              onClick={handleDownloadRankingImage}
-              disabled={isRankingImageBusy || isPublishingRankingUrl}
+              onClick={handleDownloadShareImage}
+              disabled={isShareImageBusy || isArchiveImageBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isRankingImageBusy ? '画像を作成中…' : '結果レポートの画像をダウンロード（複数枚）'}
+              {isShareImageBusy ? '画像を作成中…' : 'シェア用画像を保存（1枚）'}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleDownloadArchiveImages}
+              disabled={isShareImageBusy || isArchiveImageBusy || isPublishingRankingUrl}
+              className="w-full"
+            >
+              {isArchiveImageBusy ? '画像を作成中…' : 'アーカイブ用画像を保存'}
             </Button>
             <Button
               variant="primary"
               onClick={handlePublishRankingImageUrl}
-              disabled={isRankingImageBusy || isPublishingRankingUrl}
-              className="w-full"
+              disabled={isShareImageBusy || isArchiveImageBusy || isPublishingRankingUrl}
+              className="w-full sm:col-span-2"
             >
               {isPublishingRankingUrl ? '公開URLを発行中…' : '順位表画像の公開URLを発行'}
             </Button>
@@ -951,7 +985,7 @@ export default function ResultsPage() {
           className="fixed left-0 top-0 -z-10 opacity-0 pointer-events-none overflow-visible"
         >
           <div ref={posterCaptureRef}>
-            <ResultsPosterCapture
+            <ResultsExportCapture
               results={results}
               joinToken={joinToken}
               ownerToken={typeof window !== 'undefined' ? getOwnerToken(joinToken) : null}

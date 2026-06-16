@@ -2,8 +2,8 @@
 
 import { IconGlass, IconSeal } from '@/components/reports/ReportIcons';
 import { REPORT_FONTS, REPORT_WIDTH_PX, type ReportTheme } from '@/lib/report-export/theme';
-import { REPORT_LINE, REPORT_SPACE, REPORT_TYPE } from '@/lib/report-export/typography';
-import type { CSSProperties, ReactNode } from 'react';
+import { highlightLineStyle, REPORT_LINE, REPORT_SPACE, REPORT_TYPE } from '@/lib/report-export/typography';
+import type { ReactNode } from 'react';
 
 export function ReportShell({
   theme,
@@ -148,7 +148,7 @@ export function StatCard({ theme, label, value }: { theme: ReportTheme; label: s
   return (
     <div
       style={{
-        padding: '16px 12px',
+        padding: '14px 10px',
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
         borderRadius: 8,
@@ -158,7 +158,7 @@ export function StatCard({ theme, label, value }: { theme: ReportTheme; label: s
       <p style={{ margin: 0, fontSize: REPORT_TYPE.statLabel, color: theme.inkMuted, whiteSpace: 'nowrap' }}>{label}</p>
       <p
         style={{
-          margin: '8px 0 0',
+          margin: '6px 0 0',
           fontSize: REPORT_TYPE.statValue,
           fontWeight: 800,
           color: theme.headerBg,
@@ -170,38 +170,6 @@ export function StatCard({ theme, label, value }: { theme: ReportTheme; label: s
       </p>
     </div>
   );
-}
-
-function highlightLineStyle(theme: ReportTheme, line: string, index: number): CSSProperties {
-  const isScore = /pt$/.test(line.trim()) || /^\d+pt$/.test(line.trim());
-  const isMeta = line.startsWith('ほか') || line.startsWith('合計') || line.startsWith('平均') || line.startsWith('標準偏差');
-
-  if (isScore) {
-    return {
-      margin: index === 0 ? 0 : '6px 0 0',
-      fontSize: REPORT_TYPE.highlightValue,
-      fontWeight: 800,
-      lineHeight: 1.1,
-      color: theme.headerBg,
-      fontFamily: REPORT_FONTS.serif,
-    };
-  }
-  if (isMeta) {
-    return {
-      margin: '4px 0 0',
-      fontSize: REPORT_TYPE.highlightSecondary,
-      fontWeight: 500,
-      lineHeight: REPORT_LINE.normal,
-      color: theme.inkMuted,
-    };
-  }
-  return {
-    margin: index === 0 ? 0 : '4px 0 0',
-    fontSize: REPORT_TYPE.highlightPrimary,
-    fontWeight: 700,
-    lineHeight: REPORT_LINE.tight,
-    color: theme.ink,
-  };
 }
 
 export function HighlightCard({
@@ -235,9 +203,9 @@ export function HighlightCard({
       >
         {title}
       </div>
-      <div style={{ padding: '14px 12px 16px', textAlign: 'center' }}>
+      <div style={{ padding: '12px 12px 14px', textAlign: 'center' }}>
         {lines.map((line, i) => (
-          <p key={`${line}-${i}`} style={highlightLineStyle(theme, line, i)}>
+          <p key={`${line}-${i}`} style={highlightLineStyle(theme, line, i, REPORT_FONTS)}>
             {line}
           </p>
         ))}
@@ -251,11 +219,14 @@ export function ReportPanel({
   children,
   style,
   title,
+  centerContent,
 }: {
   theme: ReportTheme;
   children: React.ReactNode;
   style?: React.CSSProperties;
   title?: string;
+  /** チャートなど、パネル内を中央に寄せる */
+  centerContent?: boolean;
 }) {
   return (
     <div
@@ -263,24 +234,28 @@ export function ReportPanel({
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
         borderRadius: 8,
-        padding: 14,
+        padding: 12,
         ...style,
       }}
     >
       {title && (
         <p
           style={{
-            margin: '0 0 12px',
+            margin: '0 0 10px',
             fontSize: REPORT_TYPE.panelTitle,
             fontWeight: 700,
             color: theme.headerBg,
             fontFamily: REPORT_FONTS.serif,
+            textAlign: 'center',
+            letterSpacing: '0.03em',
           }}
         >
           {title}
         </p>
       )}
-      {children}
+      <div style={centerContent ? { display: 'flex', flexDirection: 'column', alignItems: 'center' } : undefined}>
+        {children}
+      </div>
     </div>
   );
 }

@@ -18,18 +18,18 @@ import {
 } from '@/components/reports/ReportShell';
 import type { PersonalReportData } from '@/lib/report-data/types';
 import { REPORT_ITEM_KEYS } from '@/lib/report-data/types';
-import { REPORT_FONTS, REPORT_THEMES } from '@/lib/report-export/theme';
+import { REPORT_THEMES } from '@/lib/report-export/theme';
 import { CHART_LABEL_PAD, columnHeader, radialDy, radialTextAnchor, REPORT_SPACE, REPORT_TYPE } from '@/lib/report-export/typography';
 
 function RadarChart({ data, theme }: { data: PersonalReportData; theme: typeof REPORT_THEMES.personal }) {
   const cats = data.analysis.categoryScores.filter((c) => c.maxScore > 0);
   if (cats.length === 0) return null;
 
-  const core = 280;
+  const core = 260;
   const viewSize = core + CHART_LABEL_PAD * 2;
   const cx = viewSize / 2;
   const cy = viewSize / 2;
-  const r = 100;
+  const r = 92;
   const n = cats.length;
   const angle = (i: number) => -Math.PI / 2 + (2 * Math.PI * i) / n;
 
@@ -47,7 +47,7 @@ function RadarChart({ data, theme }: { data: PersonalReportData; theme: typeof R
     <svg
       width="100%"
       viewBox={`0 0 ${viewSize} ${viewSize}`}
-      style={{ display: 'block', maxWidth: 460, overflow: 'visible' }}
+      style={{ display: 'block', width: '100%', maxWidth: 420, overflow: 'visible' }}
       preserveAspectRatio="xMidYMid meet"
     >
       {[0.25, 0.5, 0.75, 1].map((t) => (
@@ -58,11 +58,11 @@ function RadarChart({ data, theme }: { data: PersonalReportData; theme: typeof R
         const ay = cy + r * Math.sin(angle(i));
         return <line key={i} x1={cx} y1={cy} x2={ax} y2={ay} stroke={theme.rule} strokeWidth={1} />;
       })}
-      <polygon points={dataPts} fill={`${theme.accent}40`} stroke={theme.headerBg} strokeWidth={2.5} />
+      <polygon points={dataPts} fill={`${theme.accent}35`} stroke={theme.headerBg} strokeWidth={2} />
       {cats.map((c, i) => {
         const a = angle(i);
-        const lx = cx + (r + 48) * Math.cos(a);
-        const ly = cy + (r + 48) * Math.sin(a);
+        const lx = cx + (r + 46) * Math.cos(a);
+        const ly = cy + (r + 46) * Math.sin(a);
         return (
           <text key={c.key} x={lx} y={ly + radialDy(a, 0)} textAnchor={radialTextAnchor(a)} fontSize={REPORT_TYPE.chartAxis} fill={theme.inkMuted} fontWeight={600}>
             {c.label}
@@ -99,7 +99,7 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
 
       <SectionBlock>
         <SectionTitle theme={theme}>分析</SectionTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: REPORT_SPACE.grid, marginBottom: REPORT_SPACE.grid }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: REPORT_SPACE.grid }}>
           <ReportPanel theme={theme} title="部門別得点" centerContent>
             <RadarChart data={data} theme={theme} />
           </ReportPanel>
@@ -117,11 +117,13 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                   .map((c, i) => (
                     <ReportTr key={c.key} theme={theme} index={i}>
                       <ReportTd theme={theme}>{c.label}</ReportTd>
-                      <ReportTd theme={theme} align="right" style={{ fontFamily: REPORT_FONTS.serif, fontWeight: 700 }}>
+                      <ReportTd theme={theme} align="right" numeric>
                         {c.earnedScore}
                       </ReportTd>
-                      <ReportTd theme={theme} align="right">{c.maxScore}</ReportTd>
-                      <ReportTd theme={theme} align="right" style={{ fontWeight: 800, color: theme.headerBg, fontFamily: REPORT_FONTS.serif }}>
+                      <ReportTd theme={theme} align="right" numeric>
+                        {c.maxScore}
+                      </ReportTd>
+                      <ReportTd theme={theme} align="right" numeric emphasis>
                         {c.rate}%
                       </ReportTd>
                     </ReportTr>
@@ -129,8 +131,6 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
               </tbody>
             </ReportTable>
           </ReportPanel>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: REPORT_SPACE.grid }}>
           <HighlightCard
             theme={theme}
             title="最高得点ボトル"
@@ -185,23 +185,15 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
             <tbody>
               {data.rounds.map((round, i) => (
                 <ReportTr key={round.sampleId} theme={theme} index={i}>
-                  <ReportTd theme={theme} align="center" style={{ fontWeight: 700 }}>{round.roundNo}</ReportTd>
+                  <ReportTd theme={theme} align="center" numeric>
+                    {round.roundNo}
+                  </ReportTd>
                   <ReportTd theme={theme} style={{ fontWeight: 700 }}>{round.sampleName}</ReportTd>
                   <ReportTd theme={theme} style={{ color: theme.inkMuted }}>{round.presenterName}</ReportTd>
                   {REPORT_ITEM_KEYS.map((key) => (
-                    <ScoringItemCell key={key} item={round.items[key]} />
+                    <ScoringItemCell key={key} item={round.items[key]} theme={theme} />
                   ))}
-                  <ReportTd
-                    theme={theme}
-                    align="center"
-                    style={{
-                      fontSize: REPORT_TYPE.roundTotal,
-                      fontWeight: 800,
-                      color: theme.headerBg,
-                      fontFamily: REPORT_FONTS.serif,
-                      background: theme.paperAlt,
-                    }}
-                  >
+                  <ReportTd theme={theme} align="center" numeric emphasis style={{ fontSize: REPORT_TYPE.roundTotal, background: theme.paperAlt }}>
                     {round.totalScore}pt
                   </ReportTd>
                 </ReportTr>
@@ -209,7 +201,7 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
             </tbody>
           </ReportTable>
         </ReportPanel>
-        <p style={{ marginTop: 10, fontSize: REPORT_TYPE.caption, color: theme.inkMuted, textAlign: 'center' }}>
+        <p style={{ marginTop: 8, fontSize: REPORT_TYPE.caption, color: theme.inkMuted, textAlign: 'center' }}>
           ○ 正解 · △ 一部一致 · × 不正解 · — 未判定
         </p>
       </SectionBlock>

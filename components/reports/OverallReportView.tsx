@@ -15,7 +15,8 @@ import {
   StatCardGrid,
 } from '@/components/reports/ReportShell';
 import type { OverallReportData } from '@/lib/report-data/types';
-import { CHART_COLORS, RANK_MEDALS, REPORT_FONTS, REPORT_THEMES } from '@/lib/report-export/theme';
+import { CHART_COLORS, RANK_MEDALS, REPORT_THEMES } from '@/lib/report-export/theme';
+import { miniBarStyle } from '@/lib/report-export/design';
 import { CHART_LABEL_PAD, REPORT_SPACE, REPORT_TYPE } from '@/lib/report-export/typography';
 
 function CumulativeChart({ data, theme }: { data: OverallReportData; theme: typeof REPORT_THEMES.overall }) {
@@ -26,10 +27,10 @@ function CumulativeChart({ data, theme }: { data: OverallReportData; theme: type
   const nRounds = rounds.length;
   const legendCols = Math.min(3, Math.max(2, Math.ceil(participants.length / 3)));
   const legendRows = Math.ceil(participants.length / legendCols);
-  const chartH = 280;
-  const legendRowH = 30;
-  const legendH = legendRows * legendRowH + 12;
-  const plotPad = { l: CHART_LABEL_PAD + 16, r: 28, t: 24, b: 44 };
+  const chartH = 260;
+  const legendRowH = 28;
+  const legendH = legendRows * legendRowH + 10;
+  const plotPad = { l: CHART_LABEL_PAD + 12, r: 24, t: 20, b: 40 };
   const w = 1128;
   const h = chartH + legendH;
   const plotW = w - plotPad.l - plotPad.r;
@@ -48,14 +49,14 @@ function CumulativeChart({ data, theme }: { data: OverallReportData; theme: type
         return (
           <g key={t}>
             <line x1={plotPad.l} y1={yy} x2={w - plotPad.r} y2={yy} stroke={theme.rule} strokeWidth={1} />
-            <text x={plotPad.l - 8} y={yy + 5} textAnchor="end" fontSize={REPORT_TYPE.chartTick} fill={theme.inkMuted} fontWeight={600}>
+            <text x={plotPad.l - 6} y={yy + 4} textAnchor="end" fontSize={REPORT_TYPE.chartTick} fill={theme.inkMuted} fontWeight={600}>
               {val}
             </text>
           </g>
         );
       })}
       {rounds.map((r) => (
-        <text key={r.roundNo} x={x(r.roundNo)} y={chartH - 6} textAnchor="middle" fontSize={REPORT_TYPE.chartAxis} fill={theme.inkMuted} fontWeight={700}>
+        <text key={r.roundNo} x={x(r.roundNo)} y={chartH - 4} textAnchor="middle" fontSize={REPORT_TYPE.chartAxis} fill={theme.inkMuted} fontWeight={700}>
           R{r.roundNo}
         </text>
       ))}
@@ -67,9 +68,9 @@ function CumulativeChart({ data, theme }: { data: OverallReportData; theme: type
         });
         return (
           <g key={p.participantId}>
-            <polyline fill="none" stroke={color} strokeWidth={3} points={pts.map((pt) => `${pt.x},${pt.y}`).join(' ')} />
+            <polyline fill="none" stroke={color} strokeWidth={2.5} points={pts.map((pt) => `${pt.x},${pt.y}`).join(' ')} />
             {pts.map((pt, idx) => (
-              <circle key={idx} cx={pt.x} cy={pt.y} r={5} fill={color} stroke="#fff" strokeWidth={2} />
+              <circle key={idx} cx={pt.x} cy={pt.y} r={4.5} fill={color} stroke="#fff" strokeWidth={1.5} />
             ))}
           </g>
         );
@@ -79,16 +80,16 @@ function CumulativeChart({ data, theme }: { data: OverallReportData; theme: type
         const col = pi % legendCols;
         const row = Math.floor(pi / legendCols);
         const lx = plotPad.l + col * legendColW;
-        const ly = chartH + 14 + row * legendRowH;
+        const ly = chartH + 12 + row * legendRowH;
         const last = rounds[rounds.length - 1]?.scores.find((s) => s.participantId === p.participantId);
         return (
           <g key={`leg-${p.participantId}`}>
-            <line x1={lx} y1={ly + 9} x2={lx + 22} y2={ly + 9} stroke={color} strokeWidth={4} strokeLinecap="round" />
-            <text x={lx + 28} y={ly + 13} fontSize={REPORT_TYPE.legend} fill={theme.ink} fontWeight={600}>
+            <line x1={lx} y1={ly + 8} x2={lx + 20} y2={ly + 8} stroke={color} strokeWidth={3.5} strokeLinecap="round" />
+            <text x={lx + 26} y={ly + 12} fontSize={REPORT_TYPE.legend} fill={theme.ink} fontWeight={600}>
               {p.participantName}
             </text>
             {last && (
-              <text x={lx + legendColW - 8} y={ly + 13} textAnchor="end" fontSize={REPORT_TYPE.legend} fill={color} fontWeight={800}>
+              <text x={lx + legendColW - 6} y={ly + 12} textAnchor="end" fontSize={REPORT_TYPE.legend} fill={color} fontWeight={800}>
                 {last.cumulativeScore}pt
               </text>
             )}
@@ -96,52 +97,6 @@ function CumulativeChart({ data, theme }: { data: OverallReportData; theme: type
         );
       })}
     </svg>
-  );
-}
-
-function BottleBarChart({
-  bottles,
-  theme,
-  maxAvg,
-}: {
-  bottles: OverallReportData['bottleDifficulty'];
-  theme: typeof REPORT_THEMES.overall;
-  maxAvg: number;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {bottles.map((b) => (
-        <div key={b.sampleId} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 22%) 1fr 52px', alignItems: 'center', gap: 12 }}>
-          <span
-            style={{
-              fontSize: REPORT_TYPE.tableBody,
-              fontWeight: 600,
-              textAlign: 'right',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-            title={b.sampleName}
-          >
-            {b.sampleName}
-          </span>
-          <div style={{ height: 24, background: theme.paperAlt, borderRadius: 4, overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${(b.averageScore / maxAvg) * 100}%`,
-                height: '100%',
-                background: theme.headerBg,
-                borderRadius: 4,
-                minWidth: b.averageScore > 0 ? 6 : 0,
-              }}
-            />
-          </div>
-          <span style={{ textAlign: 'right', fontWeight: 800, fontSize: REPORT_TYPE.tableNum, fontFamily: REPORT_FONTS.serif, color: theme.headerBg }}>
-            {b.averageScore}
-          </span>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -153,7 +108,7 @@ export function OverallReportView({ data }: { data: OverallReportData }) {
   return (
     <ReportShell theme={theme} sessionTitle={data.sessionTitle}>
       <SectionBlock>
-        <SectionTitle theme={theme}>基本情報</SectionTitle>
+        <SectionTitle theme={theme}>概要</SectionTitle>
         <StatCardGrid columns={5}>
           <StatCard theme={theme} label="開催日" value={data.basic.date} />
           <StatCard theme={theme} label="参加者" value={`${data.basic.participantCount}名`} />
@@ -165,7 +120,7 @@ export function OverallReportView({ data }: { data: OverallReportData }) {
 
       <SectionBlock>
         <SectionTitle theme={theme}>大会ハイライト</SectionTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: REPORT_SPACE.grid, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: REPORT_SPACE.grid }}>
           <HighlightCard theme={theme} title="優勝者" lines={[h.winner.name, `${h.winner.totalScore}pt`]} />
           <HighlightCard
             theme={theme}
@@ -208,41 +163,57 @@ export function OverallReportView({ data }: { data: OverallReportData }) {
       <SectionBlock>
         <SectionTitle theme={theme}>ボトル別難易度（平均得点の低い順）</SectionTitle>
         <ReportPanel theme={theme}>
-          <ReportTable fontSize={REPORT_TYPE.tableBody}>
+          <ReportTable fontSize={REPORT_TYPE.tableBody} fixed>
+            <colgroup>
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '42%' }} />
+            </colgroup>
             <ReportThead theme={theme}>
-              <ReportTh align="center" style={{ width: 52 }}>順位</ReportTh>
+              <ReportTh align="center">順位</ReportTh>
               <ReportTh>サンプル</ReportTh>
               <ReportTh>出題者</ReportTh>
-              <ReportTh align="right" style={{ width: 72 }}>合計</ReportTh>
-              <ReportTh align="right" style={{ width: 72 }}>平均</ReportTh>
+              <ReportTh align="right">合計</ReportTh>
+              <ReportTh align="right">平均</ReportTh>
+              <ReportTh>難易度</ReportTh>
             </ReportThead>
             <tbody>
-              {data.bottleDifficulty.map((b, i) => (
-                <ReportTr key={b.sampleId} theme={theme} index={i}>
-                  <ReportTd theme={theme} align="center" style={{ fontSize: b.rank <= 3 ? 20 : REPORT_TYPE.tableNum, fontWeight: 800 }}>
-                    {b.rank <= 3 ? RANK_MEDALS[b.rank - 1] : b.rank}
-                  </ReportTd>
-                  <ReportTd theme={theme} style={{ fontWeight: 700 }}>{b.sampleName}</ReportTd>
-                  <ReportTd theme={theme} style={{ color: theme.inkMuted }}>{b.presenterName}</ReportTd>
-                  <ReportTd theme={theme} align="right" style={{ fontFamily: REPORT_FONTS.serif, fontWeight: 700 }}>
-                    {b.totalScore}pt
-                  </ReportTd>
-                  <ReportTd theme={theme} align="right" style={{ fontWeight: 800, color: theme.headerBg, fontFamily: REPORT_FONTS.serif, fontSize: REPORT_TYPE.tableNum }}>
-                    {b.averageScore}pt
-                  </ReportTd>
-                </ReportTr>
-              ))}
+              {data.bottleDifficulty.map((b, i) => {
+                const bar = miniBarStyle(theme, b.averageScore / maxAvg);
+                return (
+                  <ReportTr key={b.sampleId} theme={theme} index={i} accent={b.rank <= 3}>
+                    <ReportTd theme={theme} align="center" style={{ fontSize: b.rank <= 3 ? 18 : REPORT_TYPE.tableNum, fontWeight: 800 }}>
+                      {b.rank <= 3 ? RANK_MEDALS[b.rank - 1] : b.rank}
+                    </ReportTd>
+                    <ReportTd theme={theme} style={{ fontWeight: 700 }}>{b.sampleName}</ReportTd>
+                    <ReportTd theme={theme} style={{ color: theme.inkMuted }}>{b.presenterName}</ReportTd>
+                    <ReportTd theme={theme} align="right" numeric>
+                      {b.totalScore}pt
+                    </ReportTd>
+                    <ReportTd theme={theme} align="right" numeric emphasis>
+                      {b.averageScore}pt
+                    </ReportTd>
+                    <ReportTd theme={theme}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ ...bar.track, flex: 1 }}>
+                          <div style={bar.fill} />
+                        </div>
+                      </div>
+                    </ReportTd>
+                  </ReportTr>
+                );
+              })}
             </tbody>
           </ReportTable>
-        </ReportPanel>
-        <ReportPanel theme={theme} title="平均得点（pt）" style={{ marginTop: REPORT_SPACE.grid }}>
-          <BottleBarChart bottles={data.bottleDifficulty} theme={theme} maxAvg={maxAvg} />
         </ReportPanel>
       </SectionBlock>
 
       <SectionBlock style={{ marginBottom: 0 }}>
         <SectionTitle theme={theme}>各ラウンドまでの合計得点推移</SectionTitle>
-        <ReportPanel theme={theme} centerContent>
+        <ReportPanel theme={theme} title="累計得点の推移" centerContent>
           <CumulativeChart data={data} theme={theme} />
         </ReportPanel>
       </SectionBlock>

@@ -1,54 +1,53 @@
 /**
  * レポート画像用タイポグラフィ（1200px基準・2xキャプチャ想定）
  *
- * 原則:
- * - 本文は最小 15px（キャプチャ後も読めるサイズ）
- * - ラベルと数値はサイズ・ウェイトで明確に差をつける
- * - カード・パネル内は中央揃えで余白の偏りを防ぐ
- * - チャートはラベル用パディングを確保し文字切れを防ぐ
+ * タイプスケール（5段階）:
+ * - Display … ブランド・参加者名
+ * - Title   … セクション見出し
+ * - Head    … パネル・カード見出し
+ * - Body    … 表本文・ラベル
+ * - Data    … 数値・得点（セリフ・太字）
  */
 
 export const REPORT_SPACE = {
   pageX: 36,
-  pageY: 28,
-  section: 28,
-  block: 16,
+  pageY: 24,
+  section: 24,
+  block: 14,
   card: 10,
-  item: 8,
-  grid: 12,
+  grid: 10,
 } as const;
 
-/** チャート共通：軸ラベルが切れないよう SVG 外周に確保する余白 */
-export const CHART_LABEL_PAD = 56;
+export const CHART_LABEL_PAD = 60;
 
 export const REPORT_TYPE = {
-  brand: 38,
-  subtitle: 22,
-  session: 18,
-  participant: 28,
-  section: 22,
-  panelTitle: 16,
-  statLabel: 14,
-  statValue: 30,
+  brand: 36,
+  subtitle: 20,
+  session: 17,
+  participant: 26,
+  section: 20,
+  panelTitle: 15,
+  statLabel: 13,
+  statValue: 28,
   highlightTitle: 15,
-  highlightPrimary: 17,
-  highlightValue: 26,
-  highlightSecondary: 14,
-  tableHead: 15,
-  tableBody: 16,
-  tableNum: 17,
-  answer: 16,
-  answerMeta: 14,
-  roundTotal: 24,
-  chartAxis: 15,
-  chartTick: 14,
-  legend: 15,
-  caption: 14,
+  highlightPrimary: 16,
+  highlightValue: 24,
+  highlightSecondary: 13,
+  tableHead: 14,
+  tableBody: 15,
+  tableNum: 16,
+  answer: 15,
+  answerMeta: 13,
+  roundTotal: 22,
+  chartAxis: 14,
+  chartTick: 13,
+  legend: 14,
+  caption: 13,
 } as const;
 
 export const REPORT_LINE = {
-  tight: 1.2,
-  normal: 1.4,
+  tight: 1.25,
+  normal: 1.45,
 } as const;
 
 export function radialTextAnchor(angleRad: number): 'start' | 'middle' | 'end' {
@@ -65,15 +64,13 @@ export function radialDy(angleRad: number, line: 0 | 1): number {
     if (sin > 0.5) return -2;
     return 0;
   }
-  return 16;
+  return 15;
 }
 
-/** 表ヘッダー用：1行で「地域(4pt)」 */
 export function columnHeader(label: string, points: number): string {
   return `${label}(${points}pt)`;
 }
 
-/** ハイライトカードの行スタイル（得点・補足・本文を自動判別） */
 export function highlightLineStyle(
   theme: { headerBg: string; ink: string; inkMuted: string },
   line: string,
@@ -88,7 +85,7 @@ export function highlightLineStyle(
   fontFamily?: string;
 } {
   const trimmed = line.trim();
-  const isScore = /^\d+(\.\d+)?pt$/.test(trimmed);
+  const isScore = /^\d+(\.\d+)?pt$/.test(trimmed) || /^\d+位$/.test(trimmed);
   const isMeta =
     trimmed.startsWith('ほか') ||
     trimmed.startsWith('平均') ||
@@ -96,7 +93,7 @@ export function highlightLineStyle(
 
   if (isScore) {
     return {
-      margin: index === 0 ? '0' : '6px 0 0',
+      margin: index === 0 ? '0' : '5px 0 0',
       fontSize: REPORT_TYPE.highlightValue,
       fontWeight: 800,
       lineHeight: 1.1,
@@ -106,7 +103,7 @@ export function highlightLineStyle(
   }
   if (isMeta) {
     return {
-      margin: '4px 0 0',
+      margin: '3px 0 0',
       fontSize: REPORT_TYPE.highlightSecondary,
       fontWeight: 500,
       lineHeight: REPORT_LINE.normal,
@@ -114,7 +111,7 @@ export function highlightLineStyle(
     };
   }
   return {
-    margin: index === 0 ? '0' : '4px 0 0',
+    margin: index === 0 ? '0' : '3px 0 0',
     fontSize: REPORT_TYPE.highlightPrimary,
     fontWeight: 700,
     lineHeight: REPORT_LINE.tight,

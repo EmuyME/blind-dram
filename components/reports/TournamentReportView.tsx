@@ -14,7 +14,7 @@ import {
   StatCardGrid,
 } from '@/components/reports/ReportShell';
 import type { TournamentReportData } from '@/lib/report-data/types';
-import { RANK_MEDALS, REPORT_FONTS, REPORT_THEMES, shortName, tableFontSize } from '@/lib/report-export/theme';
+import { RANK_MEDALS, REPORT_THEMES, shortName, tableFontSize } from '@/lib/report-export/theme';
 import { REPORT_TYPE } from '@/lib/report-export/typography';
 
 function rankDisplay(rank: number): string {
@@ -29,7 +29,7 @@ export function TournamentReportView({ data }: { data: TournamentReportData }) {
   return (
     <ReportShell theme={theme} sessionTitle={data.sessionTitle}>
       <SectionBlock>
-        <SectionTitle theme={theme}>基本情報</SectionTitle>
+        <SectionTitle theme={theme}>概要</SectionTitle>
         <StatCardGrid columns={3}>
           <StatCard theme={theme} label="開催日" value={data.basic.date} />
           <StatCard theme={theme} label="参加者" value={`${data.basic.participantCount}名`} />
@@ -42,18 +42,18 @@ export function TournamentReportView({ data }: { data: TournamentReportData }) {
         <ReportPanel theme={theme}>
           <ReportTable fontSize={REPORT_TYPE.tableBody}>
             <ReportThead theme={theme}>
-              <ReportTh align="center" style={{ width: 64 }}>順位</ReportTh>
+              <ReportTh align="center" style={{ width: 60 }}>順位</ReportTh>
               <ReportTh>参加者</ReportTh>
-              <ReportTh align="right" style={{ width: 96 }}>総得点</ReportTh>
+              <ReportTh align="right" style={{ width: 88 }}>総得点</ReportTh>
             </ReportThead>
             <tbody>
               {data.rankings.map((r, i) => (
-                <ReportTr key={r.participantId} theme={theme} index={i}>
-                  <ReportTd theme={theme} align="center" style={{ fontSize: r.rank <= 3 ? 22 : REPORT_TYPE.tableNum, fontWeight: 800 }}>
+                <ReportTr key={r.participantId} theme={theme} index={i} accent={r.rank <= 3}>
+                  <ReportTd theme={theme} align="center" style={{ fontSize: r.rank <= 3 ? 20 : REPORT_TYPE.tableNum, fontWeight: 800 }}>
                     {rankDisplay(r.rank)}
                   </ReportTd>
-                  <ReportTd theme={theme} style={{ fontWeight: r.rank <= 3 ? 700 : 500, fontSize: REPORT_TYPE.tableBody }}>{r.name}</ReportTd>
-                  <ReportTd theme={theme} align="right" style={{ fontWeight: 800, fontFamily: REPORT_FONTS.serif, fontSize: REPORT_TYPE.tableNum }}>
+                  <ReportTd theme={theme} style={{ fontWeight: r.rank <= 3 ? 700 : 500 }}>{r.name}</ReportTd>
+                  <ReportTd theme={theme} align="right" numeric emphasis>
                     {r.totalScore}pt
                   </ReportTd>
                 </ReportTr>
@@ -98,7 +98,7 @@ export function TournamentReportView({ data }: { data: TournamentReportData }) {
             <tbody>
               {data.bottles.map((b, i) => (
                 <ReportTr key={b.sampleId} theme={theme} index={i}>
-                  <ReportTd theme={theme} align="center">{b.roundNo}</ReportTd>
+                  <ReportTd theme={theme} align="center" numeric>{b.roundNo}</ReportTd>
                   <ReportTd theme={theme} style={{ fontWeight: 700 }}>{b.sampleName}</ReportTd>
                   <ReportTd theme={theme} style={{ color: theme.inkMuted }}>{b.presenterName}</ReportTd>
                   <ReportTd theme={theme}>{b.truth.region}</ReportTd>
@@ -118,7 +118,7 @@ export function TournamentReportView({ data }: { data: TournamentReportData }) {
         <ReportPanel theme={theme}>
           <ReportTable fontSize={fs} fixed>
             <ReportThead theme={theme}>
-              <ReportTh align="center" style={{ width: 40 }}>No.</ReportTh>
+              <ReportTh align="center" style={{ width: 36 }}>No.</ReportTh>
               <ReportTh style={{ width: '12%' }}>サンプル</ReportTh>
               <ReportTh style={{ width: '10%' }}>出題者</ReportTh>
               {data.rankings.map((p) => (
@@ -126,20 +126,20 @@ export function TournamentReportView({ data }: { data: TournamentReportData }) {
                   {shortName(p.name, 6)}
                 </ReportTh>
               ))}
-              <ReportTh align="right" style={{ width: 56 }}>合計</ReportTh>
+              <ReportTh align="right" style={{ width: 52 }}>合計</ReportTh>
             </ReportThead>
             <tbody>
               {data.bottleScores.map((row, i) => (
                 <ReportTr key={row.sampleId} theme={theme} index={i}>
-                  <ReportTd theme={theme} align="center">{row.roundNo}</ReportTd>
+                  <ReportTd theme={theme} align="center" numeric>{row.roundNo}</ReportTd>
                   <ReportTd theme={theme} style={{ fontWeight: 700 }}>{row.sampleName}</ReportTd>
                   <ReportTd theme={theme} style={{ color: theme.inkMuted }}>{shortName(row.presenterName, 6)}</ReportTd>
                   {row.participantScores.map((ps) => (
-                    <ReportTd key={ps.participantId} theme={theme} align="center" style={{ fontWeight: 800, fontFamily: REPORT_FONTS.serif, fontSize: REPORT_TYPE.tableNum }}>
+                    <ReportTd key={ps.participantId} theme={theme} align="center" numeric>
                       {ps.score}
                     </ReportTd>
                   ))}
-                  <ReportTd theme={theme} align="right" style={{ fontWeight: 800, color: theme.headerBg, fontFamily: REPORT_FONTS.serif, fontSize: REPORT_TYPE.tableNum }}>
+                  <ReportTd theme={theme} align="right" numeric emphasis>
                     {row.totalScore}pt
                   </ReportTd>
                 </ReportTr>

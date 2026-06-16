@@ -7,6 +7,7 @@ import {
   isMobileCapture,
 } from '@/lib/capture-device';
 import { EXPORT_HEIGHT_PX, EXPORT_WIDTH_PX } from '@/lib/results-export-design';
+import { REPORT_CAPTURE_PIXEL_RATIO, REPORT_WIDTH_PX } from '@/lib/report-export/theme';
 
 type CaptureOpts = {
   pixelRatio?: number;
@@ -35,10 +36,13 @@ function applyCaptureLayout(el: HTMLElement): {
   const prevWidth = overflowEl?.style.width ?? '';
   const prevElOverflow = el.style.overflow;
   const prevElWidth = el.style.width;
+  const isReportPage = el.hasAttribute('data-report-capture-page');
   const isFixedExport = el.hasAttribute('data-export-fixed-size');
-  const captureWidth = isFixedExport
-    ? EXPORT_WIDTH_PX
-    : Math.max(el.scrollWidth, tableEl?.scrollWidth ?? 0, el.clientWidth);
+  const captureWidth = isReportPage
+    ? REPORT_WIDTH_PX
+    : isFixedExport
+      ? EXPORT_WIDTH_PX
+      : Math.max(el.scrollWidth, tableEl?.scrollWidth ?? 0, el.clientWidth);
   const captureHeight = isFixedExport
     ? EXPORT_HEIGHT_PX
     : Math.max(el.scrollHeight, tableEl?.scrollHeight ?? 0, el.clientHeight);
@@ -51,6 +55,8 @@ function applyCaptureLayout(el: HTMLElement): {
   el.style.width = `${captureWidth}px`;
   if (isFixedExport) {
     el.style.height = `${captureHeight}px`;
+  } else if (isReportPage) {
+    el.style.height = 'auto';
   }
 
   return {
@@ -80,6 +86,12 @@ function restoreCaptureLayout(
   el.style.width = prevElWidth;
 }
 
+function captureBackground(el: HTMLElement): string {
+  if (el.hasAttribute('data-report-capture-page')) return '#faf7f0';
+  if (el.hasAttribute('data-export-capture-page')) return '#F8F4EC';
+  return '#262626';
+}
+
 async function captureWithHtml2Canvas(
   el: HTMLElement,
   captureWidth: number,
@@ -87,7 +99,7 @@ async function captureWithHtml2Canvas(
   pixelRatio: number,
 ): Promise<string> {
   const html2canvas = (await import('html2canvas')).default;
-  const bg = el.hasAttribute('data-export-capture-page') ? '#F8F4EC' : '#262626';
+  const bg = captureBackground(el);
   const canvas = await html2canvas(el, {
     backgroundColor: bg,
     scale: pixelRatio,
@@ -112,7 +124,7 @@ async function captureWithHtmlToImage(
   pixelRatio: number,
 ): Promise<string> {
   const { toPng } = await import('html-to-image');
-  const bg = el.hasAttribute('data-export-capture-page') ? '#F8F4EC' : '#262626';
+  const bg = captureBackground(el);
   return await toPng(el, {
     backgroundColor: bg,
     pixelRatio,
@@ -250,6 +262,29 @@ export async function capturePosterPagesToPngDataUrls(rootEl: HTMLElement): Prom
     results.push(await captureSingleElementToPngDataUrl(page));
   }
   return results;
+}
+
+export type ReportCaptureKind = 'tournament' | 'overall' | 'personal';
+
+export async function captureReportFromRoot(
+  root: HTMLElement,
+  kind: ReportCaptureKind,
+  participantId?: string,
+): Promise<string> {
+  let page: HTMLElement | null = null;
+  if (kind === 'personal' && participantId) {
+    page = root.querySelector(
+      `[data-report-kind="personal"][data-participant-id="${participantId}"] [data-report-capture-page]`,
+    ) as HTMLElement | null;
+  } else {
+    page = root.querySelector(
+      `[data-report-kind="${kind}"] [data-report-capture-page]`,
+    ) as HTMLElement | null;
+  }
+  if (!page) {
+    throw new Error(`Report page not found: ${kind}`);
+  }
+  return captureSingleElementToPngDataUrl(page, { pixelRatio: REPORT_CAPTURE_PIXEL_RATIO });
 }
 
 export async function captureElementToPngDataUrl(el: HTMLElement): Promise<string> {

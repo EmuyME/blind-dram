@@ -20,14 +20,15 @@ import { copyToClipboard, getOwnerToken, getParticipantToken } from '@/lib/utils
 import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/rankingMatrix';
 import {
   captureElementToPngDataUrl,
-  captureExportPagesToPngDataUrls,
+  captureReportFromRoot,
+  type ReportCaptureKind,
   withCaptureVisible,
 } from '@/lib/capture-ranking-png';
 import { buildResultsPageUrl } from '@/lib/results-share';
 import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
-import { saveMultiplePngDataUrls, savePngDataUrl } from '@/lib/download-png';
-import { buildArchiveExportFilenames } from '@/lib/results-export-layout';
-import { ResultsExportCapture } from '@/components/results/export/ResultsExportCapture';
+import { savePngDataUrl } from '@/lib/download-png';
+import { ReportCaptureRoot } from '@/components/reports/ReportCaptureRoot';
+import type { ResultsSnapshot } from '@/lib/report-data/results-snapshot';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
 import { PresenterTastingTier2Summary } from '@/components/flavor/PresenterTastingTier2Summary';
@@ -49,6 +50,7 @@ interface Results {
     title: string;
     mode: 'sequential' | 'simultaneous';
     state: string;
+    created_at?: string | null;
     public_results?: boolean;
   };
   share?: {
@@ -148,6 +150,27 @@ interface Results {
   flavor_chart_snapshot: unknown;
 }
 
+function toResultsSnapshot(results: Results): ResultsSnapshot {
+  return {
+    session: {
+      id: results.session.id,
+      title: results.session.title,
+      mode: results.session.mode,
+      created_at: results.session.created_at,
+    },
+    scoring_snapshot: results.scoring_snapshot,
+    rankings: results.rankings,
+    sample_details: results.sample_details.map((s) => ({
+      sample_id: s.sample_id,
+      sample_label: s.sample_label,
+      presenter_name: s.presenter_name,
+      scoring_snapshot: s.scoring_snapshot,
+      truth: s.truth,
+      participant_answers: s.participant_answers,
+    })),
+  };
+}
+
 export default function ResultsPage() {
   const params = useParams();
   const router = useRouter();
@@ -169,8 +192,10 @@ export default function ResultsPage() {
   const rankingCaptureRef = useRef<HTMLDivElement | null>(null);
   const posterCaptureWrapperRef = useRef<HTMLDivElement | null>(null);
   const posterCaptureRef = useRef<HTMLDivElement | null>(null);
-  const [isShareImageBusy, setIsShareImageBusy] = useState(false);
-  const [isArchiveImageBusy, setIsArchiveImageBusy] = useState(false);
+  const [isTournamentReportBusy, setIsTournamentReportBusy] = useState(false);
+  const [isOverallReportBusy, setIsOverallReportBusy] = useState(false);
+  const [isPersonalReportBusy, setIsPersonalReportBusy] = useState(false);
+  const isAnyReportBusy = isTournamentReportBusy || isOverallReportBusy || isPersonalReportBusy;
   const [isPublishingRankingUrl, setIsPublishingRankingUrl] = useState(false);
   const [rankingImageUrl, setRankingImageUrl] = useState<string | null>(null);
 
@@ -286,9 +311,16 @@ export default function ResultsPage() {
     showToast(ok ? '順位表画像のURLをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
   };
 
-  const captureExportPages = async (kind: 'share' | 'archive'): Promise<string[] | null> => {
+  const captureReport = async (
+    kind: ReportCaptureKind,
+    participantIdForPersonal?: string,
+  ): Promise<string | null> => {
     if (!results?.rankings?.length) {
       showToast('順位データがありません', 'error');
+      return null;
+    }
+    if (kind === 'personal' && !participantIdForPersonal) {
+      showToast('参加者を選択してください', 'error');
       return null;
     }
 
@@ -310,64 +342,81 @@ export default function ResultsPage() {
     return withCaptureVisible(wrapper, async () => {
       await preloadImagesInElement(el);
       await new Promise<void>((r) => setTimeout(r, 150));
-      return captureExportPagesToPngDataUrls(el, kind);
+      return captureReportFromRoot(el, kind, participantIdForPersonal);
     });
   };
 
-  const buildShareFilename = (title: string) => {
-    const base = sanitizeDownloadBasename(title, 'share');
+  const buildReportFilename = (title: string, kind: string, suffix?: string) => {
+    const base = sanitizeDownloadBasename(title, 'report');
     const day = new Date().toISOString().split('T')[0];
-    return `${base}_share_${day}.png`;
+    const extra = suffix ? `_${suffix}` : '';
+    return `${base}_${kind}${extra}_${day}.png`;
   };
 
-  const handleDownloadShareImage = async () => {
-    setIsShareImageBusy(true);
-    try {
-      const pngDataUrls = await captureExportPages('share');
-      if (!pngDataUrls?.length || !results) return;
-
-      const saveResult = await savePngDataUrl(buildShareFilename(results.session.title), pngDataUrls[0]);
-      if (saveResult === 'share') {
-        showToast('共有シートから画像を保存できます', 'success');
-      } else if (saveResult === 'open') {
-        showToast('画像を開きました。長押しして保存できます', 'success');
-      } else {
-        showToast('シェア用画像をダウンロードしました', 'success');
-      }
-    } catch (e) {
-      console.error(e);
-      if ((e as Error)?.name === 'AbortError') return;
-      showToast('画像の作成に失敗しました', 'error');
-    } finally {
-      setIsShareImageBusy(false);
+  const saveReportPng = async (filename: string, pngDataUrl: string) => {
+    const saveResult = await savePngDataUrl(filename, pngDataUrl);
+    if (saveResult === 'share') {
+      showToast('共有シートから画像を保存できます', 'success');
+    } else if (saveResult === 'open') {
+      showToast('画像を開きました。長押しして保存できます', 'success');
+    } else {
+      showToast('レポート画像をダウンロードしました', 'success');
     }
   };
 
-  const handleDownloadArchiveImages = async () => {
-    setIsArchiveImageBusy(true);
+  const handleDownloadTournamentReport = async () => {
+    setIsTournamentReportBusy(true);
     try {
-      const pngDataUrls = await captureExportPages('archive');
-      if (!pngDataUrls?.length || !results) return;
-
-      const filenames = buildArchiveExportFilenames(results.session.title, results);
-      const saveResult = await saveMultiplePngDataUrls(
-        filenames.slice(0, pngDataUrls.length),
-        pngDataUrls,
-      );
-      const n = saveResult.count;
-      if (saveResult.mode === 'share') {
-        showToast(`${n}枚のアーカイブ画像を共有できます`, 'success');
-      } else if (saveResult.mode === 'open') {
-        showToast('画像を開きました。長押しして保存できます', 'success');
-      } else {
-        showToast(`${n}枚のアーカイブ画像をダウンロードしました`, 'success');
-      }
+      const pngDataUrl = await captureReport('tournament');
+      if (!pngDataUrl || !results) return;
+      await saveReportPng(buildReportFilename(results.session.title, 'tournament'), pngDataUrl);
     } catch (e) {
       console.error(e);
       if ((e as Error)?.name === 'AbortError') return;
       showToast('画像の作成に失敗しました', 'error');
     } finally {
-      setIsArchiveImageBusy(false);
+      setIsTournamentReportBusy(false);
+    }
+  };
+
+  const handleDownloadOverallReport = async () => {
+    setIsOverallReportBusy(true);
+    try {
+      const pngDataUrl = await captureReport('overall');
+      if (!pngDataUrl || !results) return;
+      await saveReportPng(buildReportFilename(results.session.title, 'overall'), pngDataUrl);
+    } catch (e) {
+      console.error(e);
+      if ((e as Error)?.name === 'AbortError') return;
+      showToast('画像の作成に失敗しました', 'error');
+    } finally {
+      setIsOverallReportBusy(false);
+    }
+  };
+
+  const handleDownloadPersonalReport = async () => {
+    if (!selectedParticipantId) {
+      showToast('参加者を選択してください', 'error');
+      return;
+    }
+    setIsPersonalReportBusy(true);
+    try {
+      const pngDataUrl = await captureReport('personal', selectedParticipantId);
+      if (!pngDataUrl || !results) return;
+      const participant = results.rankings.find((r) => r.participant_id === selectedParticipantId);
+      const nameSuffix = participant
+        ? sanitizeDownloadBasename(participant.display_name, 'participant')
+        : 'personal';
+      await saveReportPng(
+        buildReportFilename(results.session.title, 'personal', nameSuffix),
+        pngDataUrl,
+      );
+    } catch (e) {
+      console.error(e);
+      if ((e as Error)?.name === 'AbortError') return;
+      showToast('画像の作成に失敗しました', 'error');
+    } finally {
+      setIsPersonalReportBusy(false);
     }
   };
 
@@ -518,7 +567,7 @@ export default function ResultsPage() {
             <div>
               <h2 className="ui-h3">共有</h2>
               <p className="text-sm ui-muted mt-1">
-                シェア用（1枚）とアーカイブ用（順位＋サンプル別）の画像を保存できます。
+                大会・全体・個人の3種類のレポート画像を保存できます。
               </p>
               {results.session.public_results === false && (
                 <p className="text-xs text-amber-200/80 mt-2">
@@ -544,24 +593,24 @@ export default function ResultsPage() {
             </Button>
             <Button
               variant="primary"
-              onClick={handleDownloadShareImage}
-              disabled={isShareImageBusy || isArchiveImageBusy || isPublishingRankingUrl}
+              onClick={handleDownloadTournamentReport}
+              disabled={isAnyReportBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isShareImageBusy ? '画像を作成中…' : 'シェア用画像を保存（1枚）'}
+              {isTournamentReportBusy ? '画像を作成中…' : '大会レポートを保存'}
             </Button>
             <Button
               variant="primary"
-              onClick={handleDownloadArchiveImages}
-              disabled={isShareImageBusy || isArchiveImageBusy || isPublishingRankingUrl}
+              onClick={handleDownloadOverallReport}
+              disabled={isAnyReportBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isArchiveImageBusy ? '画像を作成中…' : 'アーカイブ用画像を保存'}
+              {isOverallReportBusy ? '画像を作成中…' : '全体レポートを保存'}
             </Button>
             <Button
               variant="primary"
               onClick={handlePublishRankingImageUrl}
-              disabled={isShareImageBusy || isArchiveImageBusy || isPublishingRankingUrl}
+              disabled={isAnyReportBusy || isPublishingRankingUrl}
               className="w-full sm:col-span-2"
             >
               {isPublishingRankingUrl ? '公開URLを発行中…' : '順位表画像の公開URLを発行'}
@@ -811,7 +860,17 @@ export default function ResultsPage() {
           <div className="space-y-6">
             {/* 参加者選択 */}
             <div className="ui-card p-6">
-              <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加者選択</h2>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <h2 className="text-xl font-semibold text-stone-100 tracking-tight">参加者選択</h2>
+                <Button
+                  variant="primary"
+                  onClick={handleDownloadPersonalReport}
+                  disabled={!selectedParticipantId || isAnyReportBusy}
+                  className="shrink-0"
+                >
+                  {isPersonalReportBusy ? '画像を作成中…' : '個人レポートを保存'}
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {results.rankings.map((ranking) => (
                   <button
@@ -972,21 +1031,7 @@ export default function ResultsPage() {
           className="fixed left-0 top-0 -z-10 opacity-0 pointer-events-none overflow-visible"
         >
           <div ref={posterCaptureRef}>
-            <ResultsExportCapture
-              results={results}
-              joinToken={joinToken}
-              ownerToken={typeof window !== 'undefined' ? getOwnerToken(joinToken) : null}
-              resultsPageUrl={
-                typeof window !== 'undefined'
-                  ? buildResultsPageUrl(
-                      window.location.origin,
-                      joinToken,
-                      getOwnerToken(joinToken),
-                      results.session.public_results !== false,
-                    )
-                  : undefined
-              }
-            />
+            <ReportCaptureRoot results={toResultsSnapshot(results)} />
           </div>
         </div>
       )}

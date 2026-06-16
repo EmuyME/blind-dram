@@ -2,6 +2,7 @@
 
 import { IconGlass, IconSeal } from '@/components/reports/ReportIcons';
 import { REPORT_FONTS, REPORT_WIDTH_PX, type ReportTheme } from '@/lib/report-export/theme';
+import { REPORT_LINE, REPORT_SPACE, REPORT_TYPE } from '@/lib/report-export/typography';
 import type { ReactNode } from 'react';
 
 export function ReportShell({
@@ -25,13 +26,15 @@ export function ReportShell({
         background: theme.paperTexture,
         color: theme.ink,
         fontFamily: REPORT_FONTS.sans,
+        fontSize: REPORT_TYPE.tableBody,
+        lineHeight: REPORT_LINE.normal,
       }}
     >
       <div
         style={{
           background: theme.headerGradient,
           color: theme.headerText,
-          padding: '32px 40px 28px',
+          padding: '28px 40px 24px',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -46,31 +49,32 @@ export function ReportShell({
             pointerEvents: 'none',
           }}
         />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
-          <div style={{ opacity: 0.95 }}>
-            <IconGlass size={52} color={theme.accent} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', gap: 16 }}>
+          <div style={{ width: 48, flexShrink: 0, opacity: 0.95 }}>
+            <IconGlass size={44} color={theme.accent} />
           </div>
-          <div style={{ flex: 1, textAlign: 'center', padding: '0 16px' }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
             <p
               style={{
                 margin: 0,
-                fontSize: 36,
-                letterSpacing: '0.12em',
+                fontSize: REPORT_TYPE.brand,
+                letterSpacing: '0.14em',
                 color: theme.accent,
                 fontFamily: REPORT_FONTS.serif,
                 fontWeight: 700,
-                textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+                lineHeight: REPORT_LINE.tight,
               }}
             >
               BLIND DRAM
             </p>
             <h1
               style={{
-                margin: '6px 0 0',
-                fontSize: 22,
+                margin: '4px 0 0',
+                fontSize: REPORT_TYPE.subtitle,
                 fontWeight: 600,
-                letterSpacing: '0.06em',
+                letterSpacing: '0.05em',
                 fontFamily: REPORT_FONTS.serif,
+                lineHeight: REPORT_LINE.tight,
               }}
             >
               {theme.subtitle}
@@ -78,51 +82,69 @@ export function ReportShell({
             <div
               style={{
                 display: 'inline-block',
-                marginTop: 14,
-                padding: '8px 28px',
+                marginTop: 12,
+                padding: '6px 24px',
                 border: `1px solid ${theme.accent}`,
                 borderRadius: 4,
-                background: 'rgba(0,0,0,0.15)',
+                background: 'rgba(0,0,0,0.12)',
+                maxWidth: '100%',
               }}
             >
               <p
                 style={{
                   margin: 0,
-                  fontSize: 18,
+                  fontSize: REPORT_TYPE.session,
                   color: theme.accentLight,
                   fontFamily: REPORT_FONTS.serif,
-                  letterSpacing: '0.04em',
+                  letterSpacing: '0.03em',
+                  lineHeight: REPORT_LINE.normal,
+                  wordBreak: 'break-word',
                 }}
               >
                 {sessionTitle}
               </p>
             </div>
           </div>
-          <IconSeal size={60} color={theme.accent} />
+          <div style={{ width: 52, flexShrink: 0 }}>
+            <IconSeal size={52} color={theme.accent} />
+          </div>
         </div>
       </div>
 
       {participantBanner}
 
-      <div style={{ padding: '28px 36px 36px' }}>{children}</div>
+      <div style={{ padding: `${REPORT_SPACE.pageY}px ${REPORT_SPACE.pageX}px ${REPORT_SPACE.pageY + 4}px` }}>
+        {children}
+      </div>
 
       <div
         style={{
-          padding: '20px 36px 28px',
+          padding: '16px 40px 22px',
           textAlign: 'center',
           borderTop: `1px solid ${theme.rule}`,
           background: theme.paperAlt,
         }}
       >
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.7 }}>
-          <IconGlass size={22} color={theme.accent} />
-          <span style={{ fontSize: 13, fontFamily: REPORT_FONTS.serif, color: theme.inkMuted, letterSpacing: '0.15em' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.65 }}>
+          <IconGlass size={18} color={theme.accent} />
+          <span
+            style={{
+              fontSize: REPORT_TYPE.caption,
+              fontFamily: REPORT_FONTS.serif,
+              color: theme.inkMuted,
+              letterSpacing: '0.12em',
+            }}
+          >
             BLIND DRAM
           </span>
         </div>
       </div>
     </div>
   );
+}
+
+export function SectionBlock({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <section style={{ marginBottom: REPORT_SPACE.section, ...style }}>{children}</section>;
 }
 
 export function SectionTitle({
@@ -135,16 +157,16 @@ export function SectionTitle({
   icon?: ReactNode;
 }) {
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: REPORT_SPACE.block }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         {icon && (
           <div
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: `${theme.accent}22`,
-              border: `1px solid ${theme.accent}55`,
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: `${theme.accent}20`,
+              border: `1px solid ${theme.accent}44`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -157,17 +179,32 @@ export function SectionTitle({
         <h2
           style={{
             margin: 0,
-            fontSize: 20,
+            fontSize: REPORT_TYPE.section,
             fontWeight: 700,
             color: theme.headerBg,
             fontFamily: REPORT_FONTS.serif,
-            letterSpacing: '0.04em',
+            letterSpacing: '0.03em',
+            lineHeight: REPORT_LINE.tight,
           }}
         >
           {children}
         </h2>
       </div>
-      <div style={{ height: 2, background: `linear-gradient(90deg, ${theme.sectionBar} 0%, ${theme.rule} 100%)` }} />
+      <div style={{ height: 2, background: `linear-gradient(90deg, ${theme.sectionBar} 0%, ${theme.rule} 72%)` }} />
+    </div>
+  );
+}
+
+export function StatCardGrid({ columns, children }: { columns: number; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+        gap: REPORT_SPACE.card,
+      }}
+    >
+      {children}
     </div>
   );
 }
@@ -186,25 +223,40 @@ export function StatCard({
   return (
     <div
       style={{
-        flex: '1 1 140px',
-        minWidth: 120,
-        padding: '18px 14px 16px',
+        padding: '14px 10px 12px',
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
-        borderRadius: 12,
+        borderRadius: 10,
         textAlign: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 96,
       }}
     >
-      {icon && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>{icon}</div>}
-      <p style={{ margin: 0, fontSize: 12, color: theme.inkMuted, letterSpacing: '0.02em' }}>{label}</p>
+      {icon && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6, opacity: 0.9 }}>{icon}</div>}
       <p
         style={{
-          margin: '8px 0 0',
-          fontSize: 24,
+          margin: 0,
+          fontSize: REPORT_TYPE.statLabel,
+          color: theme.inkMuted,
+          letterSpacing: '0.02em',
+          lineHeight: REPORT_LINE.tight,
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          margin: '6px 0 0',
+          fontSize: REPORT_TYPE.statValue,
           fontWeight: 800,
           color: theme.headerBg,
           fontFamily: REPORT_FONTS.serif,
+          lineHeight: REPORT_LINE.tight,
+          wordBreak: 'break-word',
         }}
       >
         {value}
@@ -230,38 +282,51 @@ export function HighlightCard({
   return (
     <div
       style={{
-        flex: '1 1 28%',
-        minWidth: 150,
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
-        borderRadius: 12,
+        borderRadius: 10,
         overflow: 'hidden',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <div
         style={{
-          padding: '10px 14px',
-          background: headerTone === 'gold' ? `${theme.accent}22` : theme.paperAlt,
+          padding: '8px 12px',
+          background: headerTone === 'gold' ? `${theme.accent}18` : theme.paperAlt,
           borderBottom: `2px solid ${headerBg}`,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 6,
+          minHeight: 36,
         }}
       >
         {icon}
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme.headerBg }}>{title}</p>
+        <p
+          style={{
+            margin: 0,
+            fontSize: REPORT_TYPE.highlightTitle,
+            fontWeight: 700,
+            color: theme.headerBg,
+            lineHeight: REPORT_LINE.tight,
+          }}
+        >
+          {title}
+        </p>
       </div>
-      <div style={{ padding: '12px 14px' }}>
+      <div style={{ padding: '10px 12px 12px', flex: 1 }}>
         {lines.map((line, i) => (
           <p
             key={`${line}-${i}`}
             style={{
-              margin: i === 0 ? 0 : '6px 0 0',
-              fontSize: i === 0 ? 16 : 14,
+              margin: i === 0 ? 0 : '5px 0 0',
+              fontSize: i === 0 ? REPORT_TYPE.highlightPrimary : REPORT_TYPE.highlightSecondary,
               fontWeight: i === 0 ? 700 : 400,
-              lineHeight: 1.35,
+              lineHeight: REPORT_LINE.normal,
               color: i === 0 ? theme.ink : theme.inkMuted,
+              wordBreak: 'break-word',
             }}
           >
             {line}
@@ -276,22 +341,38 @@ export function ReportPanel({
   theme,
   children,
   style,
+  title,
 }: {
   theme: ReportTheme;
   children: React.ReactNode;
   style?: React.CSSProperties;
+  title?: string;
 }) {
   return (
     <div
       style={{
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
-        borderRadius: 12,
+        borderRadius: 10,
         padding: 16,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
         ...style,
       }}
     >
+      {title && (
+        <p
+          style={{
+            margin: '0 0 12px',
+            fontSize: REPORT_TYPE.panelTitle,
+            fontWeight: 700,
+            color: theme.headerBg,
+            fontFamily: REPORT_FONTS.serif,
+            lineHeight: REPORT_LINE.tight,
+          }}
+        >
+          {title}
+        </p>
+      )}
       {children}
     </div>
   );
@@ -300,16 +381,14 @@ export function ReportPanel({
 export function ReportTable({
   theme,
   children,
-  fontSize = 14,
+  fontSize = REPORT_TYPE.tableBody,
 }: {
   theme: ReportTheme;
   children: React.ReactNode;
   fontSize?: number;
 }) {
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize, borderRadius: 8, overflow: 'hidden' }}>
-      {children}
-    </table>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize, tableLayout: 'auto' }}>{children}</table>
   );
 }
 
@@ -333,11 +412,13 @@ export function ReportTh({
   return (
     <th
       style={{
-        padding: '10px 8px',
+        padding: '11px 10px',
         textAlign: align,
         fontWeight: 600,
-        fontSize: '0.92em',
+        fontSize: REPORT_TYPE.tableHead,
         letterSpacing: '0.02em',
+        lineHeight: REPORT_LINE.tight,
+        verticalAlign: 'middle',
         ...style,
       }}
     >
@@ -377,7 +458,17 @@ export function ReportTd({
   style?: React.CSSProperties;
 }) {
   return (
-    <td style={{ padding: '8px', textAlign: align, verticalAlign: 'middle', ...style }}>{children}</td>
+    <td
+      style={{
+        padding: '9px 10px',
+        textAlign: align,
+        verticalAlign: 'middle',
+        lineHeight: REPORT_LINE.normal,
+        ...style,
+      }}
+    >
+      {children}
+    </td>
   );
 }
 
@@ -385,28 +476,46 @@ export function ParticipantBanner({ theme, name }: { theme: ReportTheme; name: s
   return (
     <div
       style={{
-        padding: '20px 36px',
+        padding: '16px 40px',
         textAlign: 'center',
         background: theme.paperAlt,
         borderBottom: `1px solid ${theme.rule}`,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <span style={{ color: theme.accent, fontSize: 20, fontFamily: REPORT_FONTS.serif }}>✦</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+        <span style={{ color: theme.accent, fontSize: 16, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>✦</span>
         <p
           style={{
             margin: 0,
-            fontSize: 28,
+            fontSize: REPORT_TYPE.participant,
             fontWeight: 700,
             color: theme.ink,
             fontFamily: REPORT_FONTS.serif,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.04em',
+            lineHeight: REPORT_LINE.tight,
           }}
         >
           参加者：{name}
         </p>
-        <span style={{ color: theme.accent, fontSize: 20, fontFamily: REPORT_FONTS.serif }}>✦</span>
+        <span style={{ color: theme.accent, fontSize: 16, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>✦</span>
       </div>
     </div>
+  );
+}
+
+export function PanelTitle({ theme, children }: { theme: ReportTheme; children: React.ReactNode }) {
+  return (
+    <p
+      style={{
+        margin: '0 0 10px',
+        fontSize: REPORT_TYPE.panelTitle,
+        fontWeight: 700,
+        color: theme.headerBg,
+        fontFamily: REPORT_FONTS.serif,
+        lineHeight: REPORT_LINE.tight,
+      }}
+    >
+      {children}
+    </p>
   );
 }

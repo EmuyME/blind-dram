@@ -1,47 +1,47 @@
-/** レポート画像用タイポグラフィ・スペーシング */
+/**
+ * レポート画像用タイポグラフィ（1200px基準・2xキャプチャ想定）
+ * 最小本文16px、ラベルと数値のコントラストを強く取る
+ */
 
 export const REPORT_SPACE = {
-  pageX: 40,
-  pageY: 32,
-  section: 28,
-  block: 20,
-  card: 14,
-  item: 10,
-  tight: 6,
+  pageX: 36,
+  pageY: 28,
+  section: 32,
+  block: 18,
+  card: 12,
+  item: 8,
 } as const;
 
 export const REPORT_TYPE = {
-  brand: 30,
-  subtitle: 19,
-  session: 16,
-  participant: 24,
-  section: 17,
-  panelTitle: 14,
-  statLabel: 12,
-  statValue: 22,
-  highlightTitle: 12,
-  highlightPrimary: 15,
-  highlightSecondary: 13,
-  tableHead: 12,
-  tableBody: 13,
-  tableDense: 11,
-  tableNum: 14,
-  answer: 15,
-  answerMeta: 11,
-  roundTotal: 20,
-  chartAxis: 11,
-  chartTick: 10,
-  legend: 12,
-  caption: 11,
+  brand: 38,
+  subtitle: 22,
+  session: 18,
+  participant: 28,
+  section: 22,
+  panelTitle: 17,
+  statLabel: 14,
+  statValue: 32,
+  highlightTitle: 15,
+  highlightPrimary: 17,
+  highlightValue: 26,
+  highlightSecondary: 14,
+  tableHead: 15,
+  tableBody: 16,
+  tableNum: 17,
+  answer: 17,
+  answerMeta: 13,
+  roundTotal: 26,
+  chartAxis: 14,
+  chartTick: 13,
+  legend: 14,
+  caption: 13,
 } as const;
 
 export const REPORT_LINE = {
-  tight: 1.25,
-  normal: 1.45,
-  relaxed: 1.6,
+  tight: 1.2,
+  normal: 1.4,
 } as const;
 
-/** ラベル位置（レーダー等） */
 export function radialTextAnchor(angleRad: number): 'start' | 'middle' | 'end' {
   const cos = Math.cos(angleRad);
   if (cos > 0.35) return 'start';
@@ -52,9 +52,14 @@ export function radialTextAnchor(angleRad: number): 'start' | 'middle' | 'end' {
 export function radialDy(angleRad: number, line: 0 | 1): number {
   const sin = Math.sin(angleRad);
   if (line === 0) {
-    if (sin < -0.5) return 4;
+    if (sin < -0.5) return 5;
     if (sin > 0.5) return -2;
     return 0;
   }
-  return 14;
+  return 16;
+}
+
+/** 表ヘッダー用：1行で「地域(4pt)」 */
+export function columnHeader(label: string, points: number): string {
+  return `${label}(${points}pt)`;
 }

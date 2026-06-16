@@ -149,10 +149,10 @@ export const CHART_COLORS = [
 export const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
 
 export function tableFontSize(columnCount: number): number {
-  if (columnCount <= 6) return 15;
-  if (columnCount <= 8) return 13;
-  if (columnCount <= 10) return 12;
-  return 11;
+  if (columnCount <= 6) return 16;
+  if (columnCount <= 9) return 15;
+  if (columnCount <= 12) return 14;
+  return 13;
 }
 
 export function shortName(name: string, max = 7): string {

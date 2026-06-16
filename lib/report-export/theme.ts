@@ -1,4 +1,8 @@
 import type { Judgement } from '@/lib/report-data/types';
+import {
+  shortName as layoutShortName,
+  tableFontSize as layoutTableFontSize,
+} from '@/lib/report-export/layout-scale';
 
 export const REPORT_WIDTH_PX = 1200;
 export const REPORT_CAPTURE_PIXEL_RATIO = 2;
@@ -148,14 +152,10 @@ export const CHART_COLORS = [
 
 export const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
 
-export function tableFontSize(columnCount: number): number {
-  if (columnCount <= 8) return 16;
-  if (columnCount <= 12) return 15;
-  return 14;
+export function tableFontSize(columnCount: number, rowCount?: number): number {
+  return layoutTableFontSize(columnCount, rowCount ?? 1);
 }
 
 export function shortName(name: string, max = 7): string {
-  const t = name.trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
+  return layoutShortName(name, max);
 }

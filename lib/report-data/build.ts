@@ -8,6 +8,7 @@ import type { ResultsSnapshot } from '@/lib/report-data/results-snapshot';
 import {
   buildCategoryScoresForParticipant,
   buildRoundItem,
+  activeScoringItemKeys,
   getItemMaxScores,
   maxTotalScorePerRound,
   truthToReportFields,
@@ -212,6 +213,7 @@ export function buildPersonalReportData(
   const participantAvg = ranking.total_score / roundCount;
 
   const itemMaxScores = getItemMaxScores(results.scoring_snapshot);
+  const activeItemKeys = activeScoringItemKeys(results.scoring_snapshot);
   const maxTotalScorePerRoundVal = maxTotalScorePerRound(results.scoring_snapshot);
 
   const participantRounds = results.sample_details.map((s, i) => {
@@ -276,6 +278,7 @@ export function buildPersonalReportData(
     },
     rounds: participantRounds,
     itemMaxScores,
+    activeItemKeys,
     maxTotalScorePerRound: maxTotalScorePerRoundVal,
   };
 }

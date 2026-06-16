@@ -154,6 +154,7 @@ describe('buildPersonalReportData', () => {
     expect(data?.participant.totalScore).toBe(30);
     expect(data?.rounds).toHaveLength(2);
     expect(data?.maxTotalScorePerRound).toBeGreaterThan(0);
+    expect(data?.activeItemKeys.length).toBeGreaterThan(0);
   });
 
   it('returns null for unknown participant', () => {

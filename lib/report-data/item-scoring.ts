@@ -10,14 +10,9 @@ import {
 import type { Judgement, ReportItemKey, ReportRoundItem, ReportTruthFields } from '@/lib/report-data/types';
 import { REPORT_ITEM_KEYS } from '@/lib/report-data/types';
 import type { ResultsSnapshot } from '@/lib/report-data/results-snapshot';
+import { activeScoringItemKeys } from '@/lib/report-export/layout-scale';
 
-const KEY_MAP: Record<ReportItemKey, ScoringItemKey> = {
-  region: 'region',
-  distillery: 'distillery',
-  age: 'age',
-  abv: 'abv',
-  cask: 'cask',
-};
+export { activeScoringItemKeys };
 
 export function badgeToJudgement(
   kind: 'correct' | 'wrong' | 'partial' | 'unknown',
@@ -56,6 +51,8 @@ export function truthToReportFields(truth: ResultsSnapshot['sample_details'][0][
     age: formatFieldValue('age', truth.true_age),
     abv: formatFieldValue('abv', truth.true_abv),
     cask: formatFieldValue('cask', truth.true_cask),
+    other1: formatFieldValue('other1', truth.true_other1),
+    other2: formatFieldValue('other2', truth.true_other2),
   };
 }
 
@@ -74,6 +71,10 @@ function guessValue(
       return answer.guessed_abv;
     case 'cask':
       return answer.guessed_cask;
+    case 'other1':
+      return answer.guessed_other1 ?? null;
+    case 'other2':
+      return answer.guessed_other2 ?? null;
   }
 }
 
@@ -89,6 +90,10 @@ function truthValue(key: ReportItemKey, truth: ResultsSnapshot['sample_details']
       return truth.true_abv;
     case 'cask':
       return truth.true_cask;
+    case 'other1':
+      return truth.true_other1 ?? null;
+    case 'other2':
+      return truth.true_other2 ?? null;
   }
 }
 
@@ -102,8 +107,7 @@ export function buildRoundItem(
   const cfg = fullCfg.items;
   const caskOptions = (cfg.cask.options ?? []).map(String);
   const regionOptions = (cfg.region.options ?? []).map(String);
-  const sk = KEY_MAP[key];
-  const itemCfg = cfg[sk];
+  const itemCfg = cfg[key];
   const label = itemCfg.label;
   const maxScore = itemCfg.enabled && itemCfg.maxPoints > 0 ? itemCfg.maxPoints : 0;
 
@@ -124,6 +128,8 @@ export function buildRoundItem(
     guessed_age: answer.guessed_age,
     guessed_abv: answer.guessed_abv,
     guessed_distillery: answer.guessed_distillery,
+    guessed_other1: answer.guessed_other1 ?? null,
+    guessed_other2: answer.guessed_other2 ?? null,
   };
   const tIn: TruthScoreInput = {
     true_cask: truth.true_cask,
@@ -131,13 +137,15 @@ export function buildRoundItem(
     true_age: truth.true_age,
     true_abv: truth.true_abv,
     true_distillery: truth.true_distillery,
+    true_other1: truth.true_other1 ?? null,
+    true_other2: truth.true_other2 ?? null,
   };
   const grade: GradeScoreInput = {
     is_correct: answer.is_correct ?? null,
     item_grades: answer.item_grades,
   };
-  const badge = resultItemBadgeState(sk, itemCfg, aIn, tIn, grade, caskOptions, regionOptions);
-  const earned = scoreSingleItem(sk, itemCfg, aIn, tIn, grade, caskOptions, regionOptions);
+  const badge = resultItemBadgeState(key, itemCfg, aIn, tIn, grade, caskOptions, regionOptions);
+  const earned = scoreSingleItem(key, itemCfg, aIn, tIn, grade, caskOptions, regionOptions);
 
   return {
     label,
@@ -153,36 +161,22 @@ export function getItemMaxScores(scoringSnapshot: unknown): Record<ReportItemKey
   const cfg = normalizeScoringConfig(scoringSnapshot).items;
   const out = {} as Record<ReportItemKey, number>;
   for (const key of REPORT_ITEM_KEYS) {
-    const sk = KEY_MAP[key];
-    const it = cfg[sk];
+    const it = cfg[key];
     out[key] = it.enabled && it.maxPoints > 0 ? it.maxPoints : 0;
   }
   return out;
 }
 
 export function maxTotalScorePerRound(scoringSnapshot: unknown): number {
-  const m = getItemMaxScores(scoringSnapshot);
-  return REPORT_ITEM_KEYS.reduce((sum, k) => sum + m[k], 0);
+  return activeScoringItemKeys(scoringSnapshot).reduce((sum, k) => sum + getItemMaxScores(scoringSnapshot)[k], 0);
 }
 
 export function buildCategoryScoresForParticipant(
   results: ResultsSnapshot,
   participantId: string,
 ) {
-  const earned: Record<ReportItemKey, number> = {
-    region: 0,
-    distillery: 0,
-    age: 0,
-    abv: 0,
-    cask: 0,
-  };
-  const max: Record<ReportItemKey, number> = {
-    region: 0,
-    distillery: 0,
-    age: 0,
-    abv: 0,
-    cask: 0,
-  };
+  const earned = Object.fromEntries(REPORT_ITEM_KEYS.map((k) => [k, 0])) as Record<ReportItemKey, number>;
+  const max = Object.fromEntries(REPORT_ITEM_KEYS.map((k) => [k, 0])) as Record<ReportItemKey, number>;
 
   for (const sample of results.sample_details) {
     const snap = sample.scoring_snapshot ?? results.scoring_snapshot;
@@ -199,11 +193,10 @@ export function buildCategoryScoresForParticipant(
 
   const cfg = normalizeScoringConfig(results.scoring_snapshot).items;
   return REPORT_ITEM_KEYS.map((key) => {
-    const sk = KEY_MAP[key];
     const rate = max[key] > 0 ? Math.round((earned[key] / max[key]) * 100) : 0;
     return {
       key,
-      label: cfg[sk].label,
+      label: cfg[key].label,
       earnedScore: earned[key],
       maxScore: max[key],
       rate,

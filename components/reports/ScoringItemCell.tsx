@@ -7,39 +7,50 @@ import type { Judgement } from '@/lib/report-data/types';
 export function ScoringItemCell({
   item,
   theme,
+  compact = false,
 }: {
   item: { answer: string; truth: string; judgement: Judgement; earnedScore: number };
   theme: ReportTheme;
+  compact?: boolean;
 }) {
   const s = JUDGEMENT_STYLES[item.judgement];
   return (
     <td
       style={{
-        padding: '8px 26px 8px 6px',
+        padding: compact ? '6px 22px 6px 4px' : '8px 26px 8px 6px',
         verticalAlign: 'middle',
         background: s.bg,
         borderBottom: `1px solid ${theme.rule}`,
         position: 'relative',
         textAlign: 'center',
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
       }}
     >
-      <div style={{ fontSize: REPORT_TYPE.answer, fontWeight: 700, lineHeight: REPORT_LINE.tight, color: theme.ink }}>
+      <div
+        style={{
+          fontSize: compact ? REPORT_TYPE.answerMeta : REPORT_TYPE.answer,
+          fontWeight: 700,
+          lineHeight: REPORT_LINE.tight,
+          color: theme.ink,
+        }}
+      >
         {item.answer}
       </div>
-      <div style={{ marginTop: 3, fontSize: REPORT_TYPE.answerMeta, color: theme.inkMuted, lineHeight: REPORT_LINE.tight }}>
+      <div style={{ marginTop: 2, fontSize: REPORT_TYPE.answerMeta, color: theme.inkMuted, lineHeight: REPORT_LINE.tight }}>
         {item.truth}（{item.earnedScore}pt）
       </div>
       <span
         style={{
           position: 'absolute',
-          top: 5,
-          right: 5,
-          width: 20,
-          height: 20,
+          top: 4,
+          right: 4,
+          width: compact ? 18 : 20,
+          height: compact ? 18 : 20,
           borderRadius: '50%',
           background: s.badgeBg,
           color: '#fff',
-          fontSize: 11,
+          fontSize: compact ? 10 : 11,
           fontWeight: 800,
           display: 'flex',
           alignItems: 'center',

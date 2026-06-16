@@ -2,8 +2,11 @@
 
 export type Judgement = 'correct' | 'partial' | 'wrong' | 'unjudged';
 
-export const REPORT_ITEM_KEYS = ['region', 'distillery', 'age', 'abv', 'cask'] as const;
-export type ReportItemKey = (typeof REPORT_ITEM_KEYS)[number];
+import { SCORING_ITEM_KEYS, type ScoringItemKey } from '@/lib/scoring-schema';
+
+/** 採点スキーマと同期（other1/other2 含む） */
+export const REPORT_ITEM_KEYS = SCORING_ITEM_KEYS;
+export type ReportItemKey = ScoringItemKey;
 
 export type ReportTruthFields = {
   region: string;
@@ -11,6 +14,8 @@ export type ReportTruthFields = {
   age: string;
   abv: string;
   cask: string;
+  other1?: string;
+  other2?: string;
 };
 
 export type ReportRoundItem = {
@@ -156,5 +161,7 @@ export type PersonalReportData = {
     items: Record<ReportItemKey, ReportRoundItem>;
   }>;
   itemMaxScores: Record<ReportItemKey, number>;
+  /** 有効な採点項目（enabled かつ maxPoints > 0） */
+  activeItemKeys: ReportItemKey[];
   maxTotalScorePerRound: number;
 };

@@ -177,7 +177,7 @@ export function HighlightCard({
   return (
     <div style={{ ...cardSurface(theme), overflow: 'hidden' }}>
       <div style={panelHeaderBar(theme)}>{title}</div>
-      <div style={{ padding: '10px 10px 12px', textAlign: 'center' }}>
+      <div style={{ padding: '10px 10px 12px', textAlign: 'center', wordBreak: 'break-word' }}>
         {lines.map((line, i) => (
           <p key={`${line}-${i}`} style={highlightLineStyle(theme, line, i, REPORT_FONTS)}>
             {line}

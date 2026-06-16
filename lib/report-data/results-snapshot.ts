@@ -41,6 +41,8 @@ export type ResultsSnapshot = {
       guessed_age: number | string | null;
       guessed_abv: number | string | null;
       guessed_distillery: string;
+      guessed_other1?: string | null;
+      guessed_other2?: string | null;
       is_correct?: boolean | null;
       item_grades?: ItemGradesMap | null;
       score: number;

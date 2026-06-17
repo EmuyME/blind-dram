@@ -7,9 +7,14 @@ import {
   PersonalResultCard,
   PersonalSectionTitle,
 } from '@/components/reports/personal/PersonalReportParts';
-import { CaptureVAlign } from '@/components/reports/personal/capture-align';
+import { captureLineBox, CaptureVAlign, headerCellContentH } from '@/components/reports/personal/capture-align';
 import { PersonalScoreCell } from '@/components/reports/personal/PersonalScoreCell';
-import { PersonalReportShell, PERSONAL_CONTENT_W, PersonalTableHeadCell, personalTableHeadStyle } from '@/components/reports/personal/PersonalReportShell';
+import {
+  PERSONAL_CONTENT_W,
+  PersonalReportShell,
+  personalTableHeadStyle,
+  TH_HEIGHT,
+} from '@/components/reports/personal/PersonalReportShell';
 import { PERSONAL_CANVAS, PERSONAL_SHADOW, PERSONAL_V1 } from '@/components/reports/personal/personal-tokens';
 import type { PersonalReportData, ReportItemKey } from '@/lib/report-data/types';
 import { personalRoundTableColWidths, personalTableLayout } from '@/lib/report-export/personal-layout-scale';
@@ -28,6 +33,7 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
   const tbl = personalTableLayout(roundCount, answerKeys.length);
   const colWidths = personalRoundTableColWidths(answerKeys.length);
   const thStyle = personalTableHeadStyle(tbl);
+  const headContentH = headerCellContentH(tbl.headFs, tbl.headPtsFs);
 
   return (
     <PersonalReportShell>
@@ -47,8 +53,18 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
 
       <section>
         <PersonalSectionTitle>全てのラウンドの回答と得点</PersonalSectionTitle>
-        <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${PERSONAL_V1.cardBorder}`, boxShadow: PERSONAL_SHADOW.sheet, background: PERSONAL_V1.cardBg }}>
-          <table style={{ width: PERSONAL_CONTENT_W, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <div
+          style={{
+            borderRadius: 10,
+            overflow: 'hidden',
+            border: `1px solid ${PERSONAL_V1.cardBorder}`,
+            boxShadow: PERSONAL_SHADOW.sheet,
+            background: PERSONAL_V1.cardBg,
+          }}
+        >
+          <table
+            style={{ width: PERSONAL_CONTENT_W, borderCollapse: 'collapse', tableLayout: 'fixed' }}
+          >
             <colgroup>
               {colWidths.map((w, i) => (
                 <col key={i} style={{ width: w }} />
@@ -56,34 +72,70 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
             </colgroup>
             <thead>
               <tr>
+                {/* No. ヘッダー */}
                 <th style={{ ...thStyle, textAlign: 'center' }}>
-                  <PersonalTableHeadCell align="center" padding={tbl.padding}>
+                  <CaptureVAlign
+                    height={TH_HEIGHT}
+                    contentH={headContentH}
+                    padding={tbl.padding}
+                    align="center"
+                  >
                     No.
-                  </PersonalTableHeadCell>
+                  </CaptureVAlign>
                 </th>
+                {/* サンプル ヘッダー */}
                 <th style={{ ...thStyle, textAlign: 'left' }}>
-                  <PersonalTableHeadCell align="left" padding={tbl.padding}>
+                  <CaptureVAlign
+                    height={TH_HEIGHT}
+                    contentH={headContentH}
+                    padding={tbl.padding}
+                    align="left"
+                  >
                     サンプル
-                  </PersonalTableHeadCell>
+                  </CaptureVAlign>
                 </th>
+                {/* 出題者 ヘッダー */}
                 <th style={{ ...thStyle, textAlign: 'left' }}>
-                  <PersonalTableHeadCell align="left" padding={tbl.padding}>
+                  <CaptureVAlign
+                    height={TH_HEIGHT}
+                    contentH={headContentH}
+                    padding={tbl.padding}
+                    align="left"
+                  >
                     出題者
-                  </PersonalTableHeadCell>
+                  </CaptureVAlign>
                 </th>
+                {/* 採点列 ヘッダー */}
                 {answerKeys.map((key) => {
                   const pts = data.itemMaxScores[key];
-                  const label = data.analysis.categoryScores.find((c) => c.key === key)?.label ?? key;
+                  const label =
+                    data.analysis.categoryScores.find((c) => c.key === key)?.label ?? key;
                   return (
                     <th key={key} style={{ ...thStyle, textAlign: 'left' }}>
-                      <PersonalTableHeadCell align="left" padding={tbl.padding}>
-                        <PersonalColumnHeader label={label} points={pts} headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
-                      </PersonalTableHeadCell>
+                      <CaptureVAlign
+                        height={TH_HEIGHT}
+                        contentH={headContentH}
+                        padding={tbl.padding}
+                        align="left"
+                      >
+                        <PersonalColumnHeader
+                          label={label}
+                          points={pts}
+                          headFs={tbl.headFs}
+                          headPtsFs={tbl.headPtsFs}
+                        />
+                      </CaptureVAlign>
                     </th>
                   );
                 })}
+                {/* 合計 ヘッダー */}
                 <th style={{ ...thStyle, textAlign: 'center' }}>
-                  <PersonalTableHeadCell align="center" padding={tbl.padding}>
+                  <CaptureVAlign
+                    height={TH_HEIGHT}
+                    contentH={headContentH}
+                    padding={tbl.padding}
+                    align="center"
+                  >
                     <PersonalColumnHeader
                       label="合計得点"
                       points={data.maxTotalScorePerRound}
@@ -91,43 +143,93 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                       headFs={tbl.headFs}
                       headPtsFs={tbl.headPtsFs}
                     />
-                  </PersonalTableHeadCell>
+                  </CaptureVAlign>
                 </th>
               </tr>
             </thead>
             <tbody>
               {data.rounds.map((round, i) => (
-                <tr key={round.sampleId} style={{ background: i % 2 === 1 ? PERSONAL_V1.zebra : PERSONAL_V1.cardBg }}>
-                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${PERSONAL_V1.rule}` }}>
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="center"
-                      style={{ fontSize: tbl.noFs, fontWeight: 800, fontFamily: REPORT_FONTS.serif, color: PERSONAL_V1.headerBg }}
+                <tr
+                  key={round.sampleId}
+                  style={{
+                    background: i % 2 === 1 ? PERSONAL_V1.zebra : PERSONAL_V1.cardBg,
+                  }}
+                >
+                  {/* No. セル: 1行 → captureLineBox */}
+                  <td
+                    style={{
+                      height: tbl.rowH,
+                      padding: 0,
+                      verticalAlign: 'top',
+                      textAlign: 'center',
+                      borderBottom: `1px solid ${PERSONAL_V1.rule}`,
+                    }}
+                  >
+                    <span
+                      style={captureLineBox(tbl.rowH, {
+                        fontSize: tbl.noFs,
+                        fontWeight: 800,
+                        fontFamily: REPORT_FONTS.serif,
+                        color: PERSONAL_V1.headerBg,
+                        textAlign: 'center',
+                      })}
                     >
                       {round.roundNo}
-                    </CaptureVAlign>
+                    </span>
                   </td>
-                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${PERSONAL_V1.rule}` }}>
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="left"
-                      style={{ fontSize: tbl.sampleFs, fontWeight: 700, color: PERSONAL_V1.ink, wordBreak: 'break-word' }}
+
+                  {/* サンプル名セル: 1行想定 → captureLineBox */}
+                  <td
+                    style={{
+                      height: tbl.rowH,
+                      padding: 0,
+                      verticalAlign: 'top',
+                      textAlign: 'left',
+                      borderBottom: `1px solid ${PERSONAL_V1.rule}`,
+                    }}
+                  >
+                    <span
+                      style={captureLineBox(tbl.rowH, {
+                        fontSize: tbl.sampleFs,
+                        fontWeight: 700,
+                        color: PERSONAL_V1.ink,
+                        paddingLeft: tbl.padding.split(/\s+/)[1] ?? tbl.padding.split(/\s+/)[0],
+                        wordBreak: 'break-word',
+                        lineHeight: 1.25,
+                        // 長いサンプル名は折り返しで下がるが、paddingTop で光学中央に
+                        display: 'flex',
+                        alignItems: 'center',
+                      })}
                     >
                       {round.sampleName}
-                    </CaptureVAlign>
+                    </span>
                   </td>
-                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${PERSONAL_V1.rule}` }}>
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="left"
-                      style={{ fontSize: Math.max(12, tbl.sampleFs - 1), color: PERSONAL_V1.inkMuted }}
+
+                  {/* 出題者セル: 1行想定 → captureLineBox */}
+                  <td
+                    style={{
+                      height: tbl.rowH,
+                      padding: 0,
+                      verticalAlign: 'top',
+                      textAlign: 'left',
+                      borderBottom: `1px solid ${PERSONAL_V1.rule}`,
+                    }}
+                  >
+                    <span
+                      style={captureLineBox(tbl.rowH, {
+                        fontSize: Math.max(12, tbl.sampleFs - 1),
+                        color: PERSONAL_V1.inkMuted,
+                        paddingLeft: tbl.padding.split(/\s+/)[1] ?? tbl.padding.split(/\s+/)[0],
+                        lineHeight: 1.25,
+                        display: 'flex',
+                        alignItems: 'center',
+                      })}
                     >
                       {round.presenterName}
-                    </CaptureVAlign>
+                    </span>
                   </td>
+
+                  {/* 採点セル */}
                   {answerKeys.map((key) => (
                     <PersonalScoreCell
                       key={key}
@@ -142,27 +244,33 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                       }}
                     />
                   ))}
+
+                  {/* 合計得点セル: 1行 → captureLineBox */}
                   <td
                     style={{
                       height: tbl.rowH,
                       padding: 0,
-                      verticalAlign: 'middle',
+                      verticalAlign: 'top',
+                      textAlign: 'center',
                       background: `linear-gradient(180deg, ${PERSONAL_V1.paperAlt}, ${PERSONAL_V1.zebra})`,
                       borderBottom: `1px solid ${PERSONAL_V1.rule}`,
                       borderLeft: `1px solid ${PERSONAL_V1.ruleStrong}`,
                     }}
                   >
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="center"
-                      style={{ fontSize: tbl.totalFs, fontWeight: 800, fontFamily: REPORT_FONTS.serif, color: PERSONAL_V1.headerBg, lineHeight: 1 }}
+                    <span
+                      style={captureLineBox(tbl.rowH, {
+                        fontSize: tbl.totalFs,
+                        fontWeight: 800,
+                        fontFamily: REPORT_FONTS.serif,
+                        color: PERSONAL_V1.headerBg,
+                        textAlign: 'center',
+                      })}
                     >
-                      <>
-                        {round.totalScore}
-                        <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
-                      </>
-                    </CaptureVAlign>
+                      {round.totalScore}
+                      <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>
+                        pt
+                      </span>
+                    </span>
                   </td>
                 </tr>
               ))}

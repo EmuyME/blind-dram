@@ -17,7 +17,9 @@ export function PersonalColumnHeader({
   return (
     <span style={{ textAlign: align, lineHeight: 1.2, display: 'block' }}>
       <span style={{ display: 'block', fontSize: headFs, fontWeight: 700 }}>{label}</span>
-      <span style={{ display: 'block', fontSize: headPtsFs, fontWeight: 600, opacity: 0.9, marginTop: 1 }}>({points}pt)</span>
+      <span style={{ display: 'block', fontSize: headPtsFs, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>
+        ({points}pt)
+      </span>
     </span>
   );
 }

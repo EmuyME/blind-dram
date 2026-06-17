@@ -12,7 +12,15 @@ import {
   tableLayout,
 } from '@/components/design-mocks/personal-report/layout-scale';
 import { CANVAS, COLORS, FONT, JUDGEMENT, SHADOW } from '@/components/design-mocks/personal-report/tokens';
-import { CaptureVAlign } from '@/components/reports/personal/capture-align';
+import {
+  CaptureVAlign,
+  captureLineBox,
+  scoreCellContentH,
+  resultCardContentH,
+  insightCardContentH,
+  bottleCardBodyContentH,
+  headerCellContentH,
+} from '@/components/reports/personal/capture-align';
 
 const CONTENT_W = CANVAS.width - CANVAS.padding * 2;
 const TH_HEIGHT = 48;
@@ -100,7 +108,8 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 function ResultCard({ label, value, featured }: { label: string; value: string; featured?: boolean }) {
   const cardH = 112;
-  const innerH = featured ? cardH - 3 - 1 : cardH - 2;
+  const innerH = cardH - (featured ? 3 : 1) - 1;
+  const contentH = resultCardContentH();
   return (
     <div
       style={{
@@ -114,10 +123,10 @@ function ResultCard({ label, value, featured }: { label: string; value: string; 
         overflow: 'hidden',
       }}
     >
-      <CaptureVAlign height={innerH} align="center" padding="0 12px">
+      <CaptureVAlign height={innerH} contentH={contentH} align="center" padding="0 12px">
         <div>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
-          <p style={{ margin: '8px 0 0', fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2, textAlign: 'center' }}>{label}</p>
+          <p style={{ margin: '8px 0 0', fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1, textAlign: 'center' }}>
             {value}
           </p>
         </div>
@@ -134,60 +143,46 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
       {categories.map((c) => {
         const trackH = layout.barH;
         return (
-        <div
-          key={c.label}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `${layout.labelCol}px 1fr ${layout.rateCol}px`,
-            gap: layout.gap > 9 ? 10 : 14,
-            height: trackH,
-          }}
-        >
-          <CaptureVAlign height={trackH} align="left">
-            <span style={{ fontSize: layout.labelFont, fontWeight: 700, color: COLORS.ink, wordBreak: 'keep-all' }}>{c.label}</span>
-          </CaptureVAlign>
           <div
+            key={c.label}
             style={{
-              position: 'relative',
+              display: 'grid',
+              gridTemplateColumns: `${layout.labelCol}px 1fr ${layout.rateCol}px`,
+              gap: layout.gap > 9 ? 10 : 14,
               height: trackH,
-              borderRadius: 7,
-              overflow: 'hidden',
-              background: COLORS.barTrack,
             }}
           >
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: `${c.rate}%`,
-                background: `linear-gradient(90deg, ${COLORS.headerBg}bb, ${COLORS.headerBg})`,
-                borderRadius: 7,
-                minWidth: c.rate > 0 ? 6 : 0,
-              }}
-            />
-            <CaptureVAlign
-              height={trackH}
-              padding="0 0 0 8px"
-              align="left"
-              style={{
+            <span style={captureLineBox(trackH, { fontSize: layout.labelFont, fontWeight: 700, color: COLORS.ink, textAlign: 'left', wordBreak: 'keep-all' })}>
+              {c.label}
+            </span>
+            <div style={{ position: 'relative', height: trackH, borderRadius: 7, overflow: 'hidden', background: COLORS.barTrack }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0, top: 0, bottom: 0,
+                  width: `${c.rate}%`,
+                  background: `linear-gradient(90deg, ${COLORS.headerBg}bb, ${COLORS.headerBg})`,
+                  borderRadius: 7,
+                  minWidth: c.rate > 0 ? 6 : 0,
+                }}
+              />
+              <span style={captureLineBox(trackH, {
                 position: 'relative',
                 zIndex: 1,
+                paddingLeft: 8,
                 fontSize: layout.scoreFont,
                 fontWeight: 700,
                 color: c.rate >= 40 ? '#fff' : COLORS.inkMuted,
                 fontFamily: FONT.serif,
                 whiteSpace: 'nowrap',
-              }}
-            >
-              {c.earned}/{c.max}pt
-            </CaptureVAlign>
+              })}>
+                {c.earned}/{c.max}pt
+              </span>
+            </div>
+            <span style={captureLineBox(trackH, { fontSize: layout.valueFont, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, textAlign: 'right' })}>
+              {c.rate}%
+            </span>
           </div>
-          <CaptureVAlign height={trackH} align="right">
-            <span style={{ fontSize: layout.valueFont, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif }}>{c.rate}%</span>
-          </CaptureVAlign>
-        </div>
         );
       })}
     </div>
@@ -198,6 +193,7 @@ function InsightCard({ kind, category, categoryCount }: { kind: 'best' | 'worst'
   const isBest = kind === 'best';
   const ins = insightCardLayout(categoryCount);
   const cardH = categoryCount > 6 ? 96 : 108;
+  const contentH = insightCardContentH(ins.titleFs, ins.labelFs);
   return (
     <div
       style={{
@@ -210,7 +206,7 @@ function InsightCard({ kind, category, categoryCount }: { kind: 'best' | 'worst'
         overflow: 'hidden',
       }}
     >
-      <CaptureVAlign height={cardH} padding={ins.padding} align="left">
+      <CaptureVAlign height={cardH} contentH={contentH} padding={ins.padding} align="left">
         <div>
           <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: COLORS.inkSoft, letterSpacing: '0.04em' }}>
             {isBest ? '最得意部門' : '要改善部門'}
@@ -220,9 +216,7 @@ function InsightCard({ kind, category, categoryCount }: { kind: 'best' | 'worst'
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: COLORS.inkMuted }}>
             <span style={{ fontFamily: FONT.serif, fontWeight: 800, color: COLORS.headerBg, fontSize: ins.rateFs }}>{category.rate}%</span>
-            <span style={{ marginLeft: 6, fontSize: 12 }}>
-              （{category.earned}/{category.max}pt）
-            </span>
+            <span style={{ marginLeft: 6, fontSize: 12 }}>（{category.earned}/{category.max}pt）</span>
           </p>
         </div>
       </CaptureVAlign>
@@ -241,6 +235,8 @@ function BottleCard({
   score: number;
   layout: ReturnType<typeof bottleCardLayout>;
 }) {
+  const bodyH = 120;
+  const contentH = bottleCardBodyContentH(layout.nameFs, layout.scoreFs);
   return (
     <div
       style={{
@@ -258,13 +254,13 @@ function BottleCard({
       <div style={{ padding: '9px 10px', background: COLORS.headerBg, color: '#fff', fontSize: layout.titleFs, fontWeight: 700, textAlign: 'center', letterSpacing: '0.04em' }}>
         {title}
       </div>
-      <div style={{ flex: 1, minHeight: 0, background: `linear-gradient(180deg, ${COLORS.cardBg}, ${COLORS.zebra})` }}>
-        <CaptureVAlign height={120} align="center" padding="8px 10px">
+      <div style={{ flex: 1, background: `linear-gradient(180deg, ${COLORS.cardBg}, ${COLORS.zebra})` }}>
+        <CaptureVAlign height={bodyH} contentH={contentH} padding="8px 10px" align="center">
           <div>
             <p style={{ margin: 0, fontSize: layout.nameFs, fontWeight: 700, color: COLORS.ink, textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
               {name}
             </p>
-            <p style={{ margin: '6px 0 0', fontSize: layout.scoreFs, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
+            <p style={{ margin: '6px 0 0', fontSize: layout.scoreFs, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1, textAlign: 'center' }}>
               {score}
               <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
             </p>
@@ -275,12 +271,10 @@ function BottleCard({
   );
 }
 
-function scoreCellPadding(padding: string, padRight: number): string {
+function scoreCellHPad(padding: string, padRight: number): string {
   const parts = padding.trim().split(/\s+/);
-  if (parts.length === 1) return `${parts[0]} ${padRight}px ${parts[0]} ${parts[0]}`;
-  if (parts.length === 2) return `${parts[0]} ${padRight}px ${parts[0]} ${parts[1]}`;
-  if (parts.length === 3) return `${parts[0]} ${padRight}px ${parts[2]} ${parts[1]}`;
-  return `${parts[0]} ${padRight}px ${parts[2]} ${parts[3]}`;
+  const left = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
+  return `0 ${padRight}px 0 ${left}`;
 }
 
 function ScoreCell({
@@ -301,13 +295,15 @@ function ScoreCell({
   cellPadding: string;
 }) {
   const j = JUDGEMENT[item.judgement];
+  const contentH = scoreCellContentH(answerFs, metaFs);
+  const badgeTop = Math.max(6, Math.round((rowH - badgeSize) / 2));
 
   return (
     <td
       style={{
         position: 'relative',
         padding: 0,
-        verticalAlign: 'middle',
+        verticalAlign: 'top',
         textAlign: 'left',
         background: j.bg,
         borderBottom: `1px solid ${COLORS.rule}`,
@@ -316,7 +312,7 @@ function ScoreCell({
         overflowWrap: 'anywhere',
       }}
     >
-      <CaptureVAlign height={rowH} padding={scoreCellPadding(cellPadding, padRight)} align="left">
+      <CaptureVAlign height={rowH} contentH={contentH} padding={scoreCellHPad(cellPadding, padRight)} align="left">
         <div>
           <div style={{ fontSize: answerFs, fontWeight: 700, lineHeight: 1.25, color: COLORS.ink }}>{item.answer}</div>
           <div style={{ marginTop: 4, fontSize: metaFs, lineHeight: 1.25, color: COLORS.inkMuted }}>
@@ -327,7 +323,7 @@ function ScoreCell({
       <span
         style={{
           position: 'absolute',
-          top: Math.max(6, Math.round((rowH - badgeSize) / 2)),
+          top: badgeTop,
           right: 8,
           width: badgeSize,
           height: badgeSize,
@@ -364,16 +360,8 @@ function ColumnHeader({
   return (
     <span style={{ textAlign: align, lineHeight: 1.2, display: 'block' }}>
       <span style={{ display: 'block', fontSize: headFs, fontWeight: 700 }}>{label}</span>
-      <span style={{ display: 'block', fontSize: headPtsFs, fontWeight: 600, opacity: 0.9, marginTop: 1 }}>({points}pt)</span>
+      <span style={{ display: 'block', fontSize: headPtsFs, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>({points}pt)</span>
     </span>
-  );
-}
-
-function TableHeadCell({ align, padding, children }: { align: 'left' | 'center'; padding: string; children: ReactNode }) {
-  return (
-    <CaptureVAlign height={TH_HEIGHT} padding={padding} align={align}>
-      {children}
-    </CaptureVAlign>
   );
 }
 
@@ -394,6 +382,7 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
   const tbl = tableLayout(roundCount, scoringCount);
   const colWidths = roundTableColWidths(scoringCount);
   const categoryCompact = categoryCount > 6;
+  const headContentH = headerCellContentH(tbl.headFs, tbl.headPtsFs);
 
   const thStyle: CSSProperties = {
     height: TH_HEIGHT,
@@ -403,7 +392,7 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
     color: '#fff',
     background: COLORS.headerBg,
     borderBottom: `1px solid ${COLORS.headerBgDeep}`,
-    verticalAlign: 'middle',
+    verticalAlign: 'top',
   };
 
   return (
@@ -484,66 +473,59 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
             <thead>
               <tr>
                 <th style={{ ...thStyle, textAlign: 'center' }}>
-                  <TableHeadCell align="center" padding={tbl.padding}>
+                  <CaptureVAlign height={TH_HEIGHT} contentH={headContentH} padding={tbl.padding} align="center">
                     No.
-                  </TableHeadCell>
+                  </CaptureVAlign>
                 </th>
                 <th style={{ ...thStyle, textAlign: 'left' }}>
-                  <TableHeadCell align="left" padding={tbl.padding}>
+                  <CaptureVAlign height={TH_HEIGHT} contentH={headContentH} padding={tbl.padding} align="left">
                     サンプル
-                  </TableHeadCell>
+                  </CaptureVAlign>
                 </th>
                 <th style={{ ...thStyle, textAlign: 'left' }}>
-                  <TableHeadCell align="left" padding={tbl.padding}>
+                  <CaptureVAlign height={TH_HEIGHT} contentH={headContentH} padding={tbl.padding} align="left">
                     出題者
-                  </TableHeadCell>
+                  </CaptureVAlign>
                 </th>
                 {data.scoringColumns.map((col) => (
                   <th key={col.key} style={{ ...thStyle, textAlign: 'left' }}>
-                    <TableHeadCell align="left" padding={tbl.padding}>
+                    <CaptureVAlign height={TH_HEIGHT} contentH={headContentH} padding={tbl.padding} align="left">
                       <ColumnHeader label={col.label} points={col.points} headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
-                    </TableHeadCell>
+                    </CaptureVAlign>
                   </th>
                 ))}
                 <th style={{ ...thStyle, textAlign: 'center' }}>
-                  <TableHeadCell align="center" padding={tbl.padding}>
+                  <CaptureVAlign height={TH_HEIGHT} contentH={headContentH} padding={tbl.padding} align="center">
                     <ColumnHeader label="合計得点" points={data.maxTotalPerRound} align="center" headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
-                  </TableHeadCell>
+                  </CaptureVAlign>
                 </th>
               </tr>
             </thead>
             <tbody>
               {data.rounds.map((r, i) => (
                 <tr key={r.no} style={{ background: i % 2 === 1 ? COLORS.zebra : COLORS.cardBg }}>
-                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${COLORS.rule}` }}>
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="center"
-                      style={{ fontSize: tbl.noFs, fontWeight: 800, fontFamily: FONT.serif, color: COLORS.headerBg }}
-                    >
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'top', textAlign: 'center', borderBottom: `1px solid ${COLORS.rule}` }}>
+                    <span style={captureLineBox(tbl.rowH, { fontSize: tbl.noFs, fontWeight: 800, fontFamily: FONT.serif, color: COLORS.headerBg, textAlign: 'center' })}>
                       {r.no}
-                    </CaptureVAlign>
+                    </span>
                   </td>
-                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${COLORS.rule}` }}>
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="left"
-                      style={{ fontSize: tbl.sampleFs, fontWeight: 700, color: COLORS.ink, wordBreak: 'break-word' }}
-                    >
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'top', borderBottom: `1px solid ${COLORS.rule}` }}>
+                    <span style={captureLineBox(tbl.rowH, {
+                      fontSize: tbl.sampleFs, fontWeight: 700, color: COLORS.ink,
+                      paddingLeft: tbl.padding.split(/\s+/)[1] ?? tbl.padding.split(/\s+/)[0],
+                      lineHeight: 1.25, display: 'flex', alignItems: 'center',
+                    })}>
                       {r.sample}
-                    </CaptureVAlign>
+                    </span>
                   </td>
-                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${COLORS.rule}` }}>
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="left"
-                      style={{ fontSize: Math.max(12, tbl.sampleFs - 1), color: COLORS.inkMuted }}
-                    >
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'top', borderBottom: `1px solid ${COLORS.rule}` }}>
+                    <span style={captureLineBox(tbl.rowH, {
+                      fontSize: Math.max(12, tbl.sampleFs - 1), color: COLORS.inkMuted,
+                      paddingLeft: tbl.padding.split(/\s+/)[1] ?? tbl.padding.split(/\s+/)[0],
+                      lineHeight: 1.25, display: 'flex', alignItems: 'center',
+                    })}>
                       {r.presenter}
-                    </CaptureVAlign>
+                    </span>
                   </td>
                   {data.scoringColumns.map((col) => {
                     const item = r.items[col.key] ?? { answer: '—', truth: '—', judgement: 'unjudged' as const, points: 0 };
@@ -564,23 +546,17 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
                     style={{
                       height: tbl.rowH,
                       padding: 0,
-                      verticalAlign: 'middle',
+                      verticalAlign: 'top',
+                      textAlign: 'center',
                       background: `linear-gradient(180deg, ${COLORS.paperAlt}, ${COLORS.zebra})`,
                       borderBottom: `1px solid ${COLORS.rule}`,
                       borderLeft: `1px solid ${COLORS.ruleStrong}`,
                     }}
                   >
-                    <CaptureVAlign
-                      height={tbl.rowH}
-                      padding={tbl.padding}
-                      align="center"
-                      style={{ fontSize: tbl.totalFs, fontWeight: 800, fontFamily: FONT.serif, color: COLORS.headerBg, lineHeight: 1 }}
-                    >
-                      <>
-                        {r.total}
-                        <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
-                      </>
-                    </CaptureVAlign>
+                    <span style={captureLineBox(tbl.rowH, { fontSize: tbl.totalFs, fontWeight: 800, fontFamily: FONT.serif, color: COLORS.headerBg, textAlign: 'center' })}>
+                      {r.total}
+                      <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
+                    </span>
                   </td>
                 </tr>
               ))}

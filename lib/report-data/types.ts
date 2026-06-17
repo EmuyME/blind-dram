@@ -120,6 +120,7 @@ export type OverallReportData = {
 
 export type PersonalReportData = {
   sessionTitle: string;
+  sessionDate: string;
   participant: {
     participantId: string;
     name: string;

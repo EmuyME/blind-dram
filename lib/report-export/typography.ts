@@ -1,53 +1,48 @@
 /**
- * レポート画像用タイポグラフィ（1200px基準・2xキャプチャ想定）
- *
- * タイプスケール（5段階）:
- * - Display … ブランド・参加者名
- * - Title   … セクション見出し
- * - Head    … パネル・カード見出し
- * - Body    … 表本文・ラベル
- * - Data    … 数値・得点（セリフ・太字）
+ * レポート画像用タイポグラフィ（1200px · 2x PNG）
  */
 
 export const REPORT_SPACE = {
-  pageX: 36,
-  pageY: 24,
-  section: 24,
-  block: 14,
-  card: 10,
-  grid: 10,
+  pageX: 40,
+  pageY: 28,
+  section: 28,
+  block: 16,
+  card: 12,
+  grid: 12,
 } as const;
 
-export const CHART_LABEL_PAD = 60;
+export const CHART_LABEL_PAD = 64;
 
 export const REPORT_TYPE = {
-  brand: 36,
-  subtitle: 20,
-  session: 17,
-  participant: 26,
-  section: 20,
-  panelTitle: 15,
-  statLabel: 13,
-  statValue: 28,
-  highlightTitle: 15,
-  highlightPrimary: 16,
-  highlightValue: 24,
-  highlightSecondary: 13,
-  tableHead: 14,
-  tableBody: 15,
-  tableNum: 16,
-  answer: 15,
-  answerMeta: 13,
-  roundTotal: 22,
-  chartAxis: 14,
-  chartTick: 13,
-  legend: 14,
-  caption: 13,
+  brand: 13,
+  subtitle: 18,
+  session: 15,
+  date: 14,
+  participant: 24,
+  section: 19,
+  cardTitle: 14,
+  metricLabel: 12,
+  metricValue: 26,
+  highlightTitle: 13,
+  highlightPrimary: 15,
+  highlightValue: 22,
+  highlightSecondary: 12,
+  tableHead: 13,
+  tableBody: 14,
+  tableNum: 15,
+  answer: 14,
+  answerMeta: 11,
+  roundTotal: 20,
+  rankLarge: 28,
+  chartAxis: 13,
+  chartTick: 12,
+  legend: 13,
+  caption: 12,
 } as const;
 
 export const REPORT_LINE = {
-  tight: 1.25,
-  normal: 1.45,
+  tight: 1.3,
+  normal: 1.5,
 } as const;
 
 export function radialTextAnchor(angleRad: number): 'start' | 'middle' | 'end' {
@@ -64,11 +59,12 @@ export function radialDy(angleRad: number, line: 0 | 1): number {
     if (sin > 0.5) return -2;
     return 0;
   }
-  return 15;
+  return 14;
 }
 
+/** 表ヘッダー：カスク（4pt） */
 export function columnHeader(label: string, points: number): string {
-  return `${label}(${points}pt)`;
+  return `${label}（${points}pt）`;
 }
 
 export function highlightLineStyle(
@@ -76,14 +72,7 @@ export function highlightLineStyle(
   line: string,
   index: number,
   fonts: { serif: string },
-): {
-  margin: string;
-  fontSize: number;
-  fontWeight: number;
-  lineHeight: number;
-  color: string;
-  fontFamily?: string;
-} {
+) {
   const trimmed = line.trim();
   const isScore = /^\d+(\.\d+)?pt$/.test(trimmed) || /^\d+位$/.test(trimmed);
   const isMeta =
@@ -93,17 +82,17 @@ export function highlightLineStyle(
 
   if (isScore) {
     return {
-      margin: index === 0 ? '0' : '5px 0 0',
+      margin: index === 0 ? '0' : '6px 0 0',
       fontSize: REPORT_TYPE.highlightValue,
       fontWeight: 800,
-      lineHeight: 1.1,
+      lineHeight: 1.15,
       color: theme.headerBg,
       fontFamily: fonts.serif,
     };
   }
   if (isMeta) {
     return {
-      margin: '3px 0 0',
+      margin: '4px 0 0',
       fontSize: REPORT_TYPE.highlightSecondary,
       fontWeight: 500,
       lineHeight: REPORT_LINE.normal,
@@ -111,10 +100,21 @@ export function highlightLineStyle(
     };
   }
   return {
-    margin: index === 0 ? '0' : '3px 0 0',
+    margin: index === 0 ? '0' : '4px 0 0',
     fontSize: REPORT_TYPE.highlightPrimary,
-    fontWeight: 700,
+    fontWeight: 600,
     lineHeight: REPORT_LINE.tight,
     color: theme.ink,
   };
 }
+
+/** 個人レポート回答表の列順 */
+export const PERSONAL_ANSWER_COLUMN_ORDER = [
+  'cask',
+  'region',
+  'age',
+  'abv',
+  'distillery',
+  'other1',
+  'other2',
+] as const;

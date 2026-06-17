@@ -251,6 +251,7 @@ export function buildPersonalReportData(
 
   return {
     sessionTitle: results.session.title,
+    sessionDate: formatReportDate(results.session.created_at),
     participant: {
       participantId,
       name: ranking.display_name,

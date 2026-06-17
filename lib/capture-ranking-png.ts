@@ -89,9 +89,9 @@ function restoreCaptureLayout(
 function captureBackground(el: HTMLElement): string {
   if (el.hasAttribute('data-report-capture-page')) {
     const kind = el.closest('[data-report-kind]')?.getAttribute('data-report-kind');
-    if (kind === 'tournament') return '#f8f4ec';
+    if (kind === 'tournament') return '#faf7f2';
     if (kind === 'overall') return '#f6faf7';
-    if (kind === 'personal') return '#faf7fc';
+    if (kind === 'personal') return '#faf8fc';
     return '#f8f4ec';
   }
   if (el.hasAttribute('data-export-capture-page')) return '#F8F4EC';

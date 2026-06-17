@@ -1,22 +1,21 @@
 'use client';
 
-import { ScoringItemCell } from '@/components/reports/ScoringItemCell';
+import { ScoreCell } from '@/components/reports/ScoreCell';
 import {
+  ChartCard,
   HighlightCard,
-  ParticipantBanner,
-  ReportPanel,
+  MetricCard,
+  MetricCardGrid,
+  ReportSection,
   ReportShell,
   ReportTable,
   ReportTd,
   ReportTh,
   ReportThead,
   ReportTr,
-  SectionBlock,
-  SectionTitle,
-  StatCard,
-  StatCardGrid,
-} from '@/components/reports/ReportShell';
+} from '@/components/reports/design-system';
 import type { PersonalReportData } from '@/lib/report-data/types';
+import type { ReportItemKey } from '@/lib/report-data/types';
 import { REPORT_THEMES } from '@/lib/report-export/theme';
 import {
   personalRoundColWidths,
@@ -24,7 +23,19 @@ import {
   tableCellPadding,
   tableFontSize,
 } from '@/lib/report-export/layout-scale';
-import { CHART_LABEL_PAD, columnHeader, radialDy, radialTextAnchor, REPORT_SPACE, REPORT_TYPE } from '@/lib/report-export/typography';
+import {
+  CHART_LABEL_PAD,
+  columnHeader,
+  PERSONAL_ANSWER_COLUMN_ORDER,
+  radialDy,
+  radialTextAnchor,
+  REPORT_SPACE,
+  REPORT_TYPE,
+} from '@/lib/report-export/typography';
+
+function orderedAnswerKeys(activeKeys: ReportItemKey[]): ReportItemKey[] {
+  return PERSONAL_ANSWER_COLUMN_ORDER.filter((k) => activeKeys.includes(k));
+}
 
 function RadarChart({ data, theme }: { data: PersonalReportData; theme: typeof REPORT_THEMES.personal }) {
   const cats = data.analysis.categoryScores.filter((c) => c.maxScore > 0);
@@ -49,35 +60,22 @@ function RadarChart({ data, theme }: { data: PersonalReportData; theme: typeof R
     .join(' ');
 
   return (
-    <svg
-      width="100%"
-      viewBox={`0 0 ${viewSize} ${viewSize}`}
-      style={{ display: 'block', width: '100%', maxWidth: 420, overflow: 'visible' }}
-      preserveAspectRatio="xMidYMid meet"
-    >
+    <svg width="100%" viewBox={`0 0 ${viewSize} ${viewSize}`} style={{ display: 'block', maxWidth: 400, overflow: 'visible' }} preserveAspectRatio="xMidYMid meet">
       {[0.25, 0.5, 0.75, 1].map((t) => (
-        <polygon key={t} points={gridPts(t)} fill="none" stroke={theme.rule} strokeWidth={1.5} />
+        <polygon key={t} points={gridPts(t)} fill="none" stroke={theme.rule} strokeWidth={1} />
       ))}
       {cats.map((_, i) => {
         const ax = cx + r * Math.cos(angle(i));
         const ay = cy + r * Math.sin(angle(i));
         return <line key={i} x1={cx} y1={cy} x2={ax} y2={ay} stroke={theme.rule} strokeWidth={1} />;
       })}
-      <polygon points={dataPts} fill={`${theme.accent}35`} stroke={theme.headerBg} strokeWidth={2} />
+      <polygon points={dataPts} fill={`${theme.accent}30`} stroke={theme.headerBg} strokeWidth={2} />
       {cats.map((c, i) => {
         const a = angle(i);
         const lx = cx + (r + layout.labelOffset) * Math.cos(a);
         const ly = cy + (r + layout.labelOffset) * Math.sin(a);
         return (
-          <text
-            key={c.key}
-            x={lx}
-            y={ly + radialDy(a, 0)}
-            textAnchor={radialTextAnchor(a)}
-            fontSize={layout.axisFontSize}
-            fill={theme.inkMuted}
-            fontWeight={600}
-          >
+          <text key={c.key} x={lx} y={ly + radialDy(a, 0)} textAnchor={radialTextAnchor(a)} fontSize={layout.axisFontSize} fill={theme.inkMuted} fontWeight={600}>
             {c.label}
             <tspan x={lx} dy={radialDy(a, 1)} fontWeight={800} fill={theme.headerBg} fontSize={REPORT_TYPE.tableNum}>
               {c.rate}%
@@ -93,37 +91,37 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
   const theme = REPORT_THEMES.personal;
   const p = data.participant;
   const diffSign = p.diffFromOverallAverage >= 0 ? '+' : '';
-  const activeKeys = data.activeItemKeys;
+  const answerKeys = orderedAnswerKeys(data.activeItemKeys);
   const roundCount = data.rounds.length;
-  const roundColCount = 3 + activeKeys.length + 1;
+  const roundColCount = 3 + answerKeys.length + 1;
   const roundFs = tableFontSize(roundColCount, roundCount);
   const roundPad = tableCellPadding(roundColCount, roundCount);
-  const colWidths = personalRoundColWidths(activeKeys.length);
+  const colWidths = personalRoundColWidths(answerKeys.length);
+  const compact = roundColCount > 8 || roundCount > 12;
 
   return (
     <ReportShell
       theme={theme}
       sessionTitle={data.sessionTitle}
-      participantBanner={<ParticipantBanner theme={theme} name={p.name} />}
+      sessionDate={data.sessionDate}
+      participantName={p.name}
     >
-      <SectionBlock>
-        <SectionTitle theme={theme}>結果</SectionTitle>
-        <StatCardGrid columns={4}>
-          <StatCard theme={theme} label="順位" value={`${p.rank}位`} />
-          <StatCard theme={theme} label="総得点" value={`${p.totalScore}pt`} />
-          <StatCard theme={theme} label="平均得点" value={`${p.averageScore}pt`} />
-          <StatCard theme={theme} label="全体平均との差" value={`${diffSign}${p.diffFromOverallAverage}pt`} />
-        </StatCardGrid>
-      </SectionBlock>
+      <ReportSection theme={theme} title="結果">
+        <MetricCardGrid columns={4}>
+          <MetricCard theme={theme} label="順位" value={`${p.rank}位`} large />
+          <MetricCard theme={theme} label="総得点" value={`${p.totalScore}pt`} />
+          <MetricCard theme={theme} label="平均得点" value={`${p.averageScore}pt`} />
+          <MetricCard theme={theme} label="全体平均との差" value={`${diffSign}${p.diffFromOverallAverage}pt`} />
+        </MetricCardGrid>
+      </ReportSection>
 
-      <SectionBlock>
-        <SectionTitle theme={theme}>分析</SectionTitle>
+      <ReportSection theme={theme} title="分析">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: REPORT_SPACE.grid }}>
-          <ReportPanel theme={theme} title="部門別得点" centerContent>
+          <ChartCard theme={theme} title="部門別得点">
             <RadarChart data={data} theme={theme} />
-          </ReportPanel>
-          <ReportPanel theme={theme} title="部門別得点サマリー">
-            <ReportTable fontSize={REPORT_TYPE.tableBody}>
+          </ChartCard>
+          <ChartCard theme={theme} title="部門別得点サマリー">
+            <ReportTable theme={theme} fontSize={REPORT_TYPE.tableBody} bare>
               <ReportThead theme={theme}>
                 <ReportTh>部門</ReportTh>
                 <ReportTh align="right">獲得</ReportTh>
@@ -136,20 +134,14 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                   .map((c, i) => (
                     <ReportTr key={c.key} theme={theme} index={i}>
                       <ReportTd theme={theme}>{c.label}</ReportTd>
-                      <ReportTd theme={theme} align="right" numeric>
-                        {c.earnedScore}
-                      </ReportTd>
-                      <ReportTd theme={theme} align="right" numeric>
-                        {c.maxScore}
-                      </ReportTd>
-                      <ReportTd theme={theme} align="right" numeric emphasis>
-                        {c.rate}%
-                      </ReportTd>
+                      <ReportTd theme={theme} align="right" numeric>{c.earnedScore}</ReportTd>
+                      <ReportTd theme={theme} align="right" numeric>{c.maxScore}</ReportTd>
+                      <ReportTd theme={theme} align="right" numeric emphasis>{c.rate}%</ReportTd>
                     </ReportTr>
                   ))}
               </tbody>
             </ReportTable>
-          </ReportPanel>
+          </ChartCard>
           <HighlightCard
             theme={theme}
             title="最高得点ボトル"
@@ -169,63 +161,49 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
             ].filter(Boolean)}
           />
         </div>
-      </SectionBlock>
+      </ReportSection>
 
-      <SectionBlock style={{ marginBottom: 0 }}>
-        <SectionTitle theme={theme}>全てのラウンドの回答と得点</SectionTitle>
-        <ReportPanel theme={theme}>
-          <ReportTable fontSize={roundFs} fixed>
-            <colgroup>
-              {colWidths.map((w, i) => (
-                <col key={i} style={{ width: w }} />
-              ))}
-            </colgroup>
-            <ReportThead theme={theme}>
-              <ReportTh align="center" style={{ padding: roundPad }}>No.</ReportTh>
-              <ReportTh style={{ padding: roundPad }}>サンプル</ReportTh>
-              <ReportTh style={{ padding: roundPad }}>出題者</ReportTh>
-              {activeKeys.map((key) => {
-                const pts = data.itemMaxScores[key];
-                const label = data.analysis.categoryScores.find((c) => c.key === key)?.label ?? key;
-                return (
-                  <ReportTh key={key} align="center" style={{ padding: roundPad }}>
-                    {columnHeader(label, pts)}
-                  </ReportTh>
-                );
-              })}
-              <ReportTh align="center" style={{ padding: roundPad }}>
-                {columnHeader('合計', data.maxTotalScorePerRound)}
-              </ReportTh>
-            </ReportThead>
-            <tbody>
-              {data.rounds.map((round, i) => (
-                <ReportTr key={round.sampleId} theme={theme} index={i}>
-                  <ReportTd theme={theme} align="center" numeric style={{ padding: roundPad }}>
-                    {round.roundNo}
-                  </ReportTd>
-                  <ReportTd theme={theme} style={{ fontWeight: 700, padding: roundPad }}>{round.sampleName}</ReportTd>
-                  <ReportTd theme={theme} style={{ color: theme.inkMuted, padding: roundPad }}>{round.presenterName}</ReportTd>
-                  {activeKeys.map((key) => (
-                    <ScoringItemCell key={key} item={round.items[key]} theme={theme} compact={roundColCount > 8 || roundCount > 14} />
-                  ))}
-                  <ReportTd
-                    theme={theme}
-                    align="center"
-                    numeric
-                    emphasis
-                    style={{ fontSize: roundCount > 14 ? REPORT_TYPE.tableNum : REPORT_TYPE.roundTotal, background: theme.paperAlt, padding: roundPad }}
-                  >
-                    {round.totalScore}pt
-                  </ReportTd>
-                </ReportTr>
-              ))}
-            </tbody>
-          </ReportTable>
-        </ReportPanel>
-        <p style={{ marginTop: 8, fontSize: REPORT_TYPE.caption, color: theme.inkMuted, textAlign: 'center' }}>
-          ○ 正解 · △ 一部一致 · × 不正解 · — 未判定
-        </p>
-      </SectionBlock>
+      <ReportSection theme={theme} title="全てのラウンドの回答と得点" style={{ marginBottom: 0 }}>
+        <ReportTable theme={theme} fontSize={roundFs} fixed>
+          <colgroup>
+            {colWidths.map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+          </colgroup>
+          <ReportThead theme={theme}>
+            <ReportTh align="center" style={{ padding: roundPad }}>No.</ReportTh>
+            <ReportTh style={{ padding: roundPad }}>サンプル</ReportTh>
+            <ReportTh style={{ padding: roundPad }}>出題者</ReportTh>
+            {answerKeys.map((key) => {
+              const pts = data.itemMaxScores[key];
+              const label = data.analysis.categoryScores.find((c) => c.key === key)?.label ?? key;
+              return (
+                <ReportTh key={key} align="center" multiline style={{ padding: roundPad }}>
+                  {columnHeader(label, pts)}
+                </ReportTh>
+              );
+            })}
+            <ReportTh align="center" multiline style={{ padding: roundPad }}>
+              {columnHeader('合計得点', data.maxTotalScorePerRound)}
+            </ReportTh>
+          </ReportThead>
+          <tbody>
+            {data.rounds.map((round, i) => (
+              <ReportTr key={round.sampleId} theme={theme} index={i}>
+                <ReportTd theme={theme} align="center" numeric style={{ padding: roundPad }}>{round.roundNo}</ReportTd>
+                <ReportTd theme={theme} style={{ fontWeight: 600, padding: roundPad }}>{round.sampleName}</ReportTd>
+                <ReportTd theme={theme} style={{ color: theme.inkMuted, padding: roundPad }}>{round.presenterName}</ReportTd>
+                {answerKeys.map((key) => (
+                  <ScoreCell key={key} item={round.items[key]} theme={theme} compact={compact} />
+                ))}
+                <ReportTd theme={theme} align="center" numeric emphasis style={{ padding: roundPad, background: theme.paperAlt }}>
+                  {round.totalScore}pt
+                </ReportTd>
+              </ReportTr>
+            ))}
+          </tbody>
+        </ReportTable>
+      </ReportSection>
     </ReportShell>
   );
 }

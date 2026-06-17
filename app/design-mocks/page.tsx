@@ -319,6 +319,12 @@ export default function DesignMocksPage() {
           </div>
           <div className="flex gap-4 text-sm flex-wrap">
             <Link
+              href="/design-mocks/personal-report"
+              className="text-[#c4a574]/90 hover:text-[#d4b584] transition-colors font-medium"
+            >
+              個人レポートモック →
+            </Link>
+            <Link
               href="/design-mocks/tasting-note"
               className="text-[#c4a574]/90 hover:text-[#d4b584] transition-colors"
             >

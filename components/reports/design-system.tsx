@@ -30,12 +30,21 @@ export function ReportShell({
   sessionDate,
   children,
   participantName,
+  participantBanner,
+  headerTitleSize,
+  pagePaddingY,
 }: {
   theme: ReportTheme;
   sessionTitle: string;
   sessionDate?: string;
   children: React.ReactNode;
   participantName?: string;
+  /** 個人レポートなど、参加者帯をカスタム描画するとき */
+  participantBanner?: ReactNode;
+  /** 画像レポート用にヘッダー見出しだけ大きくする（他レポートは未指定のまま） */
+  headerTitleSize?: number;
+  /** 本文エリアの上下パディング（未指定時は REPORT_SPACE.pageY） */
+  pagePaddingY?: number;
 }) {
   return (
     <div
@@ -51,9 +60,9 @@ export function ReportShell({
         lineHeight: REPORT_LINE.normal,
       }}
     >
-      <ReportHeader theme={theme} sessionTitle={sessionTitle} sessionDate={sessionDate} />
-      {participantName && <ParticipantStrip theme={theme} name={participantName} />}
-      <div style={{ padding: `${REPORT_SPACE.pageY}px ${REPORT_SPACE.pageX}px` }}>{children}</div>
+      <ReportHeader theme={theme} sessionTitle={sessionTitle} sessionDate={sessionDate} titleSize={headerTitleSize} />
+      {participantBanner ?? (participantName ? <ParticipantStrip theme={theme} name={participantName} /> : null)}
+      <div style={{ padding: `${pagePaddingY ?? REPORT_SPACE.pageY}px ${REPORT_SPACE.pageX}px` }}>{children}</div>
       <footer
         style={{
           padding: '14px 40px 18px',
@@ -75,10 +84,12 @@ export function ReportHeader({
   theme,
   sessionTitle,
   sessionDate,
+  titleSize,
 }: {
   theme: ReportTheme;
   sessionTitle: string;
   sessionDate?: string;
+  titleSize?: number;
 }) {
   return (
     <header style={{ background: theme.headerBand, color: theme.headerText, padding: '14px 40px 12px' }}>
@@ -101,7 +112,7 @@ export function ReportHeader({
           <h1
             style={{
               margin: 0,
-              fontSize: REPORT_TYPE.subtitle,
+              fontSize: titleSize ?? REPORT_TYPE.subtitle,
               fontWeight: 600,
               fontFamily: REPORT_FONTS.serif,
               lineHeight: 1.25,

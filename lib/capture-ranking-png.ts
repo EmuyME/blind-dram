@@ -38,8 +38,10 @@ function applyCaptureLayout(el: HTMLElement): {
   const prevElWidth = el.style.width;
   const isReportPage = el.hasAttribute('data-report-capture-page');
   const isFixedExport = el.hasAttribute('data-export-fixed-size');
+  const widthAttr = el.getAttribute('data-report-width');
+  const reportWidth = widthAttr ? parseInt(widthAttr, 10) : REPORT_WIDTH_PX;
   const captureWidth = isReportPage
-    ? REPORT_WIDTH_PX
+    ? reportWidth
     : isFixedExport
       ? EXPORT_WIDTH_PX
       : Math.max(el.scrollWidth, tableEl?.scrollWidth ?? 0, el.clientWidth);
@@ -91,7 +93,7 @@ function captureBackground(el: HTMLElement): string {
     const kind = el.closest('[data-report-kind]')?.getAttribute('data-report-kind');
     if (kind === 'tournament') return '#faf7f2';
     if (kind === 'overall') return '#f6faf7';
-    if (kind === 'personal') return '#faf8fc';
+    if (kind === 'personal') return '#F7F2E8';
     return '#f8f4ec';
   }
   if (el.hasAttribute('data-export-capture-page')) return '#F8F4EC';

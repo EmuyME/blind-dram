@@ -5,6 +5,7 @@ import {
 } from '@/lib/report-export/layout-scale';
 
 export const REPORT_WIDTH_PX = 1200;
+export const PERSONAL_REPORT_WIDTH_PX = 1400;
 export const REPORT_CAPTURE_PIXEL_RATIO = 2;
 
 export const REPORT_FONTS = {

@@ -109,11 +109,12 @@ export function PersonalResultCard({ label, value, featured }: { label: string; 
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 8,
         borderTop: featured ? `3px solid ${PERSONAL_V1.accent}` : `3px solid transparent`,
       }}
     >
-      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PERSONAL_V1.inkMuted, letterSpacing: '0.02em' }}>{label}</p>
-      <p style={{ margin: '10px 0 0', fontSize: 36, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>
+      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PERSONAL_V1.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
+      <p style={{ margin: 0, fontSize: 36, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>
         {value}
       </p>
     </div>
@@ -128,7 +129,9 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
 
   return (
     <div style={{ width: '100%', height: layout.chartH, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: layout.gap, boxSizing: 'border-box' }}>
-      {cats.map((c) => (
+      {cats.map((c) => {
+        const trackH = layout.barH;
+        return (
         <div
           key={c.key}
           style={{
@@ -136,17 +139,40 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
             gridTemplateColumns: `${layout.labelCol}px 1fr ${layout.rateCol}px`,
             alignItems: 'center',
             gap: layout.gap > 9 ? 10 : 14,
-            minHeight: layout.barH,
+            height: trackH,
           }}
         >
-          <span style={{ fontSize: layout.labelFont, fontWeight: 700, color: PERSONAL_V1.ink, textAlign: 'left', lineHeight: 1.2, wordBreak: 'keep-all' }}>
+          <span
+            style={{
+              fontSize: layout.labelFont,
+              fontWeight: 700,
+              color: PERSONAL_V1.ink,
+              textAlign: 'left',
+              lineHeight: 1,
+              wordBreak: 'keep-all',
+              display: 'flex',
+              alignItems: 'center',
+              height: trackH,
+            }}
+          >
             {c.label}
           </span>
-          <div style={{ position: 'relative', height: layout.barH - 6, background: PERSONAL_V1.barTrack, borderRadius: 7, overflow: 'hidden' }}>
+          <div
+            style={{
+              position: 'relative',
+              height: trackH,
+              borderRadius: 7,
+              overflow: 'hidden',
+              background: PERSONAL_V1.barTrack,
+            }}
+          >
             <div
               style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
                 width: `${c.rate}%`,
-                height: '100%',
                 background: `linear-gradient(90deg, ${PERSONAL_V1.headerBg}bb, ${PERSONAL_V1.headerBg})`,
                 borderRadius: 7,
                 minWidth: c.rate > 0 ? 6 : 0,
@@ -154,12 +180,17 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
             />
             <span
               style={{
-                position: 'absolute',
-                left: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
+                position: 'relative',
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                height: '100%',
+                paddingLeft: 8,
+                paddingRight: 6,
+                boxSizing: 'border-box',
                 fontSize: layout.scoreFont,
                 fontWeight: 700,
+                lineHeight: 1,
                 color: c.rate >= 40 ? '#fff' : PERSONAL_V1.inkMuted,
                 fontFamily: REPORT_FONTS.serif,
                 whiteSpace: 'nowrap',
@@ -168,11 +199,25 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
               {c.earnedScore}/{c.maxScore}pt
             </span>
           </div>
-          <span style={{ fontSize: layout.valueFont, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, textAlign: 'right' }}>
+          <span
+            style={{
+              fontSize: layout.valueFont,
+              fontWeight: 800,
+              color: PERSONAL_V1.headerBg,
+              fontFamily: REPORT_FONTS.serif,
+              textAlign: 'right',
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              height: trackH,
+            }}
+          >
             {c.rate}%
           </span>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -19,6 +19,19 @@ function orderedAnswerKeys(activeKeys: ReportItemKey[]): ReportItemKey[] {
   return PERSONAL_ANSWER_COLUMN_ORDER.filter((k) => activeKeys.includes(k));
 }
 
+function tableCellInner(rowH: number, padding: string, align: 'left' | 'center') {
+  return {
+    display: 'flex' as const,
+    alignItems: 'center' as const,
+    justifyContent: align === 'center' ? ('center' as const) : ('flex-start' as const),
+    minHeight: rowH,
+    height: '100%',
+    padding,
+    boxSizing: 'border-box' as const,
+    lineHeight: 1.25,
+  };
+}
+
 export function PersonalReportView({ data }: { data: PersonalReportData }) {
   const p = data.participant;
   const diffSign = p.diffFromOverallAverage >= 0 ? '+' : '';
@@ -84,45 +97,38 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                   <td
                     style={{
                       height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'center',
+                      padding: 0,
                       verticalAlign: 'middle',
-                      fontSize: tbl.noFs,
-                      fontWeight: 800,
-                      fontFamily: REPORT_FONTS.serif,
-                      color: PERSONAL_V1.headerBg,
                       borderBottom: `1px solid ${PERSONAL_V1.rule}`,
                     }}
                   >
-                    {round.roundNo}
+                    <div style={{ ...tableCellInner(tbl.rowH, tbl.padding, 'center'), fontSize: tbl.noFs, fontWeight: 800, fontFamily: REPORT_FONTS.serif, color: PERSONAL_V1.headerBg }}>
+                      {round.roundNo}
+                    </div>
                   </td>
                   <td
                     style={{
                       height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'left',
+                      padding: 0,
                       verticalAlign: 'middle',
-                      fontSize: tbl.sampleFs,
-                      fontWeight: 700,
-                      color: PERSONAL_V1.ink,
                       borderBottom: `1px solid ${PERSONAL_V1.rule}`,
-                      wordBreak: 'break-word',
                     }}
                   >
-                    {round.sampleName}
+                    <div style={{ ...tableCellInner(tbl.rowH, tbl.padding, 'left'), fontSize: tbl.sampleFs, fontWeight: 700, color: PERSONAL_V1.ink, wordBreak: 'break-word' }}>
+                      {round.sampleName}
+                    </div>
                   </td>
                   <td
                     style={{
                       height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'left',
+                      padding: 0,
                       verticalAlign: 'middle',
-                      fontSize: Math.max(12, tbl.sampleFs - 1),
-                      color: PERSONAL_V1.inkMuted,
                       borderBottom: `1px solid ${PERSONAL_V1.rule}`,
                     }}
                   >
-                    {round.presenterName}
+                    <div style={{ ...tableCellInner(tbl.rowH, tbl.padding, 'left'), fontSize: Math.max(12, tbl.sampleFs - 1), color: PERSONAL_V1.inkMuted }}>
+                      {round.presenterName}
+                    </div>
                   </td>
                   {answerKeys.map((key) => (
                     <PersonalScoreCell
@@ -141,20 +147,26 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                   <td
                     style={{
                       height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'center',
+                      padding: 0,
                       verticalAlign: 'middle',
-                      fontSize: tbl.totalFs,
-                      fontWeight: 800,
-                      fontFamily: REPORT_FONTS.serif,
-                      color: PERSONAL_V1.headerBg,
                       background: `linear-gradient(180deg, ${PERSONAL_V1.paperAlt}, ${PERSONAL_V1.zebra})`,
                       borderBottom: `1px solid ${PERSONAL_V1.rule}`,
                       borderLeft: `1px solid ${PERSONAL_V1.ruleStrong}`,
                     }}
                   >
-                    {round.totalScore}
-                    <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
+                    <div
+                      style={{
+                        ...tableCellInner(tbl.rowH, tbl.padding, 'center'),
+                        fontSize: tbl.totalFs,
+                        fontWeight: 800,
+                        fontFamily: REPORT_FONTS.serif,
+                        color: PERSONAL_V1.headerBg,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {round.totalScore}
+                      <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
+                    </div>
                   </td>
                 </tr>
               ))}

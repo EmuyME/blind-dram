@@ -110,11 +110,12 @@ function ResultCard({ label, value, featured }: { label: string; value: string; 
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 8,
         borderTop: featured ? `3px solid ${COLORS.accent}` : `3px solid transparent`,
       }}
     >
-      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em' }}>{label}</p>
-      <p style={{ margin: '10px 0 0', fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
+      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
+      <p style={{ margin: 0, fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
         {value}
       </p>
     </div>
@@ -126,7 +127,9 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
 
   return (
     <div style={{ width: '100%', height: layout.chartH, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: layout.gap, boxSizing: 'border-box' }}>
-      {categories.map((c) => (
+      {categories.map((c) => {
+        const trackH = layout.barH;
+        return (
         <div
           key={c.label}
           style={{
@@ -134,17 +137,40 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
             gridTemplateColumns: `${layout.labelCol}px 1fr ${layout.rateCol}px`,
             alignItems: 'center',
             gap: layout.gap > 9 ? 10 : 14,
-            minHeight: layout.barH,
+            height: trackH,
           }}
         >
-          <span style={{ fontSize: layout.labelFont, fontWeight: 700, color: COLORS.ink, textAlign: 'left', lineHeight: 1.2, wordBreak: 'keep-all' }}>
+          <span
+            style={{
+              fontSize: layout.labelFont,
+              fontWeight: 700,
+              color: COLORS.ink,
+              textAlign: 'left',
+              lineHeight: 1,
+              wordBreak: 'keep-all',
+              display: 'flex',
+              alignItems: 'center',
+              height: trackH,
+            }}
+          >
             {c.label}
           </span>
-          <div style={{ position: 'relative', height: layout.barH - 6, background: COLORS.barTrack, borderRadius: 7, overflow: 'hidden' }}>
+          <div
+            style={{
+              position: 'relative',
+              height: trackH,
+              borderRadius: 7,
+              overflow: 'hidden',
+              background: COLORS.barTrack,
+            }}
+          >
             <div
               style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
                 width: `${c.rate}%`,
-                height: '100%',
                 background: `linear-gradient(90deg, ${COLORS.headerBg}bb, ${COLORS.headerBg})`,
                 borderRadius: 7,
                 minWidth: c.rate > 0 ? 6 : 0,
@@ -152,12 +178,17 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
             />
             <span
               style={{
-                position: 'absolute',
-                left: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
+                position: 'relative',
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                height: '100%',
+                paddingLeft: 8,
+                paddingRight: 6,
+                boxSizing: 'border-box',
                 fontSize: layout.scoreFont,
                 fontWeight: 700,
+                lineHeight: 1,
                 color: c.rate >= 40 ? '#fff' : COLORS.inkMuted,
                 fontFamily: FONT.serif,
                 whiteSpace: 'nowrap',
@@ -166,11 +197,25 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
               {c.earned}/{c.max}pt
             </span>
           </div>
-          <span style={{ fontSize: layout.valueFont, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, textAlign: 'right' }}>
+          <span
+            style={{
+              fontSize: layout.valueFont,
+              fontWeight: 800,
+              color: COLORS.headerBg,
+              fontFamily: FONT.serif,
+              textAlign: 'right',
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              height: trackH,
+            }}
+          >
             {c.rate}%
           </span>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -279,12 +324,16 @@ function ScoreCell({
   cellPadding: string;
 }) {
   const j = JUDGEMENT[item.judgement];
+  const parts = cellPadding.trim().split(/\s+/);
+  const padTop = parts[0];
+  const padLeft = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
+  const padBottom = parts.length >= 3 ? parts[2] : parts[0];
+
   return (
     <td
       style={{
         position: 'relative',
-        padding: cellPadding,
-        paddingRight: padRight,
+        padding: 0,
         verticalAlign: 'middle',
         textAlign: 'left',
         background: j.bg,
@@ -295,15 +344,31 @@ function ScoreCell({
         overflowWrap: 'anywhere',
       }}
     >
-      <div style={{ fontSize: answerFs, fontWeight: 700, lineHeight: 1.3, color: COLORS.ink }}>{item.answer}</div>
-      <div style={{ marginTop: answerFs > 14 ? 5 : 3, fontSize: metaFs, lineHeight: 1.3, color: COLORS.inkMuted }}>
-        / {item.truth}（{item.points}pt）
+      <div
+        style={{
+          boxSizing: 'border-box',
+          minHeight: rowH,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          paddingTop: padTop,
+          paddingBottom: padBottom,
+          paddingLeft: padLeft,
+          paddingRight: padRight,
+        }}
+      >
+        <div style={{ fontSize: answerFs, fontWeight: 700, lineHeight: 1.25, color: COLORS.ink }}>{item.answer}</div>
+        <div style={{ marginTop: 4, fontSize: metaFs, lineHeight: 1.25, color: COLORS.inkMuted }}>
+          / {item.truth}（{item.points}pt）
+        </div>
       </div>
       <span
         style={{
           position: 'absolute',
-          top: 6,
+          top: '50%',
           right: 6,
+          transform: 'translateY(-50%)',
           width: badgeSize,
           height: badgeSize,
           borderRadius: '50%',
@@ -339,7 +404,16 @@ function ColumnHeader({
   headPtsFs: number;
 }) {
   return (
-    <span style={{ display: 'inline-block', textAlign: align, lineHeight: 1.2 }}>
+    <span
+      style={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        textAlign: align,
+        lineHeight: 1.2,
+        minHeight: 32,
+      }}
+    >
       <span style={{ display: 'block', fontSize: headFs, fontWeight: 700 }}>{label}</span>
       <span style={{ display: 'block', fontSize: headPtsFs, fontWeight: 600, opacity: 0.9, marginTop: 1 }}>({points}pt)</span>
     </span>

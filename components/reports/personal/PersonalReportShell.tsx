@@ -1,5 +1,6 @@
 'use client';
 
+import { CaptureVAlign } from '@/components/reports/personal/capture-align';
 import type { CSSProperties, ReactNode } from 'react';
 import { PERSONAL_CANVAS, PERSONAL_REPORT_WIDTH, PERSONAL_V1 } from '@/components/reports/personal/personal-tokens';
 import { REPORT_FONTS } from '@/lib/report-export/theme';
@@ -28,10 +29,12 @@ export function PersonalReportShell({ children }: { children: ReactNode }) {
 
 export const PERSONAL_CONTENT_W = PERSONAL_REPORT_WIDTH - PERSONAL_CANVAS.padding * 2;
 
-export function personalTableHeadStyle(tbl: { padding: string; headFs: number }): CSSProperties {
+const TH_HEIGHT = 48;
+
+export function personalTableHeadStyle(tbl: { headFs: number }): CSSProperties {
   return {
-    height: 48,
-    padding: tbl.padding,
+    height: TH_HEIGHT,
+    padding: 0,
     fontSize: tbl.headFs,
     fontWeight: 700,
     color: '#fff',
@@ -40,3 +43,21 @@ export function personalTableHeadStyle(tbl: { padding: string; headFs: number })
     verticalAlign: 'middle',
   };
 }
+
+export function PersonalTableHeadCell({
+  align,
+  padding,
+  children,
+}: {
+  align: 'left' | 'center';
+  padding: string;
+  children: ReactNode;
+}) {
+  return (
+    <CaptureVAlign height={TH_HEIGHT} padding={padding} align={align}>
+      {children}
+    </CaptureVAlign>
+  );
+}
+
+export { TH_HEIGHT };

@@ -12,8 +12,10 @@ import {
   tableLayout,
 } from '@/components/design-mocks/personal-report/layout-scale';
 import { CANVAS, COLORS, FONT, JUDGEMENT, SHADOW } from '@/components/design-mocks/personal-report/tokens';
+import { CaptureVAlign } from '@/components/reports/personal/capture-align';
 
 const CONTENT_W = CANVAS.width - CANVAS.padding * 2;
+const TH_HEIGHT = 48;
 
 function bestAndWorstCategory(categories: readonly CategoryScore[]) {
   const sorted = [...categories].sort((a, b) => b.rate - a.rate);
@@ -97,27 +99,29 @@ function SectionTitle({ children }: { children: ReactNode }) {
 }
 
 function ResultCard({ label, value, featured }: { label: string; value: string; featured?: boolean }) {
+  const cardH = 112;
+  const innerH = featured ? cardH - 3 - 1 : cardH - 2;
   return (
     <div
       style={{
-        height: 112,
+        height: cardH,
         borderRadius: 10,
-        padding: 16,
+        boxSizing: 'border-box',
         background: COLORS.cardBg,
         border: `1px solid ${COLORS.cardBorder}`,
         boxShadow: `${SHADOW.card}, ${SHADOW.inset}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        borderTop: featured ? `3px solid ${COLORS.accent}` : `3px solid transparent`,
+        borderTop: featured ? `3px solid ${COLORS.accent}` : `1px solid ${COLORS.cardBorder}`,
+        overflow: 'hidden',
       }}
     >
-      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
-      <p style={{ margin: 0, fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
-        {value}
-      </p>
+      <CaptureVAlign height={innerH} align="center" padding="0 12px">
+        <div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
+          <p style={{ margin: '8px 0 0', fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
+            {value}
+          </p>
+        </div>
+      </CaptureVAlign>
     </div>
   );
 }
@@ -135,26 +139,13 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
           style={{
             display: 'grid',
             gridTemplateColumns: `${layout.labelCol}px 1fr ${layout.rateCol}px`,
-            alignItems: 'center',
             gap: layout.gap > 9 ? 10 : 14,
             height: trackH,
           }}
         >
-          <span
-            style={{
-              fontSize: layout.labelFont,
-              fontWeight: 700,
-              color: COLORS.ink,
-              textAlign: 'left',
-              lineHeight: 1,
-              wordBreak: 'keep-all',
-              display: 'flex',
-              alignItems: 'center',
-              height: trackH,
-            }}
-          >
-            {c.label}
-          </span>
+          <CaptureVAlign height={trackH} align="left">
+            <span style={{ fontSize: layout.labelFont, fontWeight: 700, color: COLORS.ink, wordBreak: 'keep-all' }}>{c.label}</span>
+          </CaptureVAlign>
           <div
             style={{
               position: 'relative',
@@ -176,43 +167,26 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
                 minWidth: c.rate > 0 ? 6 : 0,
               }}
             />
-            <span
+            <CaptureVAlign
+              height={trackH}
+              padding="0 0 0 8px"
+              align="left"
               style={{
                 position: 'relative',
                 zIndex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                paddingLeft: 8,
-                paddingRight: 6,
-                boxSizing: 'border-box',
                 fontSize: layout.scoreFont,
                 fontWeight: 700,
-                lineHeight: 1,
                 color: c.rate >= 40 ? '#fff' : COLORS.inkMuted,
                 fontFamily: FONT.serif,
                 whiteSpace: 'nowrap',
               }}
             >
               {c.earned}/{c.max}pt
-            </span>
+            </CaptureVAlign>
           </div>
-          <span
-            style={{
-              fontSize: layout.valueFont,
-              fontWeight: 800,
-              color: COLORS.headerBg,
-              fontFamily: FONT.serif,
-              textAlign: 'right',
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              height: trackH,
-            }}
-          >
-            {c.rate}%
-          </span>
+          <CaptureVAlign height={trackH} align="right">
+            <span style={{ fontSize: layout.valueFont, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif }}>{c.rate}%</span>
+          </CaptureVAlign>
         </div>
         );
       })}
@@ -223,33 +197,35 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
 function InsightCard({ kind, category, categoryCount }: { kind: 'best' | 'worst'; category: CategoryScore; categoryCount: number }) {
   const isBest = kind === 'best';
   const ins = insightCardLayout(categoryCount);
+  const cardH = categoryCount > 6 ? 96 : 108;
   return (
     <div
       style={{
         flex: 1,
         borderRadius: 10,
-        padding: ins.padding,
+        height: cardH,
         background: isBest ? COLORS.insightGood : COLORS.insightWarn,
         border: `1px solid ${isBest ? '#b8d9c4' : '#e8d4a0'}`,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: 3,
         minWidth: 0,
+        overflow: 'hidden',
       }}
     >
-      <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: COLORS.inkSoft, letterSpacing: '0.04em' }}>
-        {isBest ? '最得意部門' : '要改善部門'}
-      </p>
-      <p style={{ margin: 0, fontSize: ins.labelFs, fontWeight: 700, color: COLORS.ink, fontFamily: FONT.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
-        {category.label}
-      </p>
-      <p style={{ margin: 0, fontSize: 13, color: COLORS.inkMuted }}>
-        <span style={{ fontFamily: FONT.serif, fontWeight: 800, color: COLORS.headerBg, fontSize: ins.rateFs }}>{category.rate}%</span>
-        <span style={{ marginLeft: 6, fontSize: 12 }}>
-          （{category.earned}/{category.max}pt）
-        </span>
-      </p>
+      <CaptureVAlign height={cardH} padding={ins.padding} align="left">
+        <div>
+          <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: COLORS.inkSoft, letterSpacing: '0.04em' }}>
+            {isBest ? '最得意部門' : '要改善部門'}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: ins.labelFs, fontWeight: 700, color: COLORS.ink, fontFamily: FONT.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
+            {category.label}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: COLORS.inkMuted }}>
+            <span style={{ fontFamily: FONT.serif, fontWeight: 800, color: COLORS.headerBg, fontSize: ins.rateFs }}>{category.rate}%</span>
+            <span style={{ marginLeft: 6, fontSize: 12 }}>
+              （{category.earned}/{category.max}pt）
+            </span>
+          </p>
+        </div>
+      </CaptureVAlign>
     </div>
   );
 }
@@ -282,28 +258,29 @@ function BottleCard({
       <div style={{ padding: '9px 10px', background: COLORS.headerBg, color: '#fff', fontSize: layout.titleFs, fontWeight: 700, textAlign: 'center', letterSpacing: '0.04em' }}>
         {title}
       </div>
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '12px 8px',
-          gap: 6,
-          background: `linear-gradient(180deg, ${COLORS.cardBg}, ${COLORS.zebra})`,
-        }}
-      >
-        <p style={{ margin: 0, fontSize: layout.nameFs, fontWeight: 700, color: COLORS.ink, textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
-          {name}
-        </p>
-        <p style={{ margin: 0, fontSize: layout.scoreFs, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
-          {score}
-          <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
-        </p>
+      <div style={{ flex: 1, minHeight: 0, background: `linear-gradient(180deg, ${COLORS.cardBg}, ${COLORS.zebra})` }}>
+        <CaptureVAlign height={120} align="center" padding="8px 10px">
+          <div>
+            <p style={{ margin: 0, fontSize: layout.nameFs, fontWeight: 700, color: COLORS.ink, textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
+              {name}
+            </p>
+            <p style={{ margin: '6px 0 0', fontSize: layout.scoreFs, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1 }}>
+              {score}
+              <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
+            </p>
+          </div>
+        </CaptureVAlign>
       </div>
     </div>
   );
+}
+
+function scoreCellPadding(padding: string, padRight: number): string {
+  const parts = padding.trim().split(/\s+/);
+  if (parts.length === 1) return `${parts[0]} ${padRight}px ${parts[0]} ${parts[0]}`;
+  if (parts.length === 2) return `${parts[0]} ${padRight}px ${parts[0]} ${parts[1]}`;
+  if (parts.length === 3) return `${parts[0]} ${padRight}px ${parts[2]} ${parts[1]}`;
+  return `${parts[0]} ${padRight}px ${parts[2]} ${parts[3]}`;
 }
 
 function ScoreCell({
@@ -324,10 +301,6 @@ function ScoreCell({
   cellPadding: string;
 }) {
   const j = JUDGEMENT[item.judgement];
-  const parts = cellPadding.trim().split(/\s+/);
-  const padTop = parts[0];
-  const padLeft = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
-  const padBottom = parts.length >= 3 ? parts[2] : parts[0];
 
   return (
     <td
@@ -338,37 +311,24 @@ function ScoreCell({
         textAlign: 'left',
         background: j.bg,
         borderBottom: `1px solid ${COLORS.rule}`,
-        minHeight: rowH,
         height: rowH,
         wordBreak: 'break-word',
         overflowWrap: 'anywhere',
       }}
     >
-      <div
-        style={{
-          boxSizing: 'border-box',
-          minHeight: rowH,
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          paddingTop: padTop,
-          paddingBottom: padBottom,
-          paddingLeft: padLeft,
-          paddingRight: padRight,
-        }}
-      >
-        <div style={{ fontSize: answerFs, fontWeight: 700, lineHeight: 1.25, color: COLORS.ink }}>{item.answer}</div>
-        <div style={{ marginTop: 4, fontSize: metaFs, lineHeight: 1.25, color: COLORS.inkMuted }}>
-          / {item.truth}（{item.points}pt）
+      <CaptureVAlign height={rowH} padding={scoreCellPadding(cellPadding, padRight)} align="left">
+        <div>
+          <div style={{ fontSize: answerFs, fontWeight: 700, lineHeight: 1.25, color: COLORS.ink }}>{item.answer}</div>
+          <div style={{ marginTop: 4, fontSize: metaFs, lineHeight: 1.25, color: COLORS.inkMuted }}>
+            / {item.truth}（{item.points}pt）
+          </div>
         </div>
-      </div>
+      </CaptureVAlign>
       <span
         style={{
           position: 'absolute',
-          top: '50%',
-          right: 6,
-          transform: 'translateY(-50%)',
+          top: Math.max(6, Math.round((rowH - badgeSize) / 2)),
+          right: 8,
           width: badgeSize,
           height: badgeSize,
           borderRadius: '50%',
@@ -376,10 +336,8 @@ function ScoreCell({
           color: '#fff',
           fontSize: badgeSize <= 20 ? 10 : 11,
           fontWeight: 800,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          lineHeight: 1,
+          lineHeight: `${badgeSize}px`,
+          textAlign: 'center',
           boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
         }}
         aria-hidden
@@ -404,19 +362,18 @@ function ColumnHeader({
   headPtsFs: number;
 }) {
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        textAlign: align,
-        lineHeight: 1.2,
-        minHeight: 32,
-      }}
-    >
+    <span style={{ textAlign: align, lineHeight: 1.2, display: 'block' }}>
       <span style={{ display: 'block', fontSize: headFs, fontWeight: 700 }}>{label}</span>
       <span style={{ display: 'block', fontSize: headPtsFs, fontWeight: 600, opacity: 0.9, marginTop: 1 }}>({points}pt)</span>
     </span>
+  );
+}
+
+function TableHeadCell({ align, padding, children }: { align: 'left' | 'center'; padding: string; children: ReactNode }) {
+  return (
+    <CaptureVAlign height={TH_HEIGHT} padding={padding} align={align}>
+      {children}
+    </CaptureVAlign>
   );
 }
 
@@ -439,8 +396,8 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
   const categoryCompact = categoryCount > 6;
 
   const thStyle: CSSProperties = {
-    height: 48,
-    padding: tbl.padding,
+    height: TH_HEIGHT,
+    padding: 0,
     fontSize: tbl.headFs,
     fontWeight: 700,
     color: '#fff',
@@ -526,64 +483,67 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
             </colgroup>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: 'center' }}>No.</th>
-                <th style={{ ...thStyle, textAlign: 'left' }}>サンプル</th>
-                <th style={{ ...thStyle, textAlign: 'left' }}>出題者</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>
+                  <TableHeadCell align="center" padding={tbl.padding}>
+                    No.
+                  </TableHeadCell>
+                </th>
+                <th style={{ ...thStyle, textAlign: 'left' }}>
+                  <TableHeadCell align="left" padding={tbl.padding}>
+                    サンプル
+                  </TableHeadCell>
+                </th>
+                <th style={{ ...thStyle, textAlign: 'left' }}>
+                  <TableHeadCell align="left" padding={tbl.padding}>
+                    出題者
+                  </TableHeadCell>
+                </th>
                 {data.scoringColumns.map((col) => (
                   <th key={col.key} style={{ ...thStyle, textAlign: 'left' }}>
-                    <ColumnHeader label={col.label} points={col.points} headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
+                    <TableHeadCell align="left" padding={tbl.padding}>
+                      <ColumnHeader label={col.label} points={col.points} headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
+                    </TableHeadCell>
                   </th>
                 ))}
                 <th style={{ ...thStyle, textAlign: 'center' }}>
-                  <ColumnHeader label="合計得点" points={data.maxTotalPerRound} align="center" headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
+                  <TableHeadCell align="center" padding={tbl.padding}>
+                    <ColumnHeader label="合計得点" points={data.maxTotalPerRound} align="center" headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
+                  </TableHeadCell>
                 </th>
               </tr>
             </thead>
             <tbody>
               {data.rounds.map((r, i) => (
                 <tr key={r.no} style={{ background: i % 2 === 1 ? COLORS.zebra : COLORS.cardBg }}>
-                  <td
-                    style={{
-                      height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                      fontSize: tbl.noFs,
-                      fontWeight: 800,
-                      fontFamily: FONT.serif,
-                      color: COLORS.headerBg,
-                      borderBottom: `1px solid ${COLORS.rule}`,
-                    }}
-                  >
-                    {r.no}
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${COLORS.rule}` }}>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="center"
+                      style={{ fontSize: tbl.noFs, fontWeight: 800, fontFamily: FONT.serif, color: COLORS.headerBg }}
+                    >
+                      {r.no}
+                    </CaptureVAlign>
                   </td>
-                  <td
-                    style={{
-                      height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'left',
-                      verticalAlign: 'middle',
-                      fontSize: tbl.sampleFs,
-                      fontWeight: 700,
-                      color: COLORS.ink,
-                      borderBottom: `1px solid ${COLORS.rule}`,
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {r.sample}
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${COLORS.rule}` }}>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="left"
+                      style={{ fontSize: tbl.sampleFs, fontWeight: 700, color: COLORS.ink, wordBreak: 'break-word' }}
+                    >
+                      {r.sample}
+                    </CaptureVAlign>
                   </td>
-                  <td
-                    style={{
-                      height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'left',
-                      verticalAlign: 'middle',
-                      fontSize: Math.max(12, tbl.sampleFs - 1),
-                      color: COLORS.inkMuted,
-                      borderBottom: `1px solid ${COLORS.rule}`,
-                    }}
-                  >
-                    {r.presenter}
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${COLORS.rule}` }}>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="left"
+                      style={{ fontSize: Math.max(12, tbl.sampleFs - 1), color: COLORS.inkMuted }}
+                    >
+                      {r.presenter}
+                    </CaptureVAlign>
                   </td>
                   {data.scoringColumns.map((col) => {
                     const item = r.items[col.key] ?? { answer: '—', truth: '—', judgement: 'unjudged' as const, points: 0 };
@@ -603,20 +563,24 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
                   <td
                     style={{
                       height: tbl.rowH,
-                      padding: tbl.padding,
-                      textAlign: 'center',
+                      padding: 0,
                       verticalAlign: 'middle',
-                      fontSize: tbl.totalFs,
-                      fontWeight: 800,
-                      fontFamily: FONT.serif,
-                      color: COLORS.headerBg,
                       background: `linear-gradient(180deg, ${COLORS.paperAlt}, ${COLORS.zebra})`,
                       borderBottom: `1px solid ${COLORS.rule}`,
                       borderLeft: `1px solid ${COLORS.ruleStrong}`,
                     }}
                   >
-                    {r.total}
-                    <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="center"
+                      style={{ fontSize: tbl.totalFs, fontWeight: 800, fontFamily: FONT.serif, color: COLORS.headerBg, lineHeight: 1 }}
+                    >
+                      <>
+                        {r.total}
+                        <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
+                      </>
+                    </CaptureVAlign>
                   </td>
                 </tr>
               ))}

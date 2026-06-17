@@ -1,6 +1,7 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { CaptureVAlign } from '@/components/reports/personal/capture-align';
 import type { PersonalReportData, ReportItemKey } from '@/lib/report-data/types';
 import {
   personalAnalysisAreaHeight,
@@ -96,27 +97,29 @@ export function PersonalSectionTitle({ children }: { children: ReactNode }) {
 }
 
 export function PersonalResultCard({ label, value, featured }: { label: string; value: string; featured?: boolean }) {
+  const cardH = 112;
+  const innerH = featured ? cardH - 3 - 1 : cardH - 2;
   return (
     <div
       style={{
-        height: 112,
+        height: cardH,
         borderRadius: 10,
-        padding: 16,
+        boxSizing: 'border-box',
         background: PERSONAL_V1.cardBg,
         border: `1px solid ${PERSONAL_V1.cardBorder}`,
         boxShadow: `${PERSONAL_SHADOW.card}, ${PERSONAL_SHADOW.inset}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        borderTop: featured ? `3px solid ${PERSONAL_V1.accent}` : `3px solid transparent`,
+        borderTop: featured ? `3px solid ${PERSONAL_V1.accent}` : `1px solid ${PERSONAL_V1.cardBorder}`,
+        overflow: 'hidden',
       }}
     >
-      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PERSONAL_V1.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
-      <p style={{ margin: 0, fontSize: 36, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>
-        {value}
-      </p>
+      <CaptureVAlign height={innerH} align="center" padding="0 12px">
+        <div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PERSONAL_V1.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2 }}>{label}</p>
+          <p style={{ margin: '8px 0 0', fontSize: 36, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>
+            {value}
+          </p>
+        </div>
+      </CaptureVAlign>
     </div>
   );
 }
@@ -137,26 +140,13 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
           style={{
             display: 'grid',
             gridTemplateColumns: `${layout.labelCol}px 1fr ${layout.rateCol}px`,
-            alignItems: 'center',
             gap: layout.gap > 9 ? 10 : 14,
             height: trackH,
           }}
         >
-          <span
-            style={{
-              fontSize: layout.labelFont,
-              fontWeight: 700,
-              color: PERSONAL_V1.ink,
-              textAlign: 'left',
-              lineHeight: 1,
-              wordBreak: 'keep-all',
-              display: 'flex',
-              alignItems: 'center',
-              height: trackH,
-            }}
-          >
-            {c.label}
-          </span>
+          <CaptureVAlign height={trackH} align="left">
+            <span style={{ fontSize: layout.labelFont, fontWeight: 700, color: PERSONAL_V1.ink, wordBreak: 'keep-all' }}>{c.label}</span>
+          </CaptureVAlign>
           <div
             style={{
               position: 'relative',
@@ -178,43 +168,28 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
                 minWidth: c.rate > 0 ? 6 : 0,
               }}
             />
-            <span
+            <CaptureVAlign
+              height={trackH}
+              padding="0 0 0 8px"
+              align="left"
               style={{
                 position: 'relative',
                 zIndex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                paddingLeft: 8,
-                paddingRight: 6,
-                boxSizing: 'border-box',
                 fontSize: layout.scoreFont,
                 fontWeight: 700,
-                lineHeight: 1,
                 color: c.rate >= 40 ? '#fff' : PERSONAL_V1.inkMuted,
                 fontFamily: REPORT_FONTS.serif,
                 whiteSpace: 'nowrap',
               }}
             >
               {c.earnedScore}/{c.maxScore}pt
-            </span>
+            </CaptureVAlign>
           </div>
-          <span
-            style={{
-              fontSize: layout.valueFont,
-              fontWeight: 800,
-              color: PERSONAL_V1.headerBg,
-              fontFamily: REPORT_FONTS.serif,
-              textAlign: 'right',
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              height: trackH,
-            }}
-          >
-            {c.rate}%
-          </span>
+          <CaptureVAlign height={trackH} align="right">
+            <span style={{ fontSize: layout.valueFont, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif }}>
+              {c.rate}%
+            </span>
+          </CaptureVAlign>
         </div>
         );
       })}
@@ -225,33 +200,35 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
 export function PersonalInsightCard({ kind, category, categoryCount }: { kind: 'best' | 'worst'; category: CategoryRow; categoryCount: number }) {
   const isBest = kind === 'best';
   const ins = personalInsightCardLayout(categoryCount);
+  const cardH = categoryCount > 6 ? 96 : 108;
   return (
     <div
       style={{
         flex: 1,
         borderRadius: 10,
-        padding: ins.padding,
+        height: cardH,
         background: isBest ? PERSONAL_V1.insightGood : PERSONAL_V1.insightWarn,
         border: `1px solid ${isBest ? '#b8d9c4' : '#e8d4a0'}`,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: 3,
         minWidth: 0,
+        overflow: 'hidden',
       }}
     >
-      <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: PERSONAL_V1.inkSoft, letterSpacing: '0.04em' }}>
-        {isBest ? '最得意部門' : '要改善部門'}
-      </p>
-      <p style={{ margin: 0, fontSize: ins.labelFs, fontWeight: 700, color: PERSONAL_V1.ink, fontFamily: REPORT_FONTS.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
-        {category.label}
-      </p>
-      <p style={{ margin: 0, fontSize: 13, color: PERSONAL_V1.inkMuted }}>
-        <span style={{ fontFamily: REPORT_FONTS.serif, fontWeight: 800, color: PERSONAL_V1.headerBg, fontSize: ins.rateFs }}>{category.rate}%</span>
-        <span style={{ marginLeft: 6, fontSize: 12 }}>
-          （{category.earnedScore}/{category.maxScore}pt）
-        </span>
-      </p>
+      <CaptureVAlign height={cardH} padding={ins.padding} align="left">
+        <div>
+          <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: PERSONAL_V1.inkSoft, letterSpacing: '0.04em' }}>
+            {isBest ? '最得意部門' : '要改善部門'}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: ins.labelFs, fontWeight: 700, color: PERSONAL_V1.ink, fontFamily: REPORT_FONTS.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
+            {category.label}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: PERSONAL_V1.inkMuted }}>
+            <span style={{ fontFamily: REPORT_FONTS.serif, fontWeight: 800, color: PERSONAL_V1.headerBg, fontSize: ins.rateFs }}>{category.rate}%</span>
+            <span style={{ marginLeft: 6, fontSize: 12 }}>
+              （{category.earnedScore}/{category.maxScore}pt）
+            </span>
+          </p>
+        </div>
+      </CaptureVAlign>
     </div>
   );
 }
@@ -286,28 +263,21 @@ export function PersonalBottleCard({
       <div style={{ padding: '9px 10px', background: PERSONAL_V1.headerBg, color: '#fff', fontSize: layout.titleFs, fontWeight: 700, textAlign: 'center', letterSpacing: '0.04em' }}>
         {title}
       </div>
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '12px 8px',
-          gap: 6,
-          background: `linear-gradient(180deg, ${PERSONAL_V1.cardBg}, ${PERSONAL_V1.zebra})`,
-        }}
-      >
-        <p style={{ margin: 0, fontSize: layout.nameFs, fontWeight: 700, color: PERSONAL_V1.ink, textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
-          {sampleName}
-        </p>
-        <p style={{ margin: 0, fontSize: layout.scoreFs, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>
-          {score}
-          <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
-        </p>
-        {othersCount > 0 && (
-          <p style={{ margin: 0, fontSize: 12, color: PERSONAL_V1.inkMuted }}>ほか{othersCount}件</p>
-        )}
+      <div style={{ flex: 1, minHeight: 0, background: `linear-gradient(180deg, ${PERSONAL_V1.cardBg}, ${PERSONAL_V1.zebra})` }}>
+        <CaptureVAlign height={120} align="center" padding="8px 10px">
+          <div>
+            <p style={{ margin: 0, fontSize: layout.nameFs, fontWeight: 700, color: PERSONAL_V1.ink, textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
+              {sampleName}
+            </p>
+            <p style={{ margin: '6px 0 0', fontSize: layout.scoreFs, fontWeight: 800, color: PERSONAL_V1.headerBg, fontFamily: REPORT_FONTS.serif, lineHeight: 1 }}>
+              {score}
+              <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
+            </p>
+            {othersCount > 0 && (
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: PERSONAL_V1.inkMuted, textAlign: 'center' }}>ほか{othersCount}件</p>
+            )}
+          </div>
+        </CaptureVAlign>
       </div>
     </div>
   );

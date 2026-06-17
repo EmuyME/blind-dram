@@ -7,8 +7,9 @@ import {
   PersonalResultCard,
   PersonalSectionTitle,
 } from '@/components/reports/personal/PersonalReportParts';
+import { CaptureVAlign } from '@/components/reports/personal/capture-align';
 import { PersonalScoreCell } from '@/components/reports/personal/PersonalScoreCell';
-import { PersonalReportShell, PERSONAL_CONTENT_W, personalTableHeadStyle } from '@/components/reports/personal/PersonalReportShell';
+import { PersonalReportShell, PERSONAL_CONTENT_W, PersonalTableHeadCell, personalTableHeadStyle } from '@/components/reports/personal/PersonalReportShell';
 import { PERSONAL_CANVAS, PERSONAL_SHADOW, PERSONAL_V1 } from '@/components/reports/personal/personal-tokens';
 import type { PersonalReportData, ReportItemKey } from '@/lib/report-data/types';
 import { personalRoundTableColWidths, personalTableLayout } from '@/lib/report-export/personal-layout-scale';
@@ -17,19 +18,6 @@ import { PERSONAL_ANSWER_COLUMN_ORDER } from '@/lib/report-export/typography';
 
 function orderedAnswerKeys(activeKeys: ReportItemKey[]): ReportItemKey[] {
   return PERSONAL_ANSWER_COLUMN_ORDER.filter((k) => activeKeys.includes(k));
-}
-
-function tableCellInner(rowH: number, padding: string, align: 'left' | 'center') {
-  return {
-    display: 'flex' as const,
-    alignItems: 'center' as const,
-    justifyContent: align === 'center' ? ('center' as const) : ('flex-start' as const),
-    minHeight: rowH,
-    height: '100%',
-    padding,
-    boxSizing: 'border-box' as const,
-    lineHeight: 1.25,
-  };
 }
 
 export function PersonalReportView({ data }: { data: PersonalReportData }) {
@@ -68,67 +56,77 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
             </colgroup>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: 'center' }}>No.</th>
-                <th style={{ ...thStyle, textAlign: 'left' }}>サンプル</th>
-                <th style={{ ...thStyle, textAlign: 'left' }}>出題者</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>
+                  <PersonalTableHeadCell align="center" padding={tbl.padding}>
+                    No.
+                  </PersonalTableHeadCell>
+                </th>
+                <th style={{ ...thStyle, textAlign: 'left' }}>
+                  <PersonalTableHeadCell align="left" padding={tbl.padding}>
+                    サンプル
+                  </PersonalTableHeadCell>
+                </th>
+                <th style={{ ...thStyle, textAlign: 'left' }}>
+                  <PersonalTableHeadCell align="left" padding={tbl.padding}>
+                    出題者
+                  </PersonalTableHeadCell>
+                </th>
                 {answerKeys.map((key) => {
                   const pts = data.itemMaxScores[key];
                   const label = data.analysis.categoryScores.find((c) => c.key === key)?.label ?? key;
                   return (
                     <th key={key} style={{ ...thStyle, textAlign: 'left' }}>
-                      <PersonalColumnHeader label={label} points={pts} headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
+                      <PersonalTableHeadCell align="left" padding={tbl.padding}>
+                        <PersonalColumnHeader label={label} points={pts} headFs={tbl.headFs} headPtsFs={tbl.headPtsFs} />
+                      </PersonalTableHeadCell>
                     </th>
                   );
                 })}
                 <th style={{ ...thStyle, textAlign: 'center' }}>
-                  <PersonalColumnHeader
-                    label="合計得点"
-                    points={data.maxTotalScorePerRound}
-                    align="center"
-                    headFs={tbl.headFs}
-                    headPtsFs={tbl.headPtsFs}
-                  />
+                  <PersonalTableHeadCell align="center" padding={tbl.padding}>
+                    <PersonalColumnHeader
+                      label="合計得点"
+                      points={data.maxTotalScorePerRound}
+                      align="center"
+                      headFs={tbl.headFs}
+                      headPtsFs={tbl.headPtsFs}
+                    />
+                  </PersonalTableHeadCell>
                 </th>
               </tr>
             </thead>
             <tbody>
               {data.rounds.map((round, i) => (
                 <tr key={round.sampleId} style={{ background: i % 2 === 1 ? PERSONAL_V1.zebra : PERSONAL_V1.cardBg }}>
-                  <td
-                    style={{
-                      height: tbl.rowH,
-                      padding: 0,
-                      verticalAlign: 'middle',
-                      borderBottom: `1px solid ${PERSONAL_V1.rule}`,
-                    }}
-                  >
-                    <div style={{ ...tableCellInner(tbl.rowH, tbl.padding, 'center'), fontSize: tbl.noFs, fontWeight: 800, fontFamily: REPORT_FONTS.serif, color: PERSONAL_V1.headerBg }}>
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${PERSONAL_V1.rule}` }}>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="center"
+                      style={{ fontSize: tbl.noFs, fontWeight: 800, fontFamily: REPORT_FONTS.serif, color: PERSONAL_V1.headerBg }}
+                    >
                       {round.roundNo}
-                    </div>
+                    </CaptureVAlign>
                   </td>
-                  <td
-                    style={{
-                      height: tbl.rowH,
-                      padding: 0,
-                      verticalAlign: 'middle',
-                      borderBottom: `1px solid ${PERSONAL_V1.rule}`,
-                    }}
-                  >
-                    <div style={{ ...tableCellInner(tbl.rowH, tbl.padding, 'left'), fontSize: tbl.sampleFs, fontWeight: 700, color: PERSONAL_V1.ink, wordBreak: 'break-word' }}>
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${PERSONAL_V1.rule}` }}>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="left"
+                      style={{ fontSize: tbl.sampleFs, fontWeight: 700, color: PERSONAL_V1.ink, wordBreak: 'break-word' }}
+                    >
                       {round.sampleName}
-                    </div>
+                    </CaptureVAlign>
                   </td>
-                  <td
-                    style={{
-                      height: tbl.rowH,
-                      padding: 0,
-                      verticalAlign: 'middle',
-                      borderBottom: `1px solid ${PERSONAL_V1.rule}`,
-                    }}
-                  >
-                    <div style={{ ...tableCellInner(tbl.rowH, tbl.padding, 'left'), fontSize: Math.max(12, tbl.sampleFs - 1), color: PERSONAL_V1.inkMuted }}>
+                  <td style={{ height: tbl.rowH, padding: 0, verticalAlign: 'middle', borderBottom: `1px solid ${PERSONAL_V1.rule}` }}>
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="left"
+                      style={{ fontSize: Math.max(12, tbl.sampleFs - 1), color: PERSONAL_V1.inkMuted }}
+                    >
                       {round.presenterName}
-                    </div>
+                    </CaptureVAlign>
                   </td>
                   {answerKeys.map((key) => (
                     <PersonalScoreCell
@@ -154,19 +152,17 @@ export function PersonalReportView({ data }: { data: PersonalReportData }) {
                       borderLeft: `1px solid ${PERSONAL_V1.ruleStrong}`,
                     }}
                   >
-                    <div
-                      style={{
-                        ...tableCellInner(tbl.rowH, tbl.padding, 'center'),
-                        fontSize: tbl.totalFs,
-                        fontWeight: 800,
-                        fontFamily: REPORT_FONTS.serif,
-                        color: PERSONAL_V1.headerBg,
-                        lineHeight: 1,
-                      }}
+                    <CaptureVAlign
+                      height={tbl.rowH}
+                      padding={tbl.padding}
+                      align="center"
+                      style={{ fontSize: tbl.totalFs, fontWeight: 800, fontFamily: REPORT_FONTS.serif, color: PERSONAL_V1.headerBg, lineHeight: 1 }}
                     >
-                      {round.totalScore}
-                      <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
-                    </div>
+                      <>
+                        {round.totalScore}
+                        <span style={{ fontSize: Math.max(12, tbl.totalFs - 12), fontWeight: 700 }}>pt</span>
+                      </>
+                    </CaptureVAlign>
                   </td>
                 </tr>
               ))}

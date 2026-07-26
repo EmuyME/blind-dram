@@ -62,3 +62,6 @@ tmp-error-context-latest/
 e2e/screenshots/
 e2e/videos/
 e2e/fix-results/
+
+.tmp-preview/
+scripts/.tmp-preview/

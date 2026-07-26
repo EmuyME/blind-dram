@@ -5,11 +5,11 @@ import type { CSSProperties, ReactNode } from 'react';
  *
  * html2canvas は iOS モバイルで foreignObjectRendering:false になり、
  * flex の justify-content や table の vertical-align を正しく描画できない。
- * そのため padding-top を数値で直接計算し、CSS の魔法に一切依存しない。
+ * そのため padding-top / padding-bottom を数値で直接計算し、CSS の魔法に一切依存しない。
  *
  * contentH: コンテンツブロックの推定高さ（px）。
- *   指定すると paddingTop = floor((height - contentH) / 2) で確実に中央揃え。
- *   省略時は nested-table fallback（デスクトップ向け）。
+ *   指定すると上下パディングを均等に割り当てて中央揃え。
+ *   opticalNudge: 正で下方向へ（ラベル上＋大数字の光学中心補正）。
  */
 
 function parsePaddingH(padding: string): { left: string; right: string } {
@@ -25,32 +25,46 @@ export function CaptureVAlign({
   contentH,
   padding,
   align = 'left',
+  opticalNudge = 0,
   style,
   children,
 }: {
   height: number;
-  /** コンテンツブロックの推定高さ (px)。指定すると padding-top で確実に中央揃え。 */
+  /** コンテンツブロックの推定高さ (px)。指定すると上下 padding で確実に中央揃え。 */
   contentH?: number;
   padding?: string;
   align?: 'left' | 'center' | 'right';
+  /** 正の値でコンテンツを下へずらす（光学中心補正） */
+  opticalNudge?: number;
   style?: CSSProperties;
   children: ReactNode;
 }) {
   const textAlign = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left';
 
   if (contentH !== undefined) {
-    const vPad = Math.max(0, Math.floor((height - contentH) / 2));
+    const free = Math.max(0, height - contentH);
+    let padTop = Math.floor(free / 2) + opticalNudge;
+    let padBottom = free - Math.floor(free / 2) - opticalNudge;
+    if (padTop < 0) {
+      padBottom += padTop;
+      padTop = 0;
+    }
+    if (padBottom < 0) {
+      padTop += padBottom;
+      padBottom = 0;
+    }
     const hPad = padding ? parsePaddingH(padding) : { left: '0', right: '0' };
     return (
       <div
         style={{
           height,
           boxSizing: 'border-box',
-          paddingTop: vPad,
+          paddingTop: padTop,
+          paddingBottom: padBottom,
           paddingLeft: hPad.left,
           paddingRight: hPad.right,
           textAlign,
-          overflow: 'visible',
+          overflow: 'hidden',
           ...style,
         }}
       >
@@ -115,20 +129,23 @@ export function headerCellContentH(headFs: number, headPtsFs: number): number {
   return Math.round(headFs * 1.2) + 2 + Math.round(headPtsFs * 1.2);
 }
 
-/** 結果カードのコンテンツ高さ (label + gap + value) */
+/** 結果カードのコンテンツ高さ (label + gap + value) — 実測寄りにやや小さめ */
 export function resultCardContentH(): number {
-  // label: 14px × lh1.2, gap: 8px, value: 36px × lh1
-  return Math.round(14 * 1.2) + 8 + 36;
+  // label ~17, gap 8, value ~36。余白計算が大きすぎると上寄りになるため控えめに。
+  return 58;
 }
 
-/** インサイトカードのコンテンツ高さ */
+/** 分析右ペイン共通カードのコンテンツ高さ（タイトル + 主値 + 副値） */
+export function analysisSideCardContentH(titleFs: number, primaryFs: number, secondaryFs: number): number {
+  return Math.round(titleFs * 1.2) + 6 + Math.round(primaryFs * 1.25) + 6 + Math.round(secondaryFs * 1.2);
+}
+
+/** @deprecated 互換用 — analysisSideCardContentH を使う */
 export function insightCardContentH(titleFs: number, labelFs: number): number {
-  // title: titleFs × lh1.2, gap: 4, label: labelFs × lh1.25, gap: 4, rate: 13 × lh1.2
-  return Math.round(titleFs * 1.2) + 4 + Math.round(labelFs * 1.25) + 4 + Math.round(13 * 1.2);
+  return analysisSideCardContentH(titleFs, labelFs, 20);
 }
 
-/** ボトルカード本体のコンテンツ高さ */
+/** @deprecated 互換用 — analysisSideCardContentH を使う */
 export function bottleCardBodyContentH(nameFs: number, scoreFs: number): number {
-  // name: nameFs × lh1.25, gap: 6, score line: scoreFs × lh1
-  return Math.round(nameFs * 1.25) + 6 + scoreFs;
+  return analysisSideCardContentH(12, nameFs, scoreFs);
 }

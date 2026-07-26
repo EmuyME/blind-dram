@@ -96,22 +96,29 @@ export function personalRoundTableColWidths(scoringColumnCount: number): string[
   return [...fixed, ...itemCols, `${totalPct}%`];
 }
 
+/** 分析右ペイン 2×2 カード共通タイポ */
 export function personalInsightCardLayout(categoryCount: number) {
   const compact = categoryCount > 6;
   return {
     titleFs: compact ? 11 : 12,
-    labelFs: compact ? 16 : 18,
-    rateFs: compact ? 17 : 20,
-    padding: compact ? '10px 12px' : '14px 16px',
+    labelFs: compact ? 18 : 20,
+    rateFs: compact ? 22 : 26,
+    padding: compact ? '12px 14px' : '14px 16px',
   };
 }
 
 export function personalBottleCardLayout(analysisHeight: number) {
   const compact = analysisHeight > 440;
   return {
-    titleFs: compact ? 13 : 14,
-    nameFs: compact ? 17 : 20,
-    scoreFs: compact ? 24 : 28,
-    scoreUnitFs: compact ? 14 : 16,
+    titleFs: compact ? 11 : 12,
+    nameFs: compact ? 16 : 18,
+    scoreFs: compact ? 22 : 26,
+    scoreUnitFs: compact ? 13 : 14,
+    padding: compact ? '12px 14px' : '14px 16px',
   };
+}
+
+/** 分析右ペインのセル高さ（2行等分割） */
+export function personalAnalysisSideCellHeight(analysisHeight: number, gap = 10): number {
+  return Math.floor((analysisHeight - gap) / 2);
 }

@@ -1,9 +1,13 @@
 'use client';
 
-import { CaptureVAlign, scoreCellContentH } from '@/components/reports/personal/capture-align';
+import { CaptureVAlign } from '@/components/reports/personal/capture-align';
+import { PersonalJudgementMark } from '@/components/reports/personal/PersonalJudgementMark';
+import {
+  PersonalScoreLines,
+  personalScoreLinesContentH,
+} from '@/components/reports/personal/PersonalScoreLines';
 import { PERSONAL_JUDGEMENT_BG, PERSONAL_V1 } from '@/components/reports/personal/personal-tokens';
 import type { Judgement } from '@/lib/report-data/types';
-import { JUDGEMENT_STYLES } from '@/lib/report-export/theme';
 
 export type PersonalScoreCellLayout = {
   rowH: number;
@@ -14,14 +18,19 @@ export type PersonalScoreCellLayout = {
   cellPadding: string;
 };
 
+/** テキストまでの最低余白 */
+const SCORE_PAD_LEFT_MIN = 12;
+
 function hPadOnly(padding: string, padRight: number): string {
-  // Return left padding from the original padding string, override right with padRight
   const parts = padding.trim().split(/\s+/);
-  const left = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
-  return `0 ${padRight}px 0 ${left}`;
+  const rawLeft = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
+  const parsed = parseInt(String(rawLeft), 10);
+  const left = Math.max(Number.isFinite(parsed) ? parsed : 10, SCORE_PAD_LEFT_MIN);
+  const right = Math.max(padRight > 24 ? 10 : 8, 10);
+  return `0 ${right}px 0 ${left}px`;
 }
 
-/** 個人レポート回答セル：上段回答・下段正答、左揃え、バッジ右上 */
+/** 個人レポート回答セル：上段＝提出、下段＝正答＋得点（ラベルなし） */
 export function PersonalScoreCell({
   item,
   layout,
@@ -29,10 +38,8 @@ export function PersonalScoreCell({
   item: { answer: string; truth: string; judgement: Judgement; earnedScore: number };
   layout: PersonalScoreCellLayout;
 }) {
-  const badge = JUDGEMENT_STYLES[item.judgement];
   const bg = PERSONAL_JUDGEMENT_BG[item.judgement];
-  const contentH = scoreCellContentH(layout.answerFs, layout.metaFs);
-  const badgeTop = Math.max(6, Math.round((layout.rowH - layout.badgeSize) / 2));
+  const contentH = personalScoreLinesContentH(layout.answerFs, layout.metaFs);
 
   return (
     <td
@@ -46,43 +53,26 @@ export function PersonalScoreCell({
         height: layout.rowH,
         wordBreak: 'break-word',
         overflowWrap: 'anywhere',
+        overflow: 'hidden',
       }}
     >
+      <PersonalJudgementMark judgement={item.judgement} rowH={layout.rowH} />
       <CaptureVAlign
         height={layout.rowH}
         contentH={contentH}
         padding={hPadOnly(layout.cellPadding, layout.padRight)}
         align="left"
+        style={{ position: 'relative', zIndex: 1 }}
       >
-        <div>
-          <div style={{ fontSize: layout.answerFs, fontWeight: 700, lineHeight: 1.25, color: PERSONAL_V1.ink }}>
-            {item.answer}
-          </div>
-          <div style={{ marginTop: 4, fontSize: layout.metaFs, lineHeight: 1.25, color: PERSONAL_V1.inkMuted }}>
-            / {item.truth}（{item.earnedScore}pt）
-          </div>
-        </div>
+        <PersonalScoreLines
+          answer={item.answer}
+          truth={item.truth}
+          earnedScore={item.earnedScore}
+          judgement={item.judgement}
+          answerFs={layout.answerFs}
+          metaFs={layout.metaFs}
+        />
       </CaptureVAlign>
-      <span
-        style={{
-          position: 'absolute',
-          top: badgeTop,
-          right: 8,
-          width: layout.badgeSize,
-          height: layout.badgeSize,
-          borderRadius: '50%',
-          background: badge.badgeBg,
-          color: '#fff',
-          fontSize: layout.badgeSize <= 20 ? 10 : 11,
-          fontWeight: 800,
-          lineHeight: `${layout.badgeSize}px`,
-          textAlign: 'center',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-        }}
-        aria-hidden
-      >
-        {badge.symbol}
-      </span>
     </td>
   );
 }

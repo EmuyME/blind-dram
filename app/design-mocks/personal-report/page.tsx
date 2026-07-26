@@ -1,16 +1,61 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PersonalReportMock } from '@/components/design-mocks/personal-report/PersonalReportMock';
 import { getMockData, MOCK_SCENARIO_LABELS, type MockScenario } from '@/components/design-mocks/personal-report/dummy-data';
 import { CANVAS } from '@/components/design-mocks/personal-report/tokens';
+import {
+  ReportPreviewModal,
+  type ReportPreviewPayload,
+} from '@/components/reports/ReportPreviewModal';
+import { captureSingleElementToPngDataUrl } from '@/lib/capture-ranking-png';
+import { REPORT_CAPTURE_PIXEL_RATIO } from '@/lib/report-export/theme';
+import { savePngDataUrl } from '@/lib/download-png';
 
 const SCENARIOS = Object.keys(MOCK_SCENARIO_LABELS) as MockScenario[];
 
 export default function PersonalReportMockPage() {
   const [scenario, setScenario] = useState<MockScenario>('standard');
   const data = useMemo(() => getMockData(scenario), [scenario]);
+  const captureRef = useRef<HTMLDivElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<ReportPreviewPayload | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const runCapturePreview = async () => {
+    const root = captureRef.current?.querySelector('[data-report-capture-page]') as HTMLElement | null;
+    if (!root) {
+      setError('キャプチャ対象が見つかりません');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await document.fonts.ready.catch(() => undefined);
+      }
+      await new Promise<void>((r) => setTimeout(r, 120));
+      const pngDataUrl = await captureSingleElementToPngDataUrl(root, {
+        pixelRatio: REPORT_CAPTURE_PIXEL_RATIO,
+      });
+      const day = new Date().toISOString().split('T')[0];
+      setPreview({
+        kind: 'personal',
+        title: data.sessionTitle,
+        filename: `mock_personal_${scenario}_${day}.png`,
+        pngDataUrl,
+        participantName: data.participantName,
+      });
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : 'キャプチャに失敗しました');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: '#1a1410', padding: '32px 24px 48px' }}>
@@ -26,7 +71,24 @@ export default function PersonalReportMockPage() {
               {data.scoringColumns.length}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 12, fontSize: 14 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 14, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => void runCapturePreview()}
+              disabled={busy}
+              style={{
+                padding: '10px 16px',
+                borderRadius: 10,
+                border: 'none',
+                background: busy ? '#4a4035' : '#c9a24a',
+                color: busy ? '#a89070' : '#1a1410',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: busy ? 'wait' : 'pointer',
+              }}
+            >
+              {busy ? 'キャプチャ中…' : 'キャプチャプレビュー'}
+            </button>
             <Link href="/design-mocks" style={{ color: '#c4a574', textDecoration: 'none' }}>
               ← デザインモック一覧
             </Link>
@@ -35,6 +97,10 @@ export default function PersonalReportMockPage() {
             </Link>
           </div>
         </header>
+
+        {error && (
+          <p style={{ marginBottom: 12, color: '#f0a0a0', fontSize: 13 }}>{error}</p>
+        )}
 
         <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {SCENARIOS.map((key) => (
@@ -59,7 +125,10 @@ export default function PersonalReportMockPage() {
           ))}
         </div>
 
-        <div style={{ overflow: 'auto', borderRadius: 12, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}>
+        <div
+          ref={captureRef}
+          style={{ overflow: 'auto', borderRadius: 12, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}
+        >
           <PersonalReportMock data={data} />
         </div>
 
@@ -75,12 +144,30 @@ export default function PersonalReportMockPage() {
             lineHeight: 1.6,
           }}
         >
-          <strong style={{ color: '#e8dcc8' }}>スケール検証</strong>
+          <strong style={{ color: '#e8dcc8' }}>スケール検証 / キャプチャデバッグ</strong>
           <p style={{ margin: '8px 0 0' }}>
-            上部のシナリオ切替で、部門数・ラウンド数が増えたときのレイアウトを確認できます。分析エリアの高さ・棒グラフ・表のフォント/行高が自動調整されます。
+            「キャプチャプレビュー」は本番と同じ PNG 生成処理で画像を作り、プレビューモーダルで縦位置・余白を確認できます。実寸表示で細部をチェックしてください。
           </p>
         </aside>
       </div>
+
+      <ReportPreviewModal
+        preview={preview}
+        isSaving={saving}
+        onClose={() => {
+          if (!saving) setPreview(null);
+        }}
+        onSave={async () => {
+          if (!preview) return;
+          setSaving(true);
+          try {
+            await savePngDataUrl(preview.filename, preview.pngDataUrl);
+            setPreview(null);
+          } finally {
+            setSaving(false);
+          }
+        }}
+      />
     </div>
   );
 }

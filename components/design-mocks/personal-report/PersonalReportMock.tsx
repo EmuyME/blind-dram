@@ -5,22 +5,27 @@ import type { CategoryScore, PersonalReportMockData, ScoreItem } from '@/compone
 import { getMockData } from '@/components/design-mocks/personal-report/dummy-data';
 import {
   analysisAreaHeight,
+  analysisSideCellHeight,
   bottleCardLayout,
   categoryChartLayout,
   insightCardLayout,
   roundTableColWidths,
   tableLayout,
 } from '@/components/design-mocks/personal-report/layout-scale';
-import { CANVAS, COLORS, FONT, JUDGEMENT, SHADOW } from '@/components/design-mocks/personal-report/tokens';
+import { CANVAS, COLORS, FONT, SHADOW } from '@/components/design-mocks/personal-report/tokens';
 import {
   CaptureVAlign,
   captureLineBox,
-  scoreCellContentH,
   resultCardContentH,
-  insightCardContentH,
-  bottleCardBodyContentH,
+  analysisSideCardContentH,
   headerCellContentH,
 } from '@/components/reports/personal/capture-align';
+import { PersonalJudgementMark } from '@/components/reports/personal/PersonalJudgementMark';
+import {
+  PersonalScoreLines,
+  personalScoreLinesContentH,
+} from '@/components/reports/personal/PersonalScoreLines';
+import { PERSONAL_JUDGEMENT_BG } from '@/components/reports/personal/personal-tokens';
 
 const CONTENT_W = CANVAS.width - CANVAS.padding * 2;
 const TH_HEIGHT = 48;
@@ -123,7 +128,7 @@ function ResultCard({ label, value, featured }: { label: string; value: string; 
         overflow: 'hidden',
       }}
     >
-      <CaptureVAlign height={innerH} contentH={contentH} align="center" padding="0 12px">
+      <CaptureVAlign height={innerH} contentH={contentH} align="center" padding="0 12px" opticalNudge={4}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.inkMuted, letterSpacing: '0.02em', lineHeight: 1.2, textAlign: 'center' }}>{label}</p>
           <p style={{ margin: '8px 0 0', fontSize: 36, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1, textAlign: 'center' }}>
@@ -189,34 +194,46 @@ function CategoryBarChart({ categories }: { categories: readonly CategoryScore[]
   );
 }
 
-function InsightCard({ kind, category, categoryCount }: { kind: 'best' | 'worst'; category: CategoryScore; categoryCount: number }) {
+function InsightCard({
+  kind,
+  category,
+  categoryCount,
+  cardH,
+}: {
+  kind: 'best' | 'worst';
+  category: CategoryScore;
+  categoryCount: number;
+  cardH: number;
+}) {
   const isBest = kind === 'best';
   const ins = insightCardLayout(categoryCount);
-  const cardH = categoryCount > 6 ? 96 : 108;
-  const contentH = insightCardContentH(ins.titleFs, ins.labelFs);
+  const contentH = analysisSideCardContentH(ins.titleFs, ins.labelFs, ins.rateFs);
   return (
     <div
       style={{
-        flex: 1,
-        borderRadius: 10,
         height: cardH,
+        borderRadius: 10,
         background: isBest ? COLORS.insightGood : COLORS.insightWarn,
         border: `1px solid ${isBest ? '#b8d9c4' : '#e8d4a0'}`,
+        boxShadow: SHADOW.card,
         minWidth: 0,
         overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
-      <CaptureVAlign height={cardH} contentH={contentH} padding={ins.padding} align="left">
-        <div>
-          <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: COLORS.inkSoft, letterSpacing: '0.04em' }}>
+      <CaptureVAlign height={cardH} contentH={contentH} padding={ins.padding} align="center" opticalNudge={1}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: ins.titleFs, fontWeight: 700, color: COLORS.inkSoft, letterSpacing: '0.06em' }}>
             {isBest ? '最得意部門' : '要改善部門'}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: ins.labelFs, fontWeight: 700, color: COLORS.ink, fontFamily: FONT.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
+          <p style={{ margin: '6px 0 0', fontSize: ins.labelFs, fontWeight: 700, color: COLORS.ink, fontFamily: FONT.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
             {category.label}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: COLORS.inkMuted }}>
+          <p style={{ margin: '6px 0 0', lineHeight: 1.2 }}>
             <span style={{ fontFamily: FONT.serif, fontWeight: 800, color: COLORS.headerBg, fontSize: ins.rateFs }}>{category.rate}%</span>
-            <span style={{ marginLeft: 6, fontSize: 12 }}>（{category.earned}/{category.max}pt）</span>
+            <span style={{ marginLeft: 6, fontSize: 12, color: COLORS.inkMuted }}>
+              {category.earned}/{category.max}pt
+            </span>
           </p>
         </div>
       </CaptureVAlign>
@@ -229,52 +246,54 @@ function BottleCard({
   name,
   score,
   layout,
+  cardH,
 }: {
   title: string;
   name: string;
   score: number;
   layout: ReturnType<typeof bottleCardLayout>;
+  cardH: number;
 }) {
-  const bodyH = 120;
-  const contentH = bottleCardBodyContentH(layout.nameFs, layout.scoreFs);
+  const contentH = analysisSideCardContentH(layout.titleFs, layout.nameFs, layout.scoreFs);
   return (
     <div
       style={{
-        flex: 1,
+        height: cardH,
         borderRadius: 10,
         overflow: 'hidden',
         background: COLORS.cardBg,
         border: `1px solid ${COLORS.cardBorder}`,
         boxShadow: SHADOW.card,
-        display: 'flex',
-        flexDirection: 'column',
         minWidth: 0,
+        boxSizing: 'border-box',
       }}
     >
-      <div style={{ padding: '9px 10px', background: COLORS.headerBg, color: '#fff', fontSize: layout.titleFs, fontWeight: 700, textAlign: 'center', letterSpacing: '0.04em' }}>
-        {title}
-      </div>
-      <div style={{ flex: 1, background: `linear-gradient(180deg, ${COLORS.cardBg}, ${COLORS.zebra})` }}>
-        <CaptureVAlign height={bodyH} contentH={contentH} padding="8px 10px" align="center">
-          <div>
-            <p style={{ margin: 0, fontSize: layout.nameFs, fontWeight: 700, color: COLORS.ink, textAlign: 'center', lineHeight: 1.25, wordBreak: 'break-word' }}>
-              {name}
-            </p>
-            <p style={{ margin: '6px 0 0', fontSize: layout.scoreFs, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif, lineHeight: 1, textAlign: 'center' }}>
+      <CaptureVAlign height={cardH} contentH={contentH} padding={layout.padding} align="center" opticalNudge={1}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: layout.titleFs, fontWeight: 700, color: COLORS.inkSoft, letterSpacing: '0.06em' }}>
+            {title}
+          </p>
+          <p style={{ margin: '6px 0 0', fontSize: layout.nameFs, fontWeight: 700, color: COLORS.ink, fontFamily: FONT.serif, lineHeight: 1.25, wordBreak: 'break-word' }}>
+            {name}
+          </p>
+          <p style={{ margin: '6px 0 0', lineHeight: 1.2 }}>
+            <span style={{ fontSize: layout.scoreFs, fontWeight: 800, color: COLORS.headerBg, fontFamily: FONT.serif }}>
               {score}
               <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
-            </p>
-          </div>
-        </CaptureVAlign>
-      </div>
+            </span>
+          </p>
+        </div>
+      </CaptureVAlign>
     </div>
   );
 }
 
 function scoreCellHPad(padding: string, padRight: number): string {
   const parts = padding.trim().split(/\s+/);
-  const left = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
-  return `0 ${padRight}px 0 ${left}`;
+  const rawLeft = parts.length >= 4 ? parts[3] : parts.length === 2 ? parts[1] : parts[0];
+  const parsed = parseInt(String(rawLeft), 10);
+  const left = Math.max(Number.isFinite(parsed) ? parsed : 10, 12) + 3;
+  return `0 ${padRight}px 0 ${left}px`;
 }
 
 function ScoreCell({
@@ -294,9 +313,9 @@ function ScoreCell({
   badgeSize: number;
   cellPadding: string;
 }) {
-  const j = JUDGEMENT[item.judgement];
-  const contentH = scoreCellContentH(answerFs, metaFs);
-  const badgeTop = Math.max(6, Math.round((rowH - badgeSize) / 2));
+  const contentH = personalScoreLinesContentH(answerFs, metaFs);
+  const bg = PERSONAL_JUDGEMENT_BG[item.judgement];
+  const rightPad = Math.max(padRight > 24 ? 10 : 8, 8);
 
   return (
     <td
@@ -305,41 +324,31 @@ function ScoreCell({
         padding: 0,
         verticalAlign: 'top',
         textAlign: 'left',
-        background: j.bg,
+        background: bg,
         borderBottom: `1px solid ${COLORS.rule}`,
         height: rowH,
         wordBreak: 'break-word',
         overflowWrap: 'anywhere',
+        overflow: 'hidden',
       }}
     >
-      <CaptureVAlign height={rowH} contentH={contentH} padding={scoreCellHPad(cellPadding, padRight)} align="left">
-        <div>
-          <div style={{ fontSize: answerFs, fontWeight: 700, lineHeight: 1.25, color: COLORS.ink }}>{item.answer}</div>
-          <div style={{ marginTop: 4, fontSize: metaFs, lineHeight: 1.25, color: COLORS.inkMuted }}>
-            / {item.truth}（{item.points}pt）
-          </div>
-        </div>
-      </CaptureVAlign>
-      <span
-        style={{
-          position: 'absolute',
-          top: badgeTop,
-          right: 8,
-          width: badgeSize,
-          height: badgeSize,
-          borderRadius: '50%',
-          background: j.badge,
-          color: '#fff',
-          fontSize: badgeSize <= 20 ? 10 : 11,
-          fontWeight: 800,
-          lineHeight: `${badgeSize}px`,
-          textAlign: 'center',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-        }}
-        aria-hidden
+      <PersonalJudgementMark judgement={item.judgement} rowH={rowH} />
+      <CaptureVAlign
+        height={rowH}
+        contentH={contentH}
+        padding={scoreCellHPad(cellPadding, rightPad)}
+        align="left"
+        style={{ position: 'relative', zIndex: 1 }}
       >
-        {j.symbol}
-      </span>
+        <PersonalScoreLines
+          answer={item.answer}
+          truth={item.truth}
+          earnedScore={item.points}
+          judgement={item.judgement}
+          answerFs={answerFs}
+          metaFs={metaFs}
+        />
+      </CaptureVAlign>
     </td>
   );
 }
@@ -379,6 +388,7 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
 
   const analysisH = analysisAreaHeight(categoryCount);
   const bottleLayout = bottleCardLayout(analysisH);
+  const sideCellH = analysisSideCellHeight(analysisH);
   const tbl = tableLayout(roundCount, scoringCount);
   const colWidths = roundTableColWidths(scoringCount);
   const categoryCompact = categoryCount > 6;
@@ -399,6 +409,7 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
     <article
       data-personal-report-mock
       data-report-mock-version="v1"
+      data-report-capture-page
       data-report-width={CANVAS.width}
       data-category-count={categoryCount}
       data-round-count={roundCount}
@@ -448,15 +459,20 @@ export function PersonalReportMock({ data = getMockData('standard') }: PersonalR
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 0 }}>
-            <div style={{ display: 'flex', gap: 10, flex: categoryCompact ? '0 0 96px' : '0 0 auto', minHeight: 0 }}>
-              <InsightCard kind="best" category={best} categoryCount={categoryCount} />
-              <InsightCard kind="worst" category={worst} categoryCount={categoryCount} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', gap: 10, minHeight: 0 }}>
-              <BottleCard title="最高得点ボトル" name={data.highestBottle.name} score={data.highestBottle.score} layout={bottleLayout} />
-              <BottleCard title="最低得点ボトル" name={data.lowestBottle.name} score={data.lowestBottle.score} layout={bottleLayout} />
-            </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gridTemplateRows: '1fr 1fr',
+              gap: 10,
+              height: '100%',
+              minHeight: 0,
+            }}
+          >
+            <InsightCard kind="best" category={best} categoryCount={categoryCount} cardH={sideCellH} />
+            <InsightCard kind="worst" category={worst} categoryCount={categoryCount} cardH={sideCellH} />
+            <BottleCard title="最高得点ボトル" name={data.highestBottle.name} score={data.highestBottle.score} layout={bottleLayout} cardH={sideCellH} />
+            <BottleCard title="最低得点ボトル" name={data.lowestBottle.name} score={data.lowestBottle.score} layout={bottleLayout} cardH={sideCellH} />
           </div>
         </div>
       </section>

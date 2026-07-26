@@ -5,12 +5,12 @@ import {
   CaptureVAlign,
   captureLineBox,
   resultCardContentH,
-  insightCardContentH,
-  bottleCardBodyContentH,
+  analysisSideCardContentH,
 } from '@/components/reports/personal/capture-align';
 import type { PersonalReportData, ReportItemKey } from '@/lib/report-data/types';
 import {
   personalAnalysisAreaHeight,
+  personalAnalysisSideCellHeight,
   personalBottleCardLayout,
   personalCategoryChartLayout,
   personalInsightCardLayout,
@@ -175,7 +175,7 @@ export function PersonalResultCard({
         overflow: 'hidden',
       }}
     >
-      <CaptureVAlign height={innerH} contentH={contentH} align="center" padding="0 12px">
+      <CaptureVAlign height={innerH} contentH={contentH} align="center" padding="0 12px" opticalNudge={4}>
         <div>
           <p
             style={{
@@ -310,48 +310,73 @@ export function PersonalCategoryBarChart({ categories }: { categories: CategoryR
   );
 }
 
+/** 分析右ペイン 2×2 の共通シェル（高さ均等・見た目統一） */
+function AnalysisSideCard({
+  height,
+  background,
+  border,
+  children,
+}: {
+  height: number;
+  background: string;
+  border: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        height,
+        borderRadius: 10,
+        background,
+        border,
+        boxShadow: PERSONAL_SHADOW.card,
+        minWidth: 0,
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function PersonalInsightCard({
   kind,
   category,
   categoryCount,
+  cardH,
 }: {
   kind: 'best' | 'worst';
   category: CategoryRow;
   categoryCount: number;
+  cardH: number;
 }) {
   const isBest = kind === 'best';
   const ins = personalInsightCardLayout(categoryCount);
-  const cardH = categoryCount > 6 ? 96 : 108;
-  const contentH = insightCardContentH(ins.titleFs, ins.labelFs);
+  const contentH = analysisSideCardContentH(ins.titleFs, ins.labelFs, ins.rateFs);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        borderRadius: 10,
-        height: cardH,
-        background: isBest ? PERSONAL_V1.insightGood : PERSONAL_V1.insightWarn,
-        border: `1px solid ${isBest ? '#b8d9c4' : '#e8d4a0'}`,
-        minWidth: 0,
-        overflow: 'hidden',
-      }}
+    <AnalysisSideCard
+      height={cardH}
+      background={isBest ? PERSONAL_V1.insightGood : PERSONAL_V1.insightWarn}
+      border={`1px solid ${isBest ? '#b8d9c4' : '#e8d4a0'}`}
     >
-      <CaptureVAlign height={cardH} contentH={contentH} padding={ins.padding} align="left">
-        <div>
+      <CaptureVAlign height={cardH} contentH={contentH} padding={ins.padding} align="center" opticalNudge={1}>
+        <div style={{ textAlign: 'center' }}>
           <p
             style={{
               margin: 0,
               fontSize: ins.titleFs,
               fontWeight: 700,
               color: PERSONAL_V1.inkSoft,
-              letterSpacing: '0.04em',
+              letterSpacing: '0.06em',
             }}
           >
             {isBest ? '最得意部門' : '要改善部門'}
           </p>
           <p
             style={{
-              margin: '4px 0 0',
+              margin: '6px 0 0',
               fontSize: ins.labelFs,
               fontWeight: 700,
               color: PERSONAL_V1.ink,
@@ -362,7 +387,7 @@ export function PersonalInsightCard({
           >
             {category.label}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: PERSONAL_V1.inkMuted }}>
+          <p style={{ margin: '6px 0 0', lineHeight: 1.2 }}>
             <span
               style={{
                 fontFamily: REPORT_FONTS.serif,
@@ -373,13 +398,13 @@ export function PersonalInsightCard({
             >
               {category.rate}%
             </span>
-            <span style={{ marginLeft: 6, fontSize: 12 }}>
-              （{category.earnedScore}/{category.maxScore}pt）
+            <span style={{ marginLeft: 6, fontSize: 12, color: PERSONAL_V1.inkMuted }}>
+              {category.earnedScore}/{category.maxScore}pt
             </span>
           </p>
         </div>
       </CaptureVAlign>
-    </div>
+    </AnalysisSideCard>
   );
 }
 
@@ -389,94 +414,68 @@ export function PersonalBottleCard({
   score,
   othersCount,
   layout,
+  cardH,
 }: {
   title: string;
   sampleName: string;
   score: number;
   othersCount: number;
   layout: ReturnType<typeof personalBottleCardLayout>;
+  cardH: number;
 }) {
-  const bodyH = 120;
-  const contentH = bottleCardBodyContentH(layout.nameFs, layout.scoreFs);
+  const contentH = analysisSideCardContentH(layout.titleFs, layout.nameFs, layout.scoreFs);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        borderRadius: 10,
-        overflow: 'hidden',
-        background: PERSONAL_V1.cardBg,
-        border: `1px solid ${PERSONAL_V1.cardBorder}`,
-        boxShadow: PERSONAL_SHADOW.card,
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-      }}
+    <AnalysisSideCard
+      height={cardH}
+      background={PERSONAL_V1.cardBg}
+      border={`1px solid ${PERSONAL_V1.cardBorder}`}
     >
-      <div
-        style={{
-          padding: '9px 10px',
-          background: PERSONAL_V1.headerBg,
-          color: '#fff',
-          fontSize: layout.titleFs,
-          fontWeight: 700,
-          textAlign: 'center',
-          letterSpacing: '0.04em',
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          flex: 1,
-          background: `linear-gradient(180deg, ${PERSONAL_V1.cardBg}, ${PERSONAL_V1.zebra})`,
-        }}
-      >
-        <CaptureVAlign height={bodyH} contentH={contentH} padding="8px 10px" align="center">
-          <div>
-            <p
+      <CaptureVAlign height={cardH} contentH={contentH} padding={layout.padding} align="center" opticalNudge={1}>
+        <div style={{ textAlign: 'center' }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: layout.titleFs,
+              fontWeight: 700,
+              color: PERSONAL_V1.inkSoft,
+              letterSpacing: '0.06em',
+            }}
+          >
+            {title}
+          </p>
+          <p
+            style={{
+              margin: '6px 0 0',
+              fontSize: layout.nameFs,
+              fontWeight: 700,
+              color: PERSONAL_V1.ink,
+              fontFamily: REPORT_FONTS.serif,
+              lineHeight: 1.25,
+              wordBreak: 'break-word',
+            }}
+          >
+            {sampleName}
+          </p>
+          <p style={{ margin: '6px 0 0', lineHeight: 1.2 }}>
+            <span
               style={{
-                margin: 0,
-                fontSize: layout.nameFs,
-                fontWeight: 700,
-                color: PERSONAL_V1.ink,
-                textAlign: 'center',
-                lineHeight: 1.25,
-                wordBreak: 'break-word',
-              }}
-            >
-              {sampleName}
-            </p>
-            <p
-              style={{
-                margin: '6px 0 0',
                 fontSize: layout.scoreFs,
                 fontWeight: 800,
                 color: PERSONAL_V1.headerBg,
                 fontFamily: REPORT_FONTS.serif,
-                lineHeight: 1,
-                textAlign: 'center',
               }}
             >
               {score}
               <span style={{ fontSize: layout.scoreUnitFs, fontWeight: 700, marginLeft: 2 }}>pt</span>
-            </p>
+            </span>
             {othersCount > 0 && (
-              <p
-                style={{
-                  margin: '4px 0 0',
-                  fontSize: 12,
-                  color: PERSONAL_V1.inkMuted,
-                  textAlign: 'center',
-                }}
-              >
-                ほか{othersCount}件
-              </p>
+              <span style={{ marginLeft: 6, fontSize: 12, color: PERSONAL_V1.inkMuted }}>ほか{othersCount}件</span>
             )}
-          </div>
-        </CaptureVAlign>
-      </div>
-    </div>
+          </p>
+        </div>
+      </CaptureVAlign>
+    </AnalysisSideCard>
   );
 }
 
@@ -486,6 +485,7 @@ export function PersonalAnalysisSection({ data }: { data: PersonalReportData }) 
   const { best, worst } = bestAndWorstCategory(data.analysis.categoryScores);
   const analysisH = personalAnalysisAreaHeight(categoryCount);
   const bottleLayout = personalBottleCardLayout(analysisH);
+  const sideCellH = personalAnalysisSideCellHeight(analysisH);
   const categoryCompact = categoryCount > 6;
 
   if (categoryCount === 0) return null;
@@ -524,34 +524,34 @@ export function PersonalAnalysisSection({ data }: { data: PersonalReportData }) 
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              flex: categoryCompact ? '0 0 96px' : '0 0 auto',
-              minHeight: 0,
-            }}
-          >
-            <PersonalInsightCard kind="best" category={best} categoryCount={categoryCount} />
-            <PersonalInsightCard kind="worst" category={worst} categoryCount={categoryCount} />
-          </div>
-          <div style={{ flex: 1, display: 'flex', gap: 10, minHeight: 0 }}>
-            <PersonalBottleCard
-              title="最高得点ボトル"
-              sampleName={data.analysis.highestBottle.sampleName}
-              score={data.analysis.highestBottle.score}
-              othersCount={data.analysis.highestBottle.othersCount}
-              layout={bottleLayout}
-            />
-            <PersonalBottleCard
-              title="最低得点ボトル"
-              sampleName={data.analysis.lowestBottle.sampleName}
-              score={data.analysis.lowestBottle.score}
-              othersCount={data.analysis.lowestBottle.othersCount}
-              layout={bottleLayout}
-            />
-          </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gridTemplateRows: '1fr 1fr',
+            gap: 10,
+            height: '100%',
+            minHeight: 0,
+          }}
+        >
+          <PersonalInsightCard kind="best" category={best} categoryCount={categoryCount} cardH={sideCellH} />
+          <PersonalInsightCard kind="worst" category={worst} categoryCount={categoryCount} cardH={sideCellH} />
+          <PersonalBottleCard
+            title="最高得点ボトル"
+            sampleName={data.analysis.highestBottle.sampleName}
+            score={data.analysis.highestBottle.score}
+            othersCount={data.analysis.highestBottle.othersCount}
+            layout={bottleLayout}
+            cardH={sideCellH}
+          />
+          <PersonalBottleCard
+            title="最低得点ボトル"
+            sampleName={data.analysis.lowestBottle.sampleName}
+            score={data.analysis.lowestBottle.score}
+            othersCount={data.analysis.lowestBottle.othersCount}
+            layout={bottleLayout}
+            cardH={sideCellH}
+          />
         </div>
       </div>
     </section>

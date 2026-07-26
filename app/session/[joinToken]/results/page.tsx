@@ -28,6 +28,10 @@ import { buildResultsPageUrl } from '@/lib/results-share';
 import { flavorCommentRowHasContent, preloadImagesInElement } from '@/lib/results-poster';
 import { savePngDataUrl } from '@/lib/download-png';
 import { ReportCaptureRoot } from '@/components/reports/ReportCaptureRoot';
+import {
+  ReportPreviewModal,
+  type ReportPreviewPayload,
+} from '@/components/reports/ReportPreviewModal';
 import type { ResultsSnapshot } from '@/lib/report-data/results-snapshot';
 import { disambiguatedDisplayName } from '@/lib/participant-display';
 import { FlavorIntensityRadarChart } from '@/components/flavor/FlavorIntensityRadarChart';
@@ -198,6 +202,8 @@ export default function ResultsPage() {
   const isAnyReportBusy = isTournamentReportBusy || isOverallReportBusy || isPersonalReportBusy;
   const [isPublishingRankingUrl, setIsPublishingRankingUrl] = useState(false);
   const [rankingImageUrl, setRankingImageUrl] = useState<string | null>(null);
+  const [reportPreview, setReportPreview] = useState<ReportPreviewPayload | null>(null);
+  const [isSavingPreview, setIsSavingPreview] = useState(false);
 
   useEffect(() => {
     if (!joinToken) return;
@@ -364,59 +370,81 @@ export default function ResultsPage() {
     }
   };
 
-  const handleDownloadTournamentReport = async () => {
-    setIsTournamentReportBusy(true);
+  const openReportPreview = async (
+    kind: ReportCaptureKind,
+    participantIdForPersonal?: string,
+  ) => {
+    if (!results) return;
+    if (kind === 'personal' && !participantIdForPersonal) {
+      showToast('参加者を選択してください', 'error');
+      return;
+    }
+
+    const setBusy =
+      kind === 'tournament'
+        ? setIsTournamentReportBusy
+        : kind === 'overall'
+          ? setIsOverallReportBusy
+          : setIsPersonalReportBusy;
+
+    setBusy(true);
     try {
-      const pngDataUrl = await captureReport('tournament');
-      if (!pngDataUrl || !results) return;
-      await saveReportPng(buildReportFilename(results.session.title, 'tournament'), pngDataUrl);
+      const pngDataUrl = await captureReport(kind, participantIdForPersonal);
+      if (!pngDataUrl) return;
+
+      let filename: string;
+      let participantName: string | undefined;
+      if (kind === 'personal' && participantIdForPersonal) {
+        const participant = results.rankings.find((r) => r.participant_id === participantIdForPersonal);
+        participantName = participant
+          ? disambiguatedDisplayName(participant.display_name, participant.participant_id, rankingPeers)
+          : undefined;
+        const nameSuffix = participant
+          ? sanitizeDownloadBasename(participant.display_name, 'participant')
+          : 'personal';
+        filename = buildReportFilename(results.session.title, 'personal', nameSuffix);
+      } else {
+        filename = buildReportFilename(results.session.title, kind);
+      }
+
+      setReportPreview({
+        kind,
+        title: results.session.title,
+        filename,
+        pngDataUrl,
+        participantName,
+      });
     } catch (e) {
       console.error(e);
       if ((e as Error)?.name === 'AbortError') return;
       showToast('画像の作成に失敗しました', 'error');
     } finally {
-      setIsTournamentReportBusy(false);
+      setBusy(false);
     }
   };
 
-  const handleDownloadOverallReport = async () => {
-    setIsOverallReportBusy(true);
-    try {
-      const pngDataUrl = await captureReport('overall');
-      if (!pngDataUrl || !results) return;
-      await saveReportPng(buildReportFilename(results.session.title, 'overall'), pngDataUrl);
-    } catch (e) {
-      console.error(e);
-      if ((e as Error)?.name === 'AbortError') return;
-      showToast('画像の作成に失敗しました', 'error');
-    } finally {
-      setIsOverallReportBusy(false);
-    }
-  };
-
-  const handleDownloadPersonalReport = async () => {
+  const handlePreviewTournamentReport = () => openReportPreview('tournament');
+  const handlePreviewOverallReport = () => openReportPreview('overall');
+  const handlePreviewPersonalReport = () => {
     if (!selectedParticipantId) {
       showToast('参加者を選択してください', 'error');
       return;
     }
-    setIsPersonalReportBusy(true);
+    void openReportPreview('personal', selectedParticipantId);
+  };
+
+  const handleSavePreviewedReport = async () => {
+    if (!reportPreview) return;
+    setIsSavingPreview(true);
     try {
-      const pngDataUrl = await captureReport('personal', selectedParticipantId);
-      if (!pngDataUrl || !results) return;
-      const participant = results.rankings.find((r) => r.participant_id === selectedParticipantId);
-      const nameSuffix = participant
-        ? sanitizeDownloadBasename(participant.display_name, 'participant')
-        : 'personal';
-      await saveReportPng(
-        buildReportFilename(results.session.title, 'personal', nameSuffix),
-        pngDataUrl,
-      );
+      await saveReportPng(reportPreview.filename, reportPreview.pngDataUrl);
+      setReportPreview(null);
     } catch (e) {
       console.error(e);
       if ((e as Error)?.name === 'AbortError') return;
-      showToast('画像の作成に失敗しました', 'error');
+      showToast('画像の保存に失敗しました', 'error');
     } finally {
-      setIsPersonalReportBusy(false);
+      setIsSavingPreview(false);
     }
   };
 
@@ -567,7 +595,7 @@ export default function ResultsPage() {
             <div>
               <h2 className="ui-h3">共有</h2>
               <p className="text-sm ui-muted mt-1">
-                大会・全体・個人の3種類のレポート画像を保存できます。
+                大会・全体・個人のレポートをプレビューしてから画像保存できます。
               </p>
               {results.session.public_results === false && (
                 <p className="text-xs text-amber-200/80 mt-2">
@@ -593,19 +621,19 @@ export default function ResultsPage() {
             </Button>
             <Button
               variant="primary"
-              onClick={handleDownloadTournamentReport}
+              onClick={handlePreviewTournamentReport}
               disabled={isAnyReportBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isTournamentReportBusy ? '画像を作成中…' : '大会レポートを保存'}
+              {isTournamentReportBusy ? '画像を作成中…' : '大会レポートをプレビュー'}
             </Button>
             <Button
               variant="primary"
-              onClick={handleDownloadOverallReport}
+              onClick={handlePreviewOverallReport}
               disabled={isAnyReportBusy || isPublishingRankingUrl}
               className="w-full"
             >
-              {isOverallReportBusy ? '画像を作成中…' : '全体レポートを保存'}
+              {isOverallReportBusy ? '画像を作成中…' : '全体レポートをプレビュー'}
             </Button>
             <Button
               variant="primary"
@@ -864,11 +892,11 @@ export default function ResultsPage() {
                 <h2 className="text-xl font-semibold text-stone-100 tracking-tight">参加者選択</h2>
                 <Button
                   variant="primary"
-                  onClick={handleDownloadPersonalReport}
+                  onClick={handlePreviewPersonalReport}
                   disabled={!selectedParticipantId || isAnyReportBusy}
                   className="shrink-0"
                 >
-                  {isPersonalReportBusy ? '画像を作成中…' : '個人レポートを保存'}
+                  {isPersonalReportBusy ? '画像を作成中…' : '個人レポートをプレビュー'}
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1022,6 +1050,15 @@ export default function ResultsPage() {
           onClose={hideToast}
         />
       )}
+
+      <ReportPreviewModal
+        preview={reportPreview}
+        isSaving={isSavingPreview}
+        onClose={() => {
+          if (!isSavingPreview) setReportPreview(null);
+        }}
+        onSave={handleSavePreviewedReport}
+      />
 
       {/* 結果ポスター（画面外レンダリング・画像キャプチャ用） */}
       {results && joinToken && (

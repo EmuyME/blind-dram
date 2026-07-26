@@ -35,7 +35,7 @@ export default function GuidePage() {
             </li>
             <li>
               <span className="text-stone-200 font-medium">プレゼンター</span>
-              ：当該サンプルの持ち込み主です。正解入力や Presenter パネルからのテイスティング記入など、サンプル担当として動きます。
+              ：当該サンプルの持ち込み主です。正解入力やプレゼンター画面からのテイスティング記入など、サンプル担当として動きます。
             </li>
           </ul>
         </section>
@@ -51,7 +51,7 @@ export default function GuidePage() {
               でイベント名と回答モード（逐次モード／一斉モード）を選びます。
             </li>
             <li>
-              作成後に開く Owner 画面で、参加用 URL・参加コード・Owner URL を共有します。Owner URL は司会だけが開けるようにしてください。
+              作成後に開くオーナー画面で、参加用 URL・参加コード・オーナー URL を共有します。オーナー URL は司会だけが開けるようにしてください。QRコードも表示されます。
             </li>
             <li>
               「設定」タブで配点・フレーバーチャート・カスク／地域の選択肢などを必要に応じて保存します。テイスティング{" "}
@@ -72,7 +72,7 @@ export default function GuidePage() {
               からコードを入力します。
             </li>
             <li>
-              表示名・出席・持ち込み本数・仮ラベル（Sample 名のもと）などを登録すると、Session ホームに入れます。同じ端末では自動的に再入室しやすくなります。
+              表示名・出席・持ち込み本数・仮ラベル（サンプル名のもと）などを登録すると、セッションホームに入れます。同じ端末では自動的に再入室しやすくなります。
             </li>
           </ul>
         </section>
@@ -80,13 +80,13 @@ export default function GuidePage() {
         <section className="ui-card p-6 md:p-8 space-y-4">
           <h2 className="text-lg font-semibold text-stone-100 tracking-tight">3. 試飲当日の流れ（司会）</h2>
           <ol className="text-sm text-stone-300 leading-relaxed space-y-3 list-decimal pl-5">
-            <li>参加者の登録が揃ったら「参加登録を締め切る」、試飲順（サンプル順）を並べ替えます。</li>
+            <li>参加者の登録が揃ったら「参加登録を締め切る」、試飲順（サンプル順）を並べ替えます。誤登録があれば締切前に名前変更・除外ができます。</li>
             <li>
-              <span className="text-stone-200">Sessionを開始する</span>
+              <span className="text-stone-200">セッションを開始する</span>
               でテイスティングを始めます（この時点で設定のフレーバーチャートがスナップショットされます）。
             </li>
             <li>
-              各サンプルについて、プレゼンターが正解（Truth）を入れ、ラウンドを進行します。全員の回答と採点が終わったらラウンドを完了させます。
+              各サンプルについて、プレゼンターが正解を入れ、ラウンドを進行します。全員の回答と採点が終わったらラウンドを完了させます。
             </li>
             <li>
               <span className="text-stone-200">逐次モード</span>
@@ -103,7 +103,7 @@ export default function GuidePage() {
           <ul className="text-sm text-stone-300 leading-relaxed space-y-2 list-disc pl-5">
             <li>各サンプル画面で、配点に応じた推測（カスク・地域・年数・度数・蒸留所など）と、任意でフレーバーコメント・Tier1／Tier2 を入力できます。</li>
             <li>
-              プレゼンターは Presenter パネルからテイスティングを入力できます。結果のナイチンゲール（ローズ）チャートは、プレゼンター入力や参加者入力の集計ルールに従って表示されます。
+              プレゼンターはプレゼンター画面からテイスティングを入力できます。結果のナイチンゲール（ローズ）チャートは、プレゼンター入力や参加者入力の集計ルールに従って表示されます。
             </li>
             <li>
               オーナー設定のフレーバーチャートで、Tier1 ごとに「ナイチンゲール・チャートに表示するか」を切り替えられます。オフにした区分は集計の対象からは外れず、チャートの軸からだけ除外されます（「その他」は既定でチャート非表示扱いです）。
@@ -122,7 +122,7 @@ export default function GuidePage() {
           <h2 className="text-lg font-semibold text-stone-100 tracking-tight">うまく動かないとき</h2>
           <ul className="text-sm text-stone-300 leading-relaxed space-y-2 list-disc pl-5">
             <li>参加リンクと参加コードは別物です。コードは短い英数字、リンクは長いトークン付き URL です。</li>
-            <li>司会操作は Owner URL から行います。通常の参加 URL だけでは設定変更や締切はできません。</li>
+            <li>司会操作はオーナー URL から行います。通常の参加 URL だけでは設定変更や締切はできません。</li>
             <li>別ブラウザや端末からアクセスした場合は、参加URLまたはセッションホームから以前登録した名前を選べば復帰できます（パスワード不要）。</li>
           </ul>
         </section>

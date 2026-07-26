@@ -424,6 +424,9 @@ export async function GET(request: NextRequest) {
     const notClickedParticipants = participants
       .filter((p) => !clickedParticipantIds.has(p.id))
       .map((p) => ({ participant_id: p.id, display_name: p.display_name }));
+    const clickedParticipants = participants
+      .filter((p) => clickedParticipantIds.has(p.id))
+      .map((p) => ({ participant_id: p.id, display_name: p.display_name }));
 
     const responseData = {
       session: {
@@ -486,6 +489,7 @@ export async function GET(request: NextRequest) {
         clicked_count: clickedCount,
         total_count: totalCount,
         not_clicked_participants: notClickedParticipants,
+        clicked_participants: clickedParticipants,
       },
       tier1_nightingale_colors: resolvedTier1NightingaleColors(session.flavor_chart_snapshot),
       flavor_chart_snapshot: session.flavor_chart_snapshot,

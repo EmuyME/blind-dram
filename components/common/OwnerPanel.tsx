@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SampleOrderList } from '@/components/common/SampleOrderList';
 import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
+import { JoinQrCode } from '@/components/common/JoinQrCode';
+import { OwnerParticipantManager } from '@/components/common/OwnerParticipantManager';
 import { copyToClipboard, openLineJoinInviteShare } from '@/lib/utils';
 
 interface OwnerPanelProps {
@@ -40,14 +42,24 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [joinUrl, setJoinUrl] = useState('');
+
+  useEffect(() => {
+    setJoinUrl(`${window.location.origin}/s/${joinToken}`);
+  }, [joinToken]);
 
   useEffect(() => {
     if (isExpanded) {
-      loadParticipants();
-      loadSamples();
+      void loadParticipants();
+      void loadSamples();
+      const id = window.setInterval(() => {
+        void loadParticipants();
+        if (session.state === 'ordering') void loadSamples();
+      }, 4000);
+      return () => window.clearInterval(id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadParticipants/loadSamples は ownerToken に紐づく
-  }, [isExpanded, ownerToken]);
+  }, [isExpanded, ownerToken, session.state]);
 
   const loadParticipants = async () => {
     if (!ownerToken) return;
@@ -348,10 +360,11 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
           )}
 
           {/* 参加URL・参加コード（登録中は「参加URL」見出しでオーナーページと揃える） */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h3 className="text-sm font-semibold text-stone-300">
               {session.state === 'registering' ? '参加URL' : '共有情報'}
             </h3>
+            <JoinQrCode url={joinUrl} size={148} />
             <div className="flex flex-col sm:flex-row flex-wrap gap-2">
               <Button
                 variant="secondary"
@@ -382,6 +395,25 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
           </div>
 
           {session.state === 'registering' && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-stone-300">
+                参加者一覧（{participants.length}人）
+              </h3>
+              <OwnerParticipantManager
+                ownerToken={ownerToken}
+                participants={participants}
+                canEdit
+                peerNames={participants.map((p) => ({
+                  participant_id: p.id,
+                  display_name: p.display_name,
+                }))}
+                onChanged={loadParticipants}
+                showToast={showToast}
+              />
+            </div>
+          )}
+
+          {session.state === 'registering' && (
             <div>
               <Button
                 variant="primary"
@@ -398,15 +430,10 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
               <p className="text-xs text-stone-400 mt-2 leading-relaxed">
                 他の参加者の参加が終わったら締め切ってください。オーナー本人は上のフォームで登録しないまま締め切ると不参加（進行のみ）です。
               </p>
-              {participants.length > 0 && (
-                <p className="text-xs text-stone-400 mt-2">
-                  参加者数: {participants.length}人
-                </p>
-              )}
             </div>
           )}
 
-          {/* Sessionを開始する */}
+          {/* セッションを開始する */}
           {session.state === 'ordering' && (
             <div>
               <SampleOrderList
@@ -426,7 +453,7 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
                 disabled={isLoading || samples.length === 0}
                 className="w-full mt-4"
               >
-                {isLoading ? '処理中...' : 'Sessionを開始する'}
+                {isLoading ? '処理中...' : 'セッションを開始する'}
               </Button>
             </div>
           )}

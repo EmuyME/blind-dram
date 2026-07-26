@@ -42,7 +42,7 @@ export function PhaseBanner({ sessionState, mode, currentSample }: PhaseBannerPr
 
   const config = stateConfig[sessionState];
   const modeText = mode === 'sequential' ? '逐次' : '一斉';
-  const sampleText = currentSample ? ` · Sample ${currentSample.label}` : '';
+  const sampleText = currentSample ? ` · サンプル ${currentSample.label}` : '';
 
   return (
     <div

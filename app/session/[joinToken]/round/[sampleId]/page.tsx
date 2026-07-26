@@ -6,6 +6,7 @@ import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
+import { PageSkeleton } from '@/components/common/PageSkeleton';
 import { getParticipantToken, setParticipantToken as persistParticipantToken } from '@/lib/utils';
 import {
   SCORING_ITEM_KEYS,
@@ -770,11 +771,7 @@ export default function RoundPage() {
   }, [answer, scoringFull, guessFilled]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
-        <p className="text-center text-stone-400">読み込み中...</p>
-      </div>
-    );
+    return <PageSkeleton rows={4} />;
   }
 
   if (sampleState && !canEdit) {

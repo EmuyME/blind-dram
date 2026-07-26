@@ -30,6 +30,9 @@ import {
   FLAVOR_NIGHTINGALE_PRESENTER_DETAIL_CAPTION,
   PARTICIPANT_SAMPLE_RADAR_CAPTION,
 } from '@/lib/nightingale-chart-captions';
+import { PageSkeleton } from '@/components/common/PageSkeleton';
+import { NextClickProgress } from '@/components/common/NextClickProgress';
+import { formatSampleLabel } from '@/lib/ui-labels';
 
 function flavorCommentRowHasContent(
   comment:
@@ -151,6 +154,7 @@ interface RoundResult {
     clicked_count: number;
     total_count: number;
     not_clicked_participants: Array<{ participant_id: string; display_name: string }>;
+    clicked_participants?: Array<{ participant_id: string; display_name: string }>;
   };
   tier1_nightingale_colors: Record<string, { r: number; g: number; b: number }>;
   flavor_chart_snapshot: unknown;
@@ -373,7 +377,7 @@ export default function RoundResultPage() {
   const handleCopyRankingText = async () => {
     if (!result) return;
     const lines = [
-      `【${result.session.title}】Sample ${result.sample_detail.sample_label} の結果`,
+      `【${result.session.title}】${formatSampleLabel(result.sample_detail.sample_label)} の結果`,
       '',
       ...result.rankings.map(
         (r) =>
@@ -474,11 +478,7 @@ export default function RoundResultPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
-        <p className="text-center text-stone-400">読み込み中...</p>
-      </div>
-    );
+    return <PageSkeleton rows={4} />;
   }
 
   if (!result || !result.session || !result.current_sample || !result.sample_detail) {
@@ -501,7 +501,7 @@ export default function RoundResultPage() {
 
       <div className="max-w-4xl mx-auto mt-8 space-y-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight">
-          {result.session.title} - Sample {sample_detail.sample_label} の結果
+          {result.session.title} - {formatSampleLabel(sample_detail.sample_label)} の結果
         </h1>
 
         <div className="ui-card p-6">
@@ -638,7 +638,7 @@ export default function RoundResultPage() {
                 {truth.bottle_image_url && (
                   <TapEnlargeImage
                     src={truth.bottle_image_url}
-                    alt={`Sample ${sample_detail.sample_label} ボトル画像`}
+                    alt={`${formatSampleLabel(sample_detail.sample_label)} ボトル画像`}
                   />
                 )}
               </div>
@@ -702,7 +702,7 @@ export default function RoundResultPage() {
                         フレーバー・ナイチンゲール・ローズ・チャート（{formatSampleHeadingLabel(sample_detail.sample_label)}）
                       </h4>
                       <p className="text-sm text-stone-500 mb-4 leading-relaxed">
-                        プレゼンターが Presenter パネルで入力したテイスティングのみを表示しています。
+                        プレゼンター画面で入力したテイスティングのみを表示しています。
                       </p>
                       {hasOtherList ? (
                         <p className="text-sm text-stone-500 mb-4 leading-relaxed -mt-2">
@@ -850,17 +850,12 @@ export default function RoundResultPage() {
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="text-sm font-semibold text-stone-200">次へ</div>
             <div className="flex items-center gap-3 text-xs text-stone-400">
-              {typeof result.next_clicks?.total_count === 'number' && (
-                <span>
-                  進捗: {result.next_clicks.clicked_count}/{result.next_clicks.total_count}
-                </span>
-              )}
               {lastUpdatedAt && <span>更新: {formatTime(lastUpdatedAt)}</span>}
               <button
                 type="button"
                 onClick={() => loadResult({ manual: true })}
                 disabled={isRefreshing}
-                className={`px-3 py-2 rounded-lg border border-white/10 min-h-[36px] transition-all ${
+                className={`px-3 py-2 rounded-lg border border-white/10 min-h-[44px] transition-all ${
                   isRefreshing
                     ? 'bg-neutral-800 text-stone-500 opacity-60 cursor-not-allowed'
                     : 'bg-neutral-800 hover:bg-neutral-700 text-stone-200'
@@ -870,6 +865,18 @@ export default function RoundResultPage() {
               </button>
             </div>
           </div>
+
+          {!result.all_clicked_next && typeof result.next_clicks?.total_count === 'number' && (
+            <div className="mb-4">
+              <NextClickProgress
+                clickedCount={result.next_clicks.clicked_count}
+                totalCount={result.next_clicks.total_count}
+                notClicked={result.next_clicks.not_clicked_participants ?? []}
+                clicked={result.next_clicks.clicked_participants}
+                peers={rankingPeers}
+              />
+            </div>
+          )}
 
           {result.all_clicked_next ? (
             <div className="text-center">
@@ -899,7 +906,9 @@ export default function RoundResultPage() {
                       variant="primary"
                       onClick={async () => {
                         if (isStartingNextRound) return;
-                        const nextLabel = result.next_sample?.label ? `Sample ${result.next_sample.label}` : '次のラウンド';
+                        const nextLabel = result.next_sample?.label
+                          ? formatSampleLabel(result.next_sample.label)
+                          : '次のラウンド';
                         if (typeof window !== 'undefined') {
                           const ok = window.confirm(`${nextLabel} を開始しますか？\n（参加者が回答入力画面に進みます）`);
                           if (!ok) return;
@@ -947,7 +956,7 @@ export default function RoundResultPage() {
                     <>
                       <p className="text-stone-100 mb-2">全員が「次へ」を押しました。</p>
                       <p className="text-stone-400 text-sm mb-4">
-                        次のラウンドのPresenterが開始するまでお待ちください。
+                        次のラウンドのプレゼンターが開始するまでお待ちください。
                       </p>
                       <Button
                         variant="secondary"
@@ -1004,7 +1013,9 @@ export default function RoundResultPage() {
                       variant="primary"
                       onClick={async () => {
                         if (isStartingNextRound) return;
-                        const nextLabel = result.next_sample?.label ? `Sample ${result.next_sample.label}` : '次のラウンド';
+                        const nextLabel = result.next_sample?.label
+                          ? formatSampleLabel(result.next_sample.label)
+                          : '次のラウンド';
                         if (typeof window !== 'undefined') {
                           const ok = window.confirm(`${nextLabel} を開始しますか？\n（参加者が回答入力画面に進みます）`);
                           if (!ok) return;
@@ -1114,23 +1125,6 @@ export default function RoundResultPage() {
                 <p className="text-stone-400 text-sm mt-2 text-center">
                   全員が「次へ」を押すと、次のラウンドに進みます。
                 </p>
-              )}
-              {!result.all_clicked_next && result.next_clicks?.not_clicked_participants?.length > 0 && (
-                <div className="mt-4 p-3 rounded-xl bg-neutral-900/40 border border-white/10">
-                  <div className="text-xs font-semibold text-stone-300 mb-2">
-                    未押下 ({result.next_clicks.not_clicked_participants.length}名)
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {result.next_clicks.not_clicked_participants.map((p) => (
-                      <span
-                        key={p.participant_id}
-                        className="px-3 py-1 rounded-full bg-neutral-800 border border-white/10 text-xs text-stone-200"
-                      >
-                        {disambiguatedDisplayName(p.display_name, p.participant_id, rankingPeers)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
           )}

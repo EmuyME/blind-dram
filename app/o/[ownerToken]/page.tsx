@@ -15,9 +15,10 @@ import { resolvedTier1NightingaleColors, type Tier1NightingaleRgb } from '@/lib/
 import { DEFAULT_FLAVOR_CHART, ensureTier1NightingaleVisibleMap } from '@/lib/default-flavor-chart';
 import { ScoringSettingsPanel } from '@/components/settings/ScoringSettingsPanel';
 import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
-import { disambiguatedDisplayName } from '@/lib/participant-display';
+import { JoinQrCode } from '@/components/common/JoinQrCode';
+import { OwnerParticipantManager } from '@/components/common/OwnerParticipantManager';
+import { PageSkeleton } from '@/components/common/PageSkeleton';
 import { defaultBottleLabel } from '@/lib/default-bottle-label';
-import { displayBottleCount } from '@/lib/display-count';
 
 /** settings/save 前までの旧フラット配点（正規化して保存される） */
 const LEGACY_DEFAULT_SCORING_FLAT = {
@@ -372,7 +373,7 @@ export default function OwnerPage() {
   const handleStartSession = async () => {
     if (isStartingSession) return;
     if (typeof window !== 'undefined') {
-      const ok = window.confirm('Sessionを開始しますか？\n（参加者が回答入力を開始できるようになります）');
+      const ok = window.confirm('セッションを開始しますか？\n（参加者が回答入力を開始できるようになります）');
       if (!ok) return;
     }
 
@@ -411,7 +412,7 @@ export default function OwnerPage() {
         return;
       }
 
-      showToast('Sessionを開始しました', 'success');
+      showToast('セッションを開始しました', 'success');
       // セッション状態を更新
       await loadSession();
       // 少し遅延してから再度更新（状態遷移が反映されるまで）
@@ -682,13 +683,7 @@ export default function OwnerPage() {
   }, [activeTab, ownerToken]);
 
   if (joinToken === null) {
-    return (
-      <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
-        <div className="max-w-md mx-auto mt-8">
-          <p className="text-center text-stone-400">読み込み中...</p>
-        </div>
-      </div>
-    );
+    return <PageSkeleton rows={3} />;
   }
 
   if (!joinToken) {
@@ -709,13 +704,7 @@ export default function OwnerPage() {
   }
 
   if (isLoading || !session) {
-    return (
-      <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
-        <div className="max-w-md mx-auto mt-8">
-          <p className="text-center text-stone-400">読み込み中...</p>
-        </div>
-      </div>
-    );
+    return <PageSkeleton rows={4} />;
   }
 
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/s/${joinToken}` : '';
@@ -779,6 +768,9 @@ export default function OwnerPage() {
             {/* URLコピーボタン */}
             <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加URL</h2>
+              <div className="mb-5 flex justify-center">
+                <JoinQrCode url={joinUrl} size={180} />
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="url"
@@ -954,26 +946,14 @@ export default function OwnerPage() {
             {participants.length > 0 && (
               <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
                 <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加者一覧 ({participants.length}人)</h2>
-                <div className="space-y-3">
-                  {participants.map((participant) => (
-                    <div key={participant.id} className="flex items-center justify-between py-3 border-b border-white/10">
-                      <div>
-                        <span className="font-medium text-stone-100">
-                          {disambiguatedDisplayName(
-                            participant.display_name,
-                            participant.id,
-                            ownerParticipantPeers,
-                          )}
-                        </span>
-                        {participant.brought_count > 0 && (
-                          <span className="ml-2 text-sm text-stone-400">
-                            (持ち込み: {displayBottleCount(participant.brought_count)}本)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <OwnerParticipantManager
+                  ownerToken={ownerToken}
+                  participants={participants}
+                  canEdit={session.state === 'registering'}
+                  peerNames={ownerParticipantPeers}
+                  onChanged={loadParticipants}
+                  showToast={showToast}
+                />
               </div>
             )}
             
@@ -1023,9 +1003,9 @@ export default function OwnerPage() {
 
             <NextActionCard
               title="順番を決めてください"
-              description="Sampleの順番をドラッグ&ドロップで変更できます。"
+              description="サンプルの順番をドラッグ&ドロップで変更できます。"
               primaryAction={{
-                label: isStartingSession ? '開始中...' : 'Sessionを開始する',
+                label: isStartingSession ? '開始中...' : 'セッションを開始する',
                 onClick: handleStartSession,
                 disabled: samples.length === 0 || isStartingSession,
                 disabledReason: samples.length === 0 ? 'Sampleがありません' : undefined,

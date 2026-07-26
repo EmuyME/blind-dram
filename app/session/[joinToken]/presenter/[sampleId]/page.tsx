@@ -8,6 +8,7 @@ import { ParticipantProgress } from '@/components/common/ParticipantProgress';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
+import { PageSkeleton } from '@/components/common/PageSkeleton';
 import { getParticipantToken, setParticipantToken as persistParticipantToken } from '@/lib/utils';
 import { CorrectnessBadge } from '@/components/common/CorrectnessBadge';
 import { FlavorChips } from '@/components/common/FlavorChips';
@@ -26,6 +27,7 @@ import { BottleTruthMetaFields } from '@/components/common/BottleTruthMeta';
 import { FlavorTastingSections } from '@/components/flavor/FlavorTastingSections';
 import { clampTier1Intensity } from '@/lib/json-helpers';
 import { DEFAULT_FLAVOR_CHART } from '@/lib/default-flavor-chart';
+import { formatSampleLabel } from '@/lib/ui-labels';
 
 interface Truth {
   true_cask?: string;
@@ -1061,15 +1063,7 @@ export default function PresenterPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen pt-16 pb-20 px-4 bg-neutral-900">
-        <div className="max-w-3xl mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-12 text-center">
-            <p className="text-stone-400 text-lg">読み込み中...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PageSkeleton rows={4} />;
   }
 
   return (
@@ -1079,9 +1073,9 @@ export default function PresenterPage() {
       <div className="max-w-3xl mx-auto mt-8 space-y-6">
         {/* ヘッダー */}
         <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-          <h1 className="text-3xl md:text-4xl font-semibold text-stone-100 tracking-tight">Presenterパネル</h1>
+          <h1 className="text-3xl md:text-4xl font-semibold text-stone-100 tracking-tight">プレゼンター画面</h1>
           <p className="text-sm text-stone-400 mt-2">
-            Sample {sampleLabel} - Round状態: <span className="font-semibold text-stone-100">{roundState}</span>
+            {formatSampleLabel(sampleLabel)} — ラウンド状態: <span className="font-semibold text-stone-100">{roundState}</span>
           </p>
         </div>
 

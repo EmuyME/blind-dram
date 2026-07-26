@@ -181,11 +181,11 @@ export function hasNonZeroTier1CountsForNightingaleChart(
 }
 
 /** 見出し用: ラベルが既に「Sample …」形式ならそのまま、そうでなければ接頭辞を付ける */
+import { formatSampleLabel } from '@/lib/ui-labels';
+
+/** @deprecated formatSampleLabel を使用 */
 export function formatSampleHeadingLabel(sampleLabel: string | null | undefined): string {
-  const t = (sampleLabel ?? '').trim();
-  if (!t) return 'Sample';
-  if (/^sample\s+/i.test(t)) return t;
-  return `Sample ${t}`;
+  return formatSampleLabel(sampleLabel);
 }
 
 /**

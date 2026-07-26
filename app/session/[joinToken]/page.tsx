@@ -11,7 +11,7 @@ import {
 import { ParticipantProgress } from '@/components/common/ParticipantProgress';
 import { OwnerPanel } from '@/components/common/OwnerPanel';
 import { Button } from '@/components/ui/Button';
-import { useToast } from '@/components/common/Toast';
+import { useToast, Toast } from '@/components/common/Toast';
 import {
   getParticipantToken,
   getOwnerToken,
@@ -19,6 +19,9 @@ import {
   clearParticipantToken,
 } from '@/lib/utils';
 import { ParticipantRecoveryPicker } from '@/components/common/ParticipantRecoveryPicker';
+import { PageSkeleton } from '@/components/common/PageSkeleton';
+import { RegistrationWaitingList } from '@/components/common/RegistrationWaitingList';
+import { formatSampleLabel } from '@/lib/ui-labels';
 
 interface Session {
   id: string;
@@ -67,7 +70,7 @@ export default function SessionHomePage() {
     }
   }, [params]);
 
-  const { showToast } = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const [session, setSession] = useState<Session | null>(null);
   const [roundStatus, setRoundStatus] = useState<RoundStatus | null>(null);
   const [participantToken, setParticipantToken] = useState<string | null>(null);
@@ -554,7 +557,7 @@ export default function SessionHomePage() {
 
 
       if (!response.ok) {
-        showToast(result.error || 'Session取得に失敗しました', 'error');
+        showToast(result.error || 'セッションの取得に失敗しました', 'error');
         setIsLoading(false);
         return;
       }
@@ -609,17 +612,21 @@ export default function SessionHomePage() {
 
   if (isLoading || !session) {
     return (
-      <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
-        <div className="max-w-md mx-auto mt-8">
-          <p className="text-center text-stone-400">読み込み中...</p>
-        </div>
-      </div>
+      <>
+        <PageSkeleton rows={3} />
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      </>
     );
   }
+
+  const toastNode = toast ? (
+    <Toast message={toast.message} type={toast.type} onClose={hideToast} />
+  ) : null;
 
   // participantTokenがない場合でも、オーナーの場合はオーナー機能を表示
   if (!participantToken && !isOwner) {
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -649,11 +656,14 @@ export default function SessionHomePage() {
           </div>
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
   if (session.state === 'registering') {
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -691,12 +701,14 @@ export default function SessionHomePage() {
             </div>
           )}
 
+          <RegistrationWaitingList joinToken={joinToken} highlightName={participantName} />
+
           {/* 参加者向けメッセージ */}
           {participantToken && (
             <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加登録完了</h2>
               <p className="text-stone-400 mb-4 leading-relaxed">
-                参加登録が完了しました。オーナーが参加登録を締め切るまでお待ちください。
+                参加登録が完了しました。オーナーが参加登録を締め切るまでお待ちください。上の参加状況で、誰が集まったか確認できます。
               </p>
               <Button
                 variant="secondary"
@@ -720,11 +732,14 @@ export default function SessionHomePage() {
           )}
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
   if (session.state === 'ordering') {
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -767,11 +782,14 @@ export default function SessionHomePage() {
           )}
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
   if (session.state === 'published') {
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -794,11 +812,14 @@ export default function SessionHomePage() {
           </div>
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
   if (session.state === 'aggregating') {
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -808,7 +829,7 @@ export default function SessionHomePage() {
           <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
             <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">結果を集計中</h2>
             <p className="text-stone-400 mb-4 leading-relaxed">
-              すべてのRoundが完了しました。Ownerが結果を公開するまでお待ちください。結果が公開されると、自動的に結果ページに移動します。
+              すべてのラウンドが完了しました。オーナーが結果を公開するまでお待ちください。結果が公開されると、自動的に結果ページに移動します。
             </p>
 
             <div className="space-y-3">
@@ -850,11 +871,14 @@ export default function SessionHomePage() {
           </div>
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
   if (session.state === 'closed') {
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -867,6 +891,8 @@ export default function SessionHomePage() {
           </div>
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
@@ -888,9 +914,12 @@ export default function SessionHomePage() {
     // 逐次モードで、revealed状態のサンプルがある場合は結果ページにリダイレクト中
     if (session.mode === 'sequential' && currentSample && currentSample.state === 'revealed') {
       return (
+        <>
         <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
           <p className="text-center text-stone-400">結果ページに移動しています...</p>
         </div>
+        {toastNode}
+        </>
       );
     }
     
@@ -903,9 +932,9 @@ export default function SessionHomePage() {
 
     const modeLabel = sessionModeLabel(session.mode);
     const sampleHeader = currentSample
-      ? `Sample ${currentSample.label}`
+      ? formatSampleLabel(currentSample.label)
       : myPendingSample
-        ? `Sample ${myPendingSample.label}`
+        ? formatSampleLabel(myPendingSample.label)
         : session.title;
 
     const showPresenterFocus = isMySample || (myPendingSample != null && canStartPendingSample);
@@ -939,6 +968,7 @@ export default function SessionHomePage() {
     );
 
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 flex flex-col pt-16 pb-8">
         <PhaseBanner
           sessionState={session.state}
@@ -961,7 +991,7 @@ export default function SessionHomePage() {
         <div className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-0">
           {prioritizeAnswerFocus && (
             <NextActionFocus
-              headerKicker={`Sample ${currentSample.label}`}
+              headerKicker={formatSampleLabel(currentSample.label)}
               headerMeta={`${modeLabel} · 進行中`}
               eyebrow={
                 myStatus?.status === 'submitted'
@@ -990,7 +1020,7 @@ export default function SessionHomePage() {
               secondaryAction={
                 showPresenterFocus
                   ? {
-                      label: 'Presenter パネルを開く',
+                      label: 'プレゼンター画面を開く',
                       onClick: () => {
                         const targetSampleId = isMySample ? currentSample?.id : myPendingSample?.id;
                         if (joinToken && targetSampleId) {
@@ -1011,16 +1041,16 @@ export default function SessionHomePage() {
               icon={<PresenterFocusIcon />}
               title={
                 isMySample && currentSample?.state === 'answering'
-                  ? 'Presenter として Round を管理中'
-                  : 'Round を開始できます'
+                  ? 'プレゼンターとしてラウンドを管理中'
+                  : 'ラウンドを開始できます'
               }
               description={
                 isMySample
-                  ? `あなたは Sample ${currentSample?.label} の Presenter です。Round の開始・管理は Presenter パネルから行います。`
-                  : `あなたは Sample ${myPendingSample?.label} の Presenter です。準備ができたら Round を開始してください。`
+                  ? `あなたは${formatSampleLabel(currentSample?.label)}のプレゼンターです。ラウンドの開始・管理はプレゼンター画面から行います。`
+                  : `あなたは${formatSampleLabel(myPendingSample?.label)}のプレゼンターです。準備ができたらラウンドを開始してください。`
               }
               primaryAction={{
-                label: 'Presenter パネルを開く',
+                label: 'プレゼンター画面を開く',
                 onClick: () => {
                   const targetSampleId = isMySample ? currentSample?.id : myPendingSample?.id;
                   if (joinToken && targetSampleId) {
@@ -1035,7 +1065,7 @@ export default function SessionHomePage() {
 
           {!prioritizeAnswerFocus && !showPresenterFocus && showWaitingFocus && (
             <NextActionFocus
-              headerKicker={`Sample ${myPendingSample.label}`}
+              headerKicker={formatSampleLabel(myPendingSample.label)}
               headerMeta={`${modeLabel} · 進行中`}
               icon={<PresenterFocusIcon />}
               title="次のラウンド待機中"
@@ -1047,21 +1077,21 @@ export default function SessionHomePage() {
 
           {!prioritizeAnswerFocus && !showPresenterFocus && showAnswererFocus && (
             <NextActionFocus
-              headerKicker={`Sample ${currentSample.label}`}
+              headerKicker={formatSampleLabel(currentSample.label)}
               headerMeta={`${modeLabel} · 進行中`}
               title={
                 currentSample.state === 'pending'
-                  ? 'Round 開始を待っています'
+                  ? 'ラウンド開始を待っています'
                   : currentSample.state === 'grading'
                     ? '採点中です'
-                    : 'この Round は終了しました'
+                    : 'このラウンドは終了しました'
               }
               description={
                 currentSample.state === 'pending'
-                  ? 'Presenter が Round を開始するまでお待ちください。'
+                  ? 'プレゼンターがラウンドを開始するまでお待ちください。'
                   : currentSample.state === 'grading'
                     ? '回答は提出済みです。採点を待っています。'
-                    : 'この Round は終了しました。'
+                    : 'このラウンドは終了しました。'
               }
               secondaryAction={participantListToggle}
               footer={participantFooter}
@@ -1069,6 +1099,8 @@ export default function SessionHomePage() {
           )}
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
@@ -1077,7 +1109,7 @@ export default function SessionHomePage() {
       no_samples:
         'サンプル（ボトル）が1件も登録されていない可能性があります。オーナーの「参加登録締切」前に、参加者が持ち込み本数を正しく登録したか確認してください。',
       incomplete_samples_pending:
-        'サーバー上ではラウンド未完了と判断されています。プレゼンターが「Round開始」を済ませているか、しばらく待ってから更新してください。',
+        'サーバー上ではラウンド未完了と判断されています。プレゼンターが「ラウンド開始」を済ませているか、しばらく待ってから更新してください。',
       rate_limit:
         '短時間にアクセスが集中し、一時的に制限されました。Blind Dram のタブを1つに減らすか、30〜60秒待ってから「状態を更新」を押してください。',
       samples_not_completed:
@@ -1090,6 +1122,7 @@ export default function SessionHomePage() {
         : '現在のサンプル情報を取得できていません。数秒待つか、下のボタンで再読み込みしてください。';
 
     return (
+      <>
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
@@ -1114,18 +1147,15 @@ export default function SessionHomePage() {
           </div>
         </div>
       </div>
+      {toastNode}
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
-      <PhaseBanner
-        sessionState={session.state}
-        mode={session.mode}
-      />
-      <div className="max-w-md mx-auto mt-8">
-        <p className="text-center text-stone-400">読み込み中...</p>
-      </div>
-    </div>
+    <>
+      <PageSkeleton rows={2} />
+      {toastNode}
+    </>
   );
 }

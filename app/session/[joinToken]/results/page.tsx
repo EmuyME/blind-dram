@@ -8,6 +8,7 @@ import { PhaseBanner } from '@/components/common/PhaseBanner';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
+import { PageSkeleton } from '@/components/common/PageSkeleton';
 import { FlavorChips } from '@/components/common/FlavorChips';
 import {
   DynamicParticipantGuessGrid,
@@ -545,11 +546,7 @@ export default function ResultsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
-        <p className="text-center text-stone-400">読み込み中...</p>
-      </div>
-    );
+    return <PageSkeleton rows={4} />;
   }
 
   if (!results || !results.session) {

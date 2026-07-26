@@ -1,7 +1,8 @@
-﻿"use client";
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
@@ -37,13 +38,11 @@ export default function CreatePage() {
       }
 
       const { owner_token, join_token } = result.data;
-      
-      // オーナートークンをlocalStorageに保存
+
       if (owner_token && join_token) {
         setOwnerToken(join_token, owner_token);
       }
-      
-      // オーナーページにリダイレクト
+
       if (owner_token) {
         const nextUrl = join_token
           ? `/o/${owner_token}?join_token=${join_token}`
@@ -59,13 +58,13 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
+    <div className="min-h-screen pt-8 pb-20 px-4">
       <div className="max-w-md mx-auto mt-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 mb-6 tracking-tight">新しいイベントを作成</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <h1 className="ui-h1 mb-6">新しいイベント</h1>
+
+        <form onSubmit={handleSubmit} className="ui-card p-6 space-y-5">
           <div>
-            <label htmlFor="title" className="block text-base md:text-lg font-medium text-stone-100 mb-2">
+            <label htmlFor="title" className="block text-sm font-medium text-stone-200 mb-2">
               イベント名
             </label>
             <input
@@ -73,38 +72,36 @@ export default function CreatePage() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base md:text-lg min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
-              placeholder="例: 2024年新年会"
+              className="w-full px-4 py-3 bg-neutral-900/50 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-xl text-base min-h-[44px] focus:border-bd-accent/50 focus:ring-2 focus:ring-bd-accent/30 transition-all"
+              placeholder="例: 第12回 ブラインド会"
               required
             />
           </div>
 
           <div>
-            <label className="block text-base md:text-lg font-medium text-stone-100 mb-2">
-              回答モード
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center min-h-[44px] cursor-pointer">
+            <p className="block text-sm font-medium text-stone-200 mb-2">回答モード</p>
+            <div className="space-y-1">
+              <label className="flex items-center min-h-[44px] cursor-pointer gap-3">
                 <input
                   type="radio"
                   name="mode"
                   value="sequential"
                   checked={mode === 'sequential'}
                   onChange={(e) => setMode(e.target.value as 'sequential' | 'simultaneous')}
-                  className="mr-3 w-5 h-5 accent-bd-accent"
+                  className="w-4 h-4 accent-bd-accent"
                 />
-                <span className="text-base md:text-lg text-stone-100">逐次モード（1つずつ回答）</span>
+                <span className="text-stone-100 text-sm">逐次（サンプルごと）</span>
               </label>
-              <label className="flex items-center min-h-[44px] cursor-pointer">
+              <label className="flex items-center min-h-[44px] cursor-pointer gap-3">
                 <input
                   type="radio"
                   name="mode"
                   value="simultaneous"
                   checked={mode === 'simultaneous'}
                   onChange={(e) => setMode(e.target.value as 'sequential' | 'simultaneous')}
-                  className="mr-3 w-5 h-5 accent-bd-accent"
+                  className="w-4 h-4 accent-bd-accent"
                 />
-                <span className="text-base md:text-lg text-stone-100">一斉モード（全員同時回答）</span>
+                <span className="text-stone-100 text-sm">一斉（最後にまとめて）</span>
               </label>
             </div>
           </div>
@@ -115,33 +112,19 @@ export default function CreatePage() {
             disabled={isSubmitting || !title.trim()}
             className="w-full"
           >
-            {isSubmitting ? '作成中...' : 'イベントを作成'}
+            {isSubmitting ? '作成中...' : '作成する'}
           </Button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-white/10">
-          <p className="text-sm text-stone-400 text-center mb-4">
-            参加コードをお持ちの方はこちら
-          </p>
-          <Button
-            variant="secondary"
-            onClick={() => router.push('/join')}
-            className="w-full"
-          >
-            参加コードで参加
-          </Button>
-        </div>
+        <p className="mt-6 text-center text-sm text-stone-500">
+          参加コードがある方は{' '}
+          <Link href="/join" className="text-stone-300 underline-offset-2 hover:underline">
+            こちら
+          </Link>
+        </p>
       </div>
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-        />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   );
 }
-
-

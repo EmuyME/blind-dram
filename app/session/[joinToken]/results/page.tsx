@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/common/Toast';
 import { Toast } from '@/components/common/Toast';
 import { PageSkeleton } from '@/components/common/PageSkeleton';
+import { UiTab, UiTabList } from '@/components/common/UiTabs';
 import { FlavorChips } from '@/components/common/FlavorChips';
 import {
   DynamicParticipantGuessGrid,
@@ -591,21 +592,14 @@ export default function ResultsPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="ui-h3">共有</h2>
-              <p className="text-sm ui-muted mt-1">
-                大会・全体・個人のレポートをプレビューしてから画像保存できます。
-              </p>
               {results.session.public_results === false && (
                 <p className="text-xs text-amber-200/80 mt-2">
-                  限定公開中です。共有URLにはオーナー権限が含まれます。全員に公開する場合はオーナー画面から変更してください。
+                  限定公開中（共有URLにオーナー権限が含まれます）
                 </p>
               )}
             </div>
             {participantId && (
-              <div className="text-xs text-stone-400">
-                <span className="px-2 py-1 rounded-full border border-white/10 bg-neutral-900/30">
-                  自分の列をハイライト中
-                </span>
-              </div>
+              <span className="text-xs text-stone-500">自分の列を強調</span>
             )}
           </div>
 
@@ -670,38 +664,17 @@ export default function ResultsPage() {
         </div>
 
         {/* タブ */}
-        <div className="flex gap-2 border-b border-white/10">
-          <button
-            onClick={() => setActiveTab('ranking')}
-            className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
-              activeTab === 'ranking'
-                ? 'border-b-2 border-bd-accent text-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
+        <UiTabList>
+          <UiTab active={activeTab === 'ranking'} onClick={() => setActiveTab('ranking')}>
             順位表
-          </button>
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
-              activeTab === 'details'
-                ? 'border-b-2 border-bd-accent text-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
+          </UiTab>
+          <UiTab active={activeTab === 'details'} onClick={() => setActiveTab('details')}>
             詳細
-          </button>
-          <button
-            onClick={() => setActiveTab('participants')}
-            className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
-              activeTab === 'participants'
-                ? 'border-b-2 border-bd-accent text-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
+          </UiTab>
+          <UiTab active={activeTab === 'participants'} onClick={() => setActiveTab('participants')}>
             参加者
-          </button>
-        </div>
+          </UiTab>
+        </UiTabList>
 
         {/* 順位表 */}
         {activeTab === 'ranking' && (

@@ -32,6 +32,7 @@ import {
 } from '@/lib/nightingale-chart-captions';
 import { PageSkeleton } from '@/components/common/PageSkeleton';
 import { NextClickProgress } from '@/components/common/NextClickProgress';
+import { UiTab, UiTabList } from '@/components/common/UiTabs';
 import { formatSampleLabel } from '@/lib/ui-labels';
 
 function flavorCommentRowHasContent(
@@ -538,41 +539,17 @@ export default function RoundResultPage() {
         </div>
 
         {/* タブ */}
-        <div className="flex gap-2 border-b border-white/10">
-          <button
-            type="button"
-            onClick={() => setActiveTab('ranking')}
-            className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
-              activeTab === 'ranking'
-                ? 'border-b-2 border-bd-accent text-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
+        <UiTabList>
+          <UiTab active={activeTab === 'ranking'} onClick={() => setActiveTab('ranking')}>
             順位表
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('details')}
-            className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
-              activeTab === 'details'
-                ? 'border-b-2 border-bd-accent text-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
+          </UiTab>
+          <UiTab active={activeTab === 'details'} onClick={() => setActiveTab('details')}>
             詳細
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('participants')}
-            className={`px-4 py-2 min-h-[44px] font-medium transition-all ${
-              activeTab === 'participants'
-                ? 'border-b-2 border-bd-accent text-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
+          </UiTab>
+          <UiTab active={activeTab === 'participants'} onClick={() => setActiveTab('participants')}>
             参加者
-          </button>
-        </div>
+          </UiTab>
+        </UiTabList>
 
         {/* 順位表 */}
         {activeTab === 'ranking' && (

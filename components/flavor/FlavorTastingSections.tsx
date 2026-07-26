@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { FlavorTier2SuggestChips } from '@/components/flavor/FlavorTier2SuggestChips';
 import { clampTier1Intensity } from '@/lib/json-helpers';
@@ -100,7 +100,7 @@ export function FlavorTastingSections({
     return (
       <div
         id={`${sectionIdPrefix}-${section}`}
-        className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4 scroll-mt-24"
+        className="ui-card p-6 space-y-4 scroll-mt-24"
       >
         <h2 className="text-xl font-semibold text-stone-100 tracking-tight">{title}</h2>
 

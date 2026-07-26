@@ -779,7 +779,7 @@ export default function RoundPage() {
       <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
         <PhaseBanner sessionState="running" mode="sequential" />
         <div className="max-w-2xl mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+          <div className="ui-card p-6">
             <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">回答入力はできません</h2>
             <p className="text-stone-400 mb-4 leading-relaxed">
               {sampleState === 'pending' && 'このRoundはまだ開始されていません。'}
@@ -818,12 +818,12 @@ export default function RoundPage() {
           </div>
         )}
 
-        <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+        <div className="ui-card p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-sm font-semibold text-stone-200">入力の進捗</div>
               <div className="text-xs text-stone-400 mt-1">
-                入力内容は自動でローカル保存されます（復元できます）
+                入力は端末に自動保存されます
               </div>
             </div>
             <div className="text-right text-xs text-stone-400">
@@ -906,7 +906,7 @@ export default function RoundPage() {
 
         <form className="space-y-6">
           {/* 推測入力 */}
-          <div id="section-guess" className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4 scroll-mt-24">
+          <div id="section-guess" className="ui-card p-6 space-y-4 scroll-mt-24">
             <h2 className="text-xl font-semibold text-stone-100 tracking-tight">推測</h2>
             {SCORING_ITEM_KEYS.map((key) => (
               <ScoringFieldBlock
@@ -945,7 +945,7 @@ export default function RoundPage() {
           />
 
           {/* 点数入力 */}
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+          <div className="ui-card p-6">
             <label className="block text-base font-medium text-stone-100 mb-2">点数（0-100、任意）</label>
             <input
               name="score_0_100"

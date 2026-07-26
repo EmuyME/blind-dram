@@ -164,14 +164,14 @@ export function OwnerSelfJoinForm({ joinToken, showToast, onRegistered }: Props)
 
   if (!formReady) {
     return (
-      <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+      <div className="ui-card p-6">
         <p className="text-stone-400 text-sm">参加登録フォームを読み込み中…</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+    <div className="ui-card p-6">
       <h2 className="text-xl font-semibold text-stone-100 mb-2 tracking-tight">あなた（オーナー）の参加登録</h2>
       <p className="text-stone-400 text-sm mb-4 leading-relaxed">
         ゲームにボトルを持ち込む場合は、ここで登録してください。回答・プレゼンは

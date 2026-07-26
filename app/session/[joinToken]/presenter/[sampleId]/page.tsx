@@ -1072,7 +1072,7 @@ export default function PresenterPage() {
 
       <div className="max-w-3xl mx-auto mt-8 space-y-6">
         {/* ヘッダー */}
-        <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+        <div className="ui-card p-6">
           <h1 className="text-3xl md:text-4xl font-semibold text-stone-100 tracking-tight">プレゼンター画面</h1>
           <p className="text-sm text-stone-400 mt-2">
             {formatSampleLabel(sampleLabel)} — ラウンド状態: <span className="font-semibold text-stone-100">{roundState}</span>
@@ -1081,7 +1081,7 @@ export default function PresenterPage() {
 
         {/* pending状態: Round開始 */}
         {roundState === 'pending' && (
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+          <div className="ui-card p-6">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-neutral-700 rounded-full mb-4">
                 <span className="text-2xl">🚀</span>
@@ -1101,7 +1101,7 @@ export default function PresenterPage() {
         {roundState === 'answering' && (
           <div className="space-y-6">
             {/* Truth入力セクション */}
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-6">
+            <div className="ui-card p-6 space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold text-stone-100 mb-2 tracking-tight">正解情報入力</h2>
                 <p className="text-stone-400 leading-relaxed">
@@ -1224,7 +1224,7 @@ export default function PresenterPage() {
 
             {/* 提出済み回答の閲覧 */}
             {participants.filter((p) => p.status === 'submitted').length > 0 ? (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-5">
+              <div className="ui-card p-6 space-y-5">
                 <h3 className="text-xl font-semibold text-stone-100 tracking-tight">提出済み回答の閲覧</h3>
                 {participants
                   .filter((p) => p.status === 'submitted')
@@ -1321,7 +1321,7 @@ export default function PresenterPage() {
                   ))}
               </div>
             ) : (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+              <div className="ui-card p-6">
                 <p className="text-stone-400 text-center leading-relaxed">
                   提出済みの回答はまだありません。参加者が回答を提出すると、ここに表示されます。
                 </p>
@@ -1350,20 +1350,20 @@ export default function PresenterPage() {
                     </p>
                   </div>
                 )}
-                <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+                <div className="ui-card p-6 space-y-4">
                   {presenterTastingSection}
                 </div>
               </>
             )}
             {myAnswer.status === 'submitted' && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+              <div className="ui-card p-6 space-y-4">
                 <p className="text-sm text-stone-400 leading-relaxed">
                   プレゼンターのテイスティングは、結果公開後のフレーバー・ナイチンゲール・ローズ・チャートに含まれます。採点中でも追加・修正できます。
                 </p>
                 {presenterTastingSection}
               </div>
             )}
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+            <div className="ui-card p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-500/15 border border-emerald-400/30 rounded-full">
                   <span className="text-xl">✓</span>
@@ -1379,7 +1379,7 @@ export default function PresenterPage() {
 
             {/* 採点対象の参加者一覧 */}
             {participants.filter((p) => p.status === 'submitted').length > 0 ? (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-5">
+              <div className="ui-card p-6 space-y-5">
                 <h3 className="text-xl font-semibold text-stone-100 tracking-tight">参加者の推測</h3>
                 {participants
                   .filter((p) => p.status === 'submitted')
@@ -1519,7 +1519,7 @@ export default function PresenterPage() {
                   ))}
               </div>
             ) : (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-12 text-center">
+              <div className="ui-card p-12 text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-neutral-700 rounded-full mb-4">
                   <span className="text-2xl">📝</span>
                 </div>
@@ -1579,7 +1579,7 @@ export default function PresenterPage() {
         {/* revealed/closed状態: Round終了 */}
         {(roundState === 'revealed' || roundState === 'closed') && (
           <div className="space-y-6">
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 text-center">
+            <div className="ui-card p-6 text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/15 border border-emerald-400/30 rounded-full mb-4">
                 <span className="text-2xl">✓</span>
               </div>
@@ -1612,7 +1612,7 @@ export default function PresenterPage() {
               )}
             </div>
             {(myAnswer.status === 'draft' || myAnswer.status === 'submitted') && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+              <div className="ui-card p-6 space-y-4">
                 <p className="text-sm text-stone-400 leading-relaxed">
                   結果画面のフレーバー・ナイチンゲール・ローズ・チャート用に、プレゼンターのテイスティングを追加・修正できます（保存すると公開済み結果にも反映されます）。
                 </p>

@@ -796,7 +796,7 @@ export default function SessionHomePage() {
           mode={session.mode}
         />
         <div className="max-w-md mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+          <div className="ui-card p-6">
             <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">結果が公開されました</h2>
             <Button
               variant="primary"
@@ -826,10 +826,10 @@ export default function SessionHomePage() {
           mode={session.mode}
         />
         <div className="max-w-md mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-            <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">結果を集計中</h2>
-            <p className="text-stone-400 mb-4 leading-relaxed">
-              すべてのラウンドが完了しました。オーナーが結果を公開するまでお待ちください。結果が公開されると、自動的に結果ページに移動します。
+          <div className="ui-card p-6">
+            <h2 className="ui-h3 mb-2">結果を集計中</h2>
+            <p className="text-stone-400 text-sm mb-4">
+              オーナーの公開をお待ちください。公開後は自動で結果へ移動します。
             </p>
 
             <div className="space-y-3">
@@ -885,7 +885,7 @@ export default function SessionHomePage() {
           mode={session.mode}
         />
         <div className="max-w-md mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-8 text-center">
+          <div className="ui-card p-8 text-center">
             <h2 className="text-xl font-semibold mb-4 text-stone-100 tracking-tight">イベントは終了しました</h2>
             <p className="text-stone-400">このイベントは終了しました。</p>
           </div>
@@ -1121,7 +1121,7 @@ export default function SessionHomePage() {
           mode={session.mode}
         />
         <div className="max-w-md mx-auto mt-8">
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+          <div className="ui-card p-6">
             <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">
               進行状況を同期しています
             </h2>

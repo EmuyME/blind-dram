@@ -8,7 +8,7 @@ export default function Home() {
     <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-6 sm:py-8">
       <main className="ui-card max-w-xl w-full p-8 md:p-12">
         <div className="text-center">
-          <h1 className="text-3xl md:text-4xl font-semibold text-stone-100 tracking-tight">
+          <h1 className="ui-display text-3xl md:text-4xl font-semibold text-stone-100 tracking-tight">
             Blind Dram
           </h1>
           <p className="mt-3 text-base md:text-lg text-stone-400 leading-relaxed">

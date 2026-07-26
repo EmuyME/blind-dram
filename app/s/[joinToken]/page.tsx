@@ -268,7 +268,7 @@ function JoinPageContent() {
         />
         <div className="max-w-md mx-auto mt-8 space-y-6">
           <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight">{session.title}</h1>
-          <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+          <div className="ui-card p-6">
             <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加登録は締め切られています</h2>
             <p className="text-stone-400 mb-6 leading-relaxed">
               新規の参加登録はできません。以前登録済みの方は、自分の名札を選んで復帰してください。

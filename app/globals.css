@@ -37,15 +37,27 @@
   --bd-border: rgba(201, 184, 150, 0.22);
   --bd-border-strong: rgba(201, 184, 150, 0.35);
   --bd-paper-gradient: linear-gradient(180deg, #f4ead8 0%, #ebe0cc 100%);
+  --bd-font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+  --bd-font-serif: Georgia, "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--bd-font-sans);
   background:
-    radial-gradient(700px circle at 15% 100%, rgba(var(--bd-glow-rgb), 0.35), transparent 55%),
+    radial-gradient(700px circle at 15% 100%, rgba(var(--bd-glow-rgb), 0.28), transparent 55%),
     linear-gradient(165deg, #2a1f18 0%, #1a1410 100%);
   min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+.ui-display,
+.ui-h1,
+.ui-h2,
+.ui-h3 {
+  font-family: var(--bd-font-serif);
 }
 
 * {
@@ -54,11 +66,9 @@ body {
 
 @layer components {
   .ui-card {
-    @apply bg-neutral-800 border rounded-2xl shadow-xl;
+    @apply bg-neutral-800 border rounded-2xl;
     border-color: var(--bd-border);
-    box-shadow:
-      0 20px 25px -5px rgba(0, 0, 0, 0.45),
-      0 8px 10px -6px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
   }
 
   .ui-card-hover {
@@ -117,21 +127,18 @@ body {
 
   .ui-tablist {
     @apply flex flex-wrap gap-1 p-1 rounded-xl;
-    background-color: rgba(26, 20, 16, 0.65);
+    background-color: rgba(26, 20, 16, 0.55);
     border: 1px solid rgba(201, 184, 150, 0.12);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
   .ui-tab {
     @apply min-h-[44px] flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-      text-stone-400 hover:text-stone-200 hover:bg-neutral-700/60;
+      text-stone-400 hover:text-stone-200 hover:bg-neutral-700/50;
   }
 
   .ui-tab-active {
     @apply text-stone-100 bg-neutral-700;
-    box-shadow:
-      inset 0 0 0 1px rgba(var(--bd-accent-rgb), 0.45),
-      0 4px 14px rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(var(--bd-accent-rgb), 0.4);
   }
 
   .ui-page-hero {
@@ -142,15 +149,7 @@ body {
       rgba(26, 20, 16, 0.85) 100%
     );
     border: 1px solid var(--bd-border);
-    box-shadow:
-      0 20px 40px rgba(0, 0, 0, 0.45),
-      0 0 0 1px rgba(var(--bd-accent-rgb), 0.12);
-  }
-
-  .ui-accent-dot {
-    @apply inline-block h-2 w-2 rounded-full;
-    background: linear-gradient(135deg, #e8dcc8, #c4a574);
-    box-shadow: 0 0 12px rgba(var(--bd-accent-rgb), 0.45);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
   }
 }
 

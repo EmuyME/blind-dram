@@ -18,6 +18,7 @@ import { OwnerSelfJoinForm } from '@/components/common/OwnerSelfJoinForm';
 import { JoinQrCode } from '@/components/common/JoinQrCode';
 import { OwnerParticipantManager } from '@/components/common/OwnerParticipantManager';
 import { PageSkeleton } from '@/components/common/PageSkeleton';
+import { UiTab, UiTabList } from '@/components/common/UiTabs';
 import { defaultBottleLabel } from '@/lib/default-bottle-label';
 
 /** settings/save 前までの旧フラット配点（正規化して保存される） */
@@ -724,32 +725,16 @@ export default function OwnerPage() {
         </div>
 
         {/* タブ */}
-        <div className="flex gap-2 border-b border-white/10">
-          <button
-            type="button"
-            onClick={() => setActiveTab('session')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'session'
-                ? 'text-bd-accent border-b-2 border-bd-accent'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            セッション管理
-          </button>
+        <UiTabList>
+          <UiTab active={activeTab === 'session'} onClick={() => setActiveTab('session')}>
+            進行
+          </UiTab>
           {settingsTabAllowed && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'settings'
-                  ? 'text-bd-accent border-b-2 border-bd-accent'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
+            <UiTab active={activeTab === 'settings'} onClick={() => setActiveTab('settings')}>
               設定
-            </button>
+            </UiTab>
           )}
-        </div>
+        </UiTabList>
 
         {/* セッション管理タブ */}
         {activeTab === 'session' && (
@@ -953,36 +938,33 @@ export default function OwnerPage() {
         {session.state === 'ordering' && (
           <div className="space-y-6">
             {/* 設定テンプレート選択 */}
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
-              <h3 className="text-lg font-semibold text-stone-100 tracking-tight">セッション開始時の設定</h3>
+            <div className="ui-card p-6 space-y-4">
+              <h3 className="ui-h3">セッション開始時の設定</h3>
               <div>
-                <label className="block text-sm font-medium text-stone-300 mb-2">使用する設定テンプレート</label>
+                <label className="block text-sm font-medium text-stone-300 mb-2">設定テンプレート</label>
                 <select
                   value={selectedSettingForSession || ''}
                   onChange={(e) => setSelectedSettingForSession(e.target.value || null)}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-white/10 text-stone-100 rounded-lg focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
+                  className="w-full px-4 py-2.5 bg-neutral-900/50 border border-white/10 text-stone-100 rounded-xl focus:border-bd-accent/40 focus:ring-2 focus:ring-bd-accent/20 transition-all"
                 >
-                  <option value="">デフォルト設定を使用</option>
+                  <option value="">デフォルト</option>
                   {settingsTemplates.map((template) => (
                     <option key={template.id} value={template.id}>
                       {template.name}
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 text-sm text-stone-400">
-                  設定テンプレートを選択すると、その設定がセッション開始時にスナップショットとして保存されます。
-                </p>
               </div>
             </div>
 
             <NextActionCard
               title="順番を決めてください"
-              description="サンプルの順番をドラッグ&ドロップで変更できます。"
+              description="ドラッグで並べ替え、準備ができたら開始します。"
               primaryAction={{
                 label: isStartingSession ? '開始中...' : 'セッションを開始する',
                 onClick: handleStartSession,
                 disabled: samples.length === 0 || isStartingSession,
-                disabledReason: samples.length === 0 ? 'Sampleがありません' : undefined,
+                disabledReason: samples.length === 0 ? 'サンプルがありません' : undefined,
               }}
             />
 
@@ -997,12 +979,11 @@ export default function OwnerPage() {
               />
             )}
 
-            <div className="bg-red-500/15 border border-red-400/30 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h3 className="text-lg font-semibold text-red-300 mb-3">緊急操作</h3>
+            <div className="ui-card p-5 border-red-400/25">
               <Button
                 variant="secondary"
                 onClick={handleForceClose}
-                className="w-full bg-red-500 hover:bg-red-600 text-white"
+                className="w-full text-red-300 border-red-400/30 hover:bg-red-500/10"
               >
                 イベントを強制終了する
               </Button>
@@ -1012,66 +993,52 @@ export default function OwnerPage() {
 
         {session.state === 'running' && (
           <div className="space-y-6">
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+            <div className="ui-card p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">Session進行中</h2>
               <p className="text-stone-400 leading-relaxed">現在、回答入力フェーズです。</p>
             </div>
 
             {joinToken && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-bd-accent/30 p-6">
-                <h3 className="text-lg font-semibold text-stone-100 mb-2 tracking-tight">回答・プレゼン（参加者側）</h3>
-                <p className="text-sm text-stone-400 mb-4 leading-relaxed">
-                  この画面は進行管理用です。オーナー本人もゲームに参加する場合は、セッション参加者画面で回答入力やPresenterパネルへ進んでください（同じブラウザなら参加トークンを共有します）。
-                </p>
+              <div className="ui-card border-bd-accent/30 p-5">
+                <h3 className="ui-h3 mb-3">参加者画面へ</h3>
                 <Button
                   variant="primary"
                   className="w-full"
                   onClick={() => router.push(`/session/${joinToken}`)}
                 >
-                  このタブでセッションを開く
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="w-full mt-2"
-                  onClick={() => window.open(`/session/${joinToken}`, '_blank', 'noopener,noreferrer')}
-                >
-                  別タブで開く
+                  セッションを開く
                 </Button>
               </div>
             )}
 
             {/* 逐次モードでrevealed状態のサンプルがある場合、結果ページへのリンクを表示 */}
             {session.mode === 'sequential' && samples.some((s) => s.state === 'revealed') && (
-              <div className="bg-emerald-500/15 border border-emerald-400/30 rounded-2xl shadow-xl shadow-black/40 p-6">
-                <h3 className="text-lg font-semibold text-emerald-300 mb-3">ラウンド結果</h3>
-                <p className="text-stone-400 mb-4 leading-relaxed">
-                  終了したラウンドの結果を確認できます。
-                </p>
+              <div className="ui-card p-5 space-y-3">
+                <h3 className="ui-h3">ラウンド結果</h3>
                 {samples
                   .filter((s) => s.state === 'revealed')
                   .map((sample) => (
                     <Button
                       key={sample.id}
-                      variant="primary"
+                      variant="secondary"
                       onClick={() => {
                         if (joinToken) {
                           router.push(`/session/${joinToken}/round-result/${sample.id}`);
                         }
                       }}
-                      className="w-full mb-2"
+                      className="w-full"
                     >
-                      Sample {sample.label} の結果を見る
+                      サンプル {sample.label} の結果
                     </Button>
                   ))}
               </div>
             )}
 
-            <div className="bg-red-500/15 border border-red-400/30 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h3 className="text-lg font-semibold text-red-300 mb-3">緊急操作</h3>
+            <div className="ui-card p-5 border-red-400/25">
               <Button
                 variant="secondary"
                 onClick={handleForceClose}
-                className="w-full bg-red-500 hover:bg-red-600 text-white"
+                className="w-full text-red-300 border-red-400/30 hover:bg-red-500/10"
               >
                 イベントを強制終了する
               </Button>
@@ -1129,12 +1096,11 @@ export default function OwnerPage() {
               }}
             />
 
-            <div className="bg-red-500/15 border border-red-400/30 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h3 className="text-lg font-semibold text-red-300 mb-3">緊急操作</h3>
+            <div className="ui-card p-5 border-red-400/25">
               <Button
                 variant="secondary"
                 onClick={handleForceClose}
-                className="w-full bg-red-500 hover:bg-red-600 text-white"
+                className="w-full text-red-300 border-red-400/30 hover:bg-red-500/10"
               >
                 イベントを強制終了する
               </Button>
@@ -1144,7 +1110,7 @@ export default function OwnerPage() {
 
         {session.state === 'published' && (
           <div className="space-y-6">
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
+            <div className="ui-card p-6">
               <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">結果公開済み</h2>
               <Button
                 variant="primary"
@@ -1159,7 +1125,7 @@ export default function OwnerPage() {
               </Button>
             </div>
 
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+            <div className="ui-card p-6 space-y-4">
               <h3 className="text-lg font-semibold text-stone-100 tracking-tight">結果の共有</h3>
               <p className="text-sm text-stone-400 leading-relaxed">
                 結果公開後は、下のURLからいつでも最終結果を閲覧できます。順位表画像の公開URLは結果ページから発行できます。
@@ -1218,7 +1184,7 @@ export default function OwnerPage() {
               )}
             </div>
 
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+            <div className="ui-card p-6 space-y-4">
               <h3 className="text-lg font-semibold text-stone-100 tracking-tight">結果ページの公開範囲</h3>
               <p className="text-sm text-stone-400 leading-relaxed">
                 「限定公開」にすると、参加者はオーナー画面から開いた端末（保存済みのオーナートークン）でのみ結果とCSVを利用できます。
@@ -1243,12 +1209,11 @@ export default function OwnerPage() {
               </div>
             </div>
 
-            <div className="bg-red-500/15 border border-red-400/30 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h3 className="text-lg font-semibold text-red-300 mb-3">緊急操作</h3>
+            <div className="ui-card p-5 border-red-400/25">
               <Button
                 variant="secondary"
                 onClick={handleForceClose}
-                className="w-full bg-red-500 hover:bg-red-600 text-white"
+                className="w-full text-red-300 border-red-400/30 hover:bg-red-500/10"
               >
                 イベントを強制終了する
               </Button>
@@ -1258,7 +1223,7 @@ export default function OwnerPage() {
 
         {session.state === 'closed' && (
           <div className="space-y-6">
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-8 text-center">
+            <div className="ui-card p-8 text-center">
               <h2 className="text-xl font-semibold mb-4 text-stone-100 tracking-tight">イベントは終了しました</h2>
               <p className="text-stone-400 mb-6 leading-relaxed">このイベントは終了しました。</p>
             </div>
@@ -1282,13 +1247,13 @@ export default function OwnerPage() {
         {activeTab === 'settings' && (
           <div className="space-y-6">
             {isLoadingSettings ? (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-8 text-center">
+              <div className="ui-card p-8 text-center">
                 <p className="text-stone-400">設定を読み込み中...</p>
               </div>
             ) : editedSettings ? (
               <>
                 {/* 設定テンプレート選択 */}
-                <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+                <div className="ui-card p-6 space-y-4">
                   <h2 className="text-xl font-semibold text-stone-100 tracking-tight">設定テンプレート</h2>
                   <div className="space-y-3">
                     <div>
@@ -1360,7 +1325,7 @@ export default function OwnerPage() {
                   </div>
                 </div>
 
-                <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-4">
+                <div className="ui-card p-6 space-y-4">
                   <h2 className="text-xl font-semibold text-stone-100 tracking-tight">配点設定</h2>
                   <ScoringSettingsPanel
                     value={normalizeScoringConfig(editedSettings.scoring ?? LEGACY_DEFAULT_SCORING_FLAT)}
@@ -1376,7 +1341,7 @@ export default function OwnerPage() {
                 </div>
 
                 {/* フレーバーチャート */}
-                <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 space-y-6">
+                <div className="ui-card p-6 space-y-6">
                   <h2 className="text-xl font-semibold text-stone-100 tracking-tight">フレーバーチャート</h2>
                   
                   {/* Tier1 */}
@@ -1649,7 +1614,7 @@ export default function OwnerPage() {
                 </div>
               </>
             ) : (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-8 text-center">
+              <div className="ui-card p-8 text-center">
                 <p className="text-stone-400">設定を読み込めませんでした</p>
               </div>
             )}

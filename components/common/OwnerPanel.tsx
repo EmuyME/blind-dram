@@ -359,12 +359,12 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
             />
           )}
 
-          {/* 参加URL・参加コード（登録中は「参加URL」見出しでオーナーページと揃える） */}
+          {/* 参加URL・参加コード */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-stone-300">
-              {session.state === 'registering' ? '参加URL' : '共有情報'}
+              {session.state === 'registering' ? '招待' : '共有'}
             </h3>
-            <JoinQrCode url={joinUrl} size={148} />
+            <JoinQrCode url={joinUrl} size={132} caption="カメラで読み取って参加" />
             <div className="flex flex-col sm:flex-row flex-wrap gap-2">
               <Button
                 variant="secondary"
@@ -377,10 +377,10 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
                 type="button"
                 variant="secondary"
                 onClick={shareJoinUrlOnLine}
-                className="flex-1 text-sm min-w-[7rem] border-[#06C755]/40 text-[#86efac] hover:bg-[#06C755]/10"
+                className="flex-1 text-sm min-w-[7rem]"
                 aria-label="LINEで参加URLを送る"
               >
-                LINEで送る
+                LINE
               </Button>
               {session.join_code && (
                 <Button
@@ -388,7 +388,7 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
                   onClick={copyJoinCode}
                   className="flex-1 text-sm min-w-[7rem]"
                 >
-                  参加コード: {session.join_code}
+                  コード {session.join_code}
                 </Button>
               )}
             </div>
@@ -397,7 +397,7 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
           {session.state === 'registering' && (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-stone-300">
-                参加者一覧（{participants.length}人）
+                参加者（{participants.length}）
               </h3>
               <OwnerParticipantManager
                 ownerToken={ownerToken}
@@ -414,23 +414,18 @@ export function OwnerPanel({ ownerToken, joinToken, session, onSessionUpdate, sh
           )}
 
           {session.state === 'registering' && (
-            <div>
-              <Button
-                variant="primary"
-                onClick={handleCloseRegistration}
-                disabled={isLoading || participants.length === 0}
-                className="w-full"
-              >
-                {isLoading
-                  ? '処理中...'
-                  : participants.length === 0
-                    ? '参加者がいません'
-                    : '参加登録を締め切る'}
-              </Button>
-              <p className="text-xs text-stone-400 mt-2 leading-relaxed">
-                他の参加者の参加が終わったら締め切ってください。オーナー本人は上のフォームで登録しないまま締め切ると不参加（進行のみ）です。
-              </p>
-            </div>
+            <Button
+              variant="primary"
+              onClick={handleCloseRegistration}
+              disabled={isLoading || participants.length === 0}
+              className="w-full"
+            >
+              {isLoading
+                ? '処理中...'
+                : participants.length === 0
+                  ? '参加者がいません'
+                  : '参加登録を締め切る'}
+            </Button>
           )}
 
           {/* セッションを開始する */}

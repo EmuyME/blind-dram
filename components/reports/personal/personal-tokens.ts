@@ -10,13 +10,13 @@ export const PERSONAL_CANVAS = {
 } as const;
 
 export const PERSONAL_V1 = {
-  ink: '#1a1224',
-  inkMuted: '#5c4f68',
-  inkSoft: '#7a6e88',
-  headerBg: '#2D1748',
-  headerBgDeep: '#1f0f32',
-  headerText: '#ffffff',
-  accent: '#c9a24a',
+  ink: '#1a1410',
+  inkMuted: '#5c4f42',
+  inkSoft: '#7a6e60',
+  headerBg: '#3d2e1f',
+  headerBgDeep: '#2a1f18',
+  headerText: '#f4ead8',
+  accent: '#c4a574',
   accentSoft: '#e8d4a8',
   cardBg: '#fffcf7',
   cardBorder: '#ddd0bc',
@@ -30,8 +30,8 @@ export const PERSONAL_V1 = {
 } as const;
 
 export const PERSONAL_SHADOW = {
-  sheet: '0 4px 24px rgba(45, 23, 72, 0.08), 0 1px 3px rgba(45, 23, 72, 0.06)',
-  card: '0 2px 12px rgba(45, 23, 72, 0.07)',
+  sheet: '0 4px 24px rgba(61, 46, 31, 0.08), 0 1px 3px rgba(61, 46, 31, 0.06)',
+  card: '0 2px 12px rgba(61, 46, 31, 0.07)',
   inset: 'inset 0 1px 0 rgba(255,255,255,0.65)',
 } as const;
 

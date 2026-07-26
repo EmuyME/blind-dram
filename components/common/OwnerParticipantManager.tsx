@@ -193,7 +193,7 @@ export function OwnerParticipantManager({
       })}
       {canEdit && (
         <p className="text-xs text-stone-500 leading-relaxed pt-1">
-          誤登録の修正は参加登録の締切前のみ可能です。締切後は本人の「修正する」から変更してください。
+          誤登録の修正は締切前のみ可能です。
         </p>
       )}
     </div>

@@ -5,8 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { PhaseBanner } from '@/components/common/PhaseBanner';
 import {
   NextActionFocus,
-  PresenterFocusIcon,
-  sessionModeLabel,
 } from '@/components/common/NextActionFocus';
 import { ParticipantProgress } from '@/components/common/ParticipantProgress';
 import { OwnerPanel } from '@/components/common/OwnerPanel';
@@ -705,10 +703,9 @@ export default function SessionHomePage() {
 
           {/* 参加者向けメッセージ */}
           {participantToken && (
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-              <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加登録完了</h2>
-              <p className="text-stone-400 mb-4 leading-relaxed">
-                参加登録が完了しました。オーナーが参加登録を締め切るまでお待ちください。上の参加状況で、誰が集まったか確認できます。
+            <div className="ui-card p-5 space-y-3">
+              <p className="text-stone-300 text-sm leading-relaxed">
+                オーナーが参加登録を締め切るまでお待ちください。
               </p>
               <Button
                 variant="secondary"
@@ -719,15 +716,15 @@ export default function SessionHomePage() {
                 }}
                 className="w-full"
               >
-                表示名・持ち込みボトルを修正する
+                表示名・持ち込みを修正
               </Button>
-              <Button
-                variant="secondary"
+              <button
+                type="button"
                 onClick={handleSwitchParticipant}
-                className="w-full mt-3"
+                className="w-full text-sm text-stone-500 underline-offset-2 hover:text-stone-300 hover:underline py-2"
               >
                 参加者を変更する
-              </Button>
+              </button>
             </div>
           )}
         </div>
@@ -768,16 +765,19 @@ export default function SessionHomePage() {
 
           {/* 参加者向けメッセージ */}
           {participantToken && (
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-              <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">順番決め中</h2>
-              <p className="text-stone-400 mb-4 leading-relaxed">
+            <div className="ui-card p-5 space-y-3">
+              <p className="text-stone-300 text-sm leading-relaxed">
                 {isOwner
-                  ? 'このタブからでも参加できます。順番とセッション開始は下のオーナー機能パネルで操作してください。'
-                  : 'オーナーがサンプルの順番を決めています。しばらくお待ちください。'}
+                  ? '順番とセッション開始は下のオーナー機能から操作できます。'
+                  : 'オーナーがサンプルの順番を決めています。'}
               </p>
-              <Button variant="secondary" onClick={handleSwitchParticipant} className="w-full">
+              <button
+                type="button"
+                onClick={handleSwitchParticipant}
+                className="w-full text-sm text-stone-500 underline-offset-2 hover:text-stone-300 hover:underline py-2"
+              >
                 参加者を変更する
-              </Button>
+              </button>
             </div>
           )}
         </div>
@@ -930,7 +930,6 @@ export default function SessionHomePage() {
       participantId &&
       roundStatus.presenter_participant_id === participantId;
 
-    const modeLabel = sessionModeLabel(session.mode);
     const sampleHeader = currentSample
       ? formatSampleLabel(currentSample.label)
       : myPendingSample
@@ -992,7 +991,6 @@ export default function SessionHomePage() {
           {prioritizeAnswerFocus && (
             <NextActionFocus
               headerKicker={formatSampleLabel(currentSample.label)}
-              headerMeta={`${modeLabel} · 進行中`}
               eyebrow={
                 myStatus?.status === 'submitted'
                   ? '提出済み — 編集できます'
@@ -1016,7 +1014,6 @@ export default function SessionHomePage() {
                 },
                 disabled: isNavigatingToRound,
               }}
-              note="回答は後で編集できます"
               secondaryAction={
                 showPresenterFocus
                   ? {
@@ -1037,8 +1034,6 @@ export default function SessionHomePage() {
           {!prioritizeAnswerFocus && showPresenterFocus && (
             <NextActionFocus
               headerKicker={sampleHeader}
-              headerMeta={`${modeLabel} · 進行中`}
-              icon={<PresenterFocusIcon />}
               title={
                 isMySample && currentSample?.state === 'answering'
                   ? 'プレゼンターとしてラウンドを管理中'
@@ -1046,8 +1041,8 @@ export default function SessionHomePage() {
               }
               description={
                 isMySample
-                  ? `あなたは${formatSampleLabel(currentSample?.label)}のプレゼンターです。ラウンドの開始・管理はプレゼンター画面から行います。`
-                  : `あなたは${formatSampleLabel(myPendingSample?.label)}のプレゼンターです。準備ができたらラウンドを開始してください。`
+                  ? 'ラウンドの開始・管理はプレゼンター画面から行います。'
+                  : '準備ができたらラウンドを開始してください。'
               }
               primaryAction={{
                 label: 'プレゼンター画面を開く',
@@ -1066,10 +1061,8 @@ export default function SessionHomePage() {
           {!prioritizeAnswerFocus && !showPresenterFocus && showWaitingFocus && (
             <NextActionFocus
               headerKicker={formatSampleLabel(myPendingSample.label)}
-              headerMeta={`${modeLabel} · 進行中`}
-              icon={<PresenterFocusIcon />}
               title="次のラウンド待機中"
-              description="前のラウンドの結果確認が完了するまでお待ちください。"
+              description="前のラウンドの結果確認が終わるまでお待ちください。"
               secondaryAction={participantListToggle}
               footer={participantFooter}
             />
@@ -1078,7 +1071,6 @@ export default function SessionHomePage() {
           {!prioritizeAnswerFocus && !showPresenterFocus && showAnswererFocus && (
             <NextActionFocus
               headerKicker={formatSampleLabel(currentSample.label)}
-              headerMeta={`${modeLabel} · 進行中`}
               title={
                 currentSample.state === 'pending'
                   ? 'ラウンド開始を待っています'
@@ -1088,10 +1080,10 @@ export default function SessionHomePage() {
               }
               description={
                 currentSample.state === 'pending'
-                  ? 'プレゼンターがラウンドを開始するまでお待ちください。'
+                  ? 'プレゼンターが開始するまでお待ちください。'
                   : currentSample.state === 'grading'
-                    ? '回答は提出済みです。採点を待っています。'
-                    : 'このラウンドは終了しました。'
+                    ? '回答は提出済みです。採点をお待ちください。'
+                    : undefined
               }
               secondaryAction={participantListToggle}
               footer={participantFooter}

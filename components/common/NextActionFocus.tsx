@@ -88,11 +88,7 @@ export function NextActionFocus({
 }
 
 export function PresenterFocusIcon() {
-  return (
-    <div className="w-16 h-16 rounded-full bg-bd-accent/15 border border-bd-accent/45 flex items-center justify-center">
-      <span className="text-2xl text-bd-accent font-semibold">P</span>
-    </div>
-  );
+  return null;
 }
 
 export function sessionModeLabel(mode: 'sequential' | 'simultaneous'): string {

@@ -39,7 +39,7 @@ export function JoinQrCode({
           level="M"
           marginSize={1}
           bgColor="#ffffff"
-          fgColor="#1a1224"
+          fgColor="#3d2e1f"
         />
       </div>
       {caption && <p className="text-xs text-stone-400 text-center leading-relaxed">{caption}</p>}

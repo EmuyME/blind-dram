@@ -765,108 +765,103 @@ export default function OwnerPage() {
               }}
             />
 
-            {/* URLコピーボタン */}
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-              <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加URL</h2>
-              <div className="mb-5 flex justify-center">
-                <JoinQrCode url={joinUrl} size={180} />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="url"
-                  readOnly
-                  value={joinUrl}
-                  className="flex-1 min-w-0 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-bd-accent/50 focus:border-bd-accent/50 transition-all"
-                />
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    variant="secondary"
-                    onClick={async () => {
-                      const copied = await copyToClipboard(joinUrl);
-                      if (copied) {
-                        showToast('URLをクリップボードにコピーしました', 'success');
-                      } else {
-                        showToast('コピーに失敗しました', 'error');
-                      }
-                    }}
-                    className="px-5 sm:px-6 flex-1 sm:flex-initial"
-                  >
-                    コピー
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      if (openLineJoinInviteShare(joinUrl, session.title)) {
-                        showToast('LINEの送信画面を開きました', 'success');
-                      } else {
-                        showToast('ポップアップがブロックされました。許可してから再度お試しください', 'error');
-                      }
-                    }}
-                    className="px-5 sm:px-6 flex-1 sm:flex-initial whitespace-nowrap border-[#06C755]/40 text-[#86efac] hover:bg-[#06C755]/10"
-                    aria-label="LINEで参加URLを送る"
-                  >
-                    LINEで送る
-                  </Button>
+            {/* 共有 → 名簿 → 締切（1フロー） */}
+            <div className="ui-card p-6 space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-stone-100 tracking-tight mb-4">参加者を招待</h2>
+                <div className="mb-4 flex justify-center">
+                  <JoinQrCode url={joinUrl} size={160} caption="カメラで読み取って参加" />
                 </div>
-              </div>
-              <p className="text-stone-500 text-xs mt-2 leading-relaxed">
-                「LINEで送る」は公式の共有画面を開きます。LINE未ログインの場合はログイン後に相手を選んで送信してください。
-              </p>
-            </div>
-
-            <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-              <Button
-                variant="primary"
-                onClick={handleCloseRegistration}
-                disabled={participants.length === 0}
-                className="w-full"
-              >
-                {participants.length === 0 ? '参加者がいません' : '参加登録を締め切る'}
-              </Button>
-              <p className="text-stone-500 text-sm mt-3 leading-relaxed">
-                他の参加者の参加が終わったら締め切ってください。オーナー本人は上のフォームで登録しないまま締め切ると不参加（進行のみ）です。
-              </p>
-            </div>
-            
-            {/* 参加コード表示 */}
-            {session?.join_code && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-                <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加コード</h2>
-                <p className="text-stone-400 mb-4 leading-relaxed text-sm">
-                  参加コードを共有すれば、URLをコピーせずに参加できます。
-                </p>
-                <div className="flex gap-2">
-                  <div className="flex-1 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-2xl font-mono font-semibold text-center tracking-wider">
-                    {session.join_code}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="url"
+                    readOnly
+                    value={joinUrl}
+                    className="flex-1 min-w-0 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-bd-accent/50"
+                  />
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        const copied = await copyToClipboard(joinUrl);
+                        showToast(copied ? 'URLをコピーしました' : 'コピーに失敗しました', copied ? 'success' : 'error');
+                      }}
+                      className="px-5 flex-1 sm:flex-initial"
+                    >
+                      コピー
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        if (openLineJoinInviteShare(joinUrl, session.title)) {
+                          showToast('LINEの送信画面を開きました', 'success');
+                        } else {
+                          showToast('ポップアップがブロックされました', 'error');
+                        }
+                      }}
+                      className="px-5 flex-1 sm:flex-initial"
+                      aria-label="LINEで参加URLを送る"
+                    >
+                      LINE
+                    </Button>
                   </div>
-                  <Button
-                    variant="secondary"
-                    onClick={async () => {
-                      const copied = await copyToClipboard(session.join_code || '');
-                      if (copied) {
-                        showToast('参加コードをクリップボードにコピーしました', 'success');
-                      } else {
-                        showToast('コピーに失敗しました', 'error');
-                      }
-                    }}
-                    className="px-6"
-                  >
-                    コピー
-                  </Button>
                 </div>
-                <p className="text-stone-400 mt-3 text-sm">
-                  参加者は <a href="/join" className="text-bd-accent hover:underline" target="_blank" rel="noopener noreferrer">参加コードで参加</a> ページでこのコードを入力できます。
-                </p>
+                {session?.join_code && (
+                  <div className="mt-4 flex gap-2 items-center">
+                    <div className="flex-1 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-xl font-mono font-semibold text-center tracking-wider">
+                      {session.join_code}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        const copied = await copyToClipboard(session.join_code || '');
+                        showToast(copied ? '参加コードをコピーしました' : 'コピーに失敗しました', copied ? 'success' : 'error');
+                      }}
+                      className="px-5"
+                    >
+                      コピー
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
+
+              <div className="border-t border-white/10 pt-5">
+                <h2 className="text-lg font-semibold text-stone-100 tracking-tight mb-3">
+                  参加者（{participants.length}）
+                </h2>
+                {participants.length > 0 ? (
+                  <OwnerParticipantManager
+                    ownerToken={ownerToken}
+                    participants={participants}
+                    canEdit
+                    peerNames={ownerParticipantPeers}
+                    onChanged={loadParticipants}
+                    showToast={showToast}
+                  />
+                ) : (
+                  <p className="text-sm text-stone-400">まだいません</p>
+                )}
+              </div>
+
+              <div className="border-t border-white/10 pt-5">
+                <Button
+                  variant="primary"
+                  onClick={handleCloseRegistration}
+                  disabled={participants.length === 0}
+                  className="w-full"
+                >
+                  {participants.length === 0 ? '参加者がいません' : '参加登録を締め切る'}
+                </Button>
+              </div>
+            </div>
             
             {/* デバッグ用：模擬参加者（開発環境のみ） */}
             {process.env.NODE_ENV !== 'production' && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6 border-bd-accent/30">
-                <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">デバッグ用：模擬参加者</h2>
-                <p className="text-stone-400 mb-4 leading-relaxed text-sm">
-                  テスト用に模擬参加者を簡単に作成できます。
+              <div className="ui-card p-6 border-bd-accent/30">
+                <h2 className="text-lg font-semibold text-stone-100 mb-3 tracking-tight">デバッグ：模擬参加者</h2>
+                <p className="text-stone-400 mb-4 text-sm">
+                  テスト用に模擬参加者を作成できます。
                 </p>
                 <div className="space-y-3">
                   <div>
@@ -942,33 +937,12 @@ export default function OwnerPage() {
                 </div>
               </div>
             )}
-            
-            {participants.length > 0 && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-6">
-                <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">参加者一覧 ({participants.length}人)</h2>
-                <OwnerParticipantManager
-                  ownerToken={ownerToken}
-                  participants={participants}
-                  canEdit={session.state === 'registering'}
-                  peerNames={ownerParticipantPeers}
-                  onChanged={loadParticipants}
-                  showToast={showToast}
-                />
-              </div>
-            )}
-            
-            {participants.length === 0 && (
-              <div className="bg-neutral-800 rounded-2xl shadow-xl shadow-black/40 border border-white/10 p-8 text-center">
-                <p className="text-stone-400">参加者がいません</p>
-              </div>
-            )}
 
-            <div className="bg-red-500/15 border border-red-400/30 rounded-2xl shadow-xl shadow-black/40 p-6">
-              <h3 className="text-lg font-semibold text-red-300 mb-3">緊急操作</h3>
+            <div className="ui-card p-5 border-red-400/25">
               <Button
                 variant="secondary"
                 onClick={handleForceClose}
-                className="w-full bg-red-500 hover:bg-red-600 text-white"
+                className="w-full text-red-300 border-red-400/30 hover:bg-red-500/10"
               >
                 イベントを強制終了する
               </Button>

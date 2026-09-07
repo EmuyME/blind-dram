@@ -3,31 +3,87 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 
+function DramGlass() {
+  return (
+    <svg
+      viewBox="0 0 160 280"
+      className="h-[min(48vh,420px)] w-auto drop-shadow-[0_24px_48px_rgba(0,0,0,0.45)] bd-dram-enter"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="bd-glass" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="rgba(245,235,224,0.18)" />
+          <stop offset="45%" stopColor="rgba(245,235,224,0.04)" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0.18)" />
+        </linearGradient>
+        <linearGradient id="bd-liquid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#d4b584" />
+          <stop offset="35%" stopColor="#c4a574" />
+          <stop offset="75%" stopColor="#8b5a2b" />
+          <stop offset="100%" stopColor="#3d2e1f" />
+        </linearGradient>
+        <linearGradient id="bd-meniscus" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(245,235,224,0.45)" />
+          <stop offset="100%" stopColor="rgba(245,235,224,0)" />
+        </linearGradient>
+        <clipPath id="bd-bowl">
+          <path d="M38 78 C38 78 34 168 58 214 C72 240 88 248 80 268 L80 268 C72 248 88 240 102 214 C126 168 122 78 122 78 Z" />
+        </clipPath>
+      </defs>
+
+      <ellipse cx="80" cy="272" rx="28" ry="4" fill="rgba(0,0,0,0.35)" />
+
+      <path
+        d="M34 52 C34 52 28 170 56 220 C72 248 88 256 80 274 C72 256 88 248 104 220 C132 170 126 52 126 52"
+        fill="url(#bd-glass)"
+        stroke="rgba(201,184,150,0.42)"
+        strokeWidth="1.5"
+      />
+
+      <g clipPath="url(#bd-bowl)" className="bd-liquid-shimmer">
+        <rect x="30" y="128" width="100" height="150" fill="url(#bd-liquid)" />
+        <rect x="30" y="128" width="100" height="28" fill="url(#bd-meniscus)" />
+      </g>
+
+      <ellipse
+        cx="80"
+        cy="52"
+        rx="46"
+        ry="10"
+        fill="none"
+        stroke="rgba(245,235,224,0.35)"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M42 58 C50 74 70 82 80 82 C90 82 110 74 118 58"
+        fill="none"
+        stroke="rgba(245,235,224,0.12)"
+        strokeWidth="1"
+      />
+    </svg>
+  );
+}
+
 export default function Home() {
   return (
     <div className="relative isolate min-h-[100dvh] overflow-hidden">
-      {/* Full-bleed atmosphere: walnut bar + amber dram glow */}
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
         <div className="absolute inset-0 bg-[linear-gradient(165deg,#2a1f18_0%,#1a1410_55%,#120e0b_100%)]" />
         <div className="absolute inset-0 bd-grain opacity-[0.35]" />
         <div className="absolute -top-[20%] right-[-10%] h-[70vmin] w-[70vmin] rounded-full bg-[radial-gradient(circle,rgba(196,165,116,0.22)_0%,transparent_68%)] bd-glow-breathe" />
         <div className="absolute bottom-[-25%] left-[-15%] h-[85vmin] w-[85vmin] rounded-full bg-[radial-gradient(circle,rgba(61,46,31,0.55)_0%,transparent_62%)]" />
-
-        {/* Dominant visual: stylized dram glass */}
-        <div className="absolute inset-x-0 bottom-[8%] flex justify-center sm:bottom-[6%] md:justify-end md:pr-[8%] lg:pr-[12%]">
-          <div className="relative h-[42vh] w-[min(42vw,220px)] min-h-[220px] max-h-[420px] bd-dram-enter">
-            <div className="absolute inset-x-[18%] top-[8%] bottom-[6%] rounded-b-[48%_48%_42%_42%/18%_18%_58%_58%] border border-[#c9b896]/28 bg-gradient-to-b from-white/[0.07] via-transparent to-black/20 backdrop-blur-[1px]" />
-            <div className="absolute inset-x-[24%] bottom-[10%] top-[42%] overflow-hidden rounded-b-[46%_46%_40%_40%/12%_12%_70%_70%]">
-              <div className="absolute inset-0 bg-gradient-to-b from-[#c4a574]/75 via-[#8b5a2b]/80 to-[#3d2e1f]/90 bd-liquid-shimmer" />
-              <div className="absolute inset-x-0 top-0 h-[28%] bg-gradient-to-b from-[#f5ebe0]/35 to-transparent" />
-            </div>
-            <div className="absolute inset-x-[28%] top-[10%] h-[10%] rounded-full border border-white/15 bg-white/[0.04]" />
-          </div>
-        </div>
       </div>
 
-      <main className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col justify-end px-5 pb-16 pt-20 sm:px-8 sm:pb-20 md:justify-center md:pb-24">
-        <div className="max-w-xl bd-rise" style={{ animationDelay: '60ms' }}>
+      {/* Mobile: glass as atmospheric plane behind copy */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-[6%] flex justify-center opacity-55 md:hidden"
+        aria-hidden
+      >
+        <DramGlass />
+      </div>
+
+      <main className="relative mx-auto grid min-h-[100dvh] max-w-6xl grid-cols-1 items-end px-5 pb-16 pt-20 sm:px-8 sm:pb-20 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-center md:gap-10 md:pb-24 lg:gap-12">
+        <div className="relative z-10 max-w-xl bd-rise" style={{ animationDelay: '60ms' }}>
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.28em] text-bd-brand/90 sm:text-xs">
             Blind tasting host
           </p>
@@ -65,6 +121,10 @@ export default function Home() {
               使い方を見る
             </Link>
           </p>
+        </div>
+
+        <div className="pointer-events-none hidden justify-center md:flex md:justify-end md:pr-4 lg:pr-8" aria-hidden>
+          <DramGlass />
         </div>
       </main>
     </div>

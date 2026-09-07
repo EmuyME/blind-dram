@@ -790,14 +790,19 @@ export default function SessionHomePage() {
   if (session.state === 'published') {
     return (
       <>
-      <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
+      <div className="min-h-screen pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
           mode={session.mode}
         />
-        <div className="max-w-md mx-auto mt-8">
-          <div className="ui-card p-6">
-            <h2 className="text-xl font-semibold text-stone-100 mb-4 tracking-tight">結果が公開されました</h2>
+        <div className="ui-page-shell !pt-8">
+          <p className="ui-kicker">Blind Dram</p>
+          <h1 className="ui-h1 mb-6">{session.title}</h1>
+          <div className="ui-paper-card !p-6 space-y-4">
+            <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: 'var(--bd-font-serif)' }}>
+              結果が公開されました
+            </h2>
+            <p className="text-sm text-[#5c4a32] leading-relaxed">順位とレポートを確認できます。</p>
             <Button
               variant="primary"
               onClick={() => {
@@ -805,7 +810,7 @@ export default function SessionHomePage() {
                   router.push(`/session/${joinToken}/results`);
                 }
               }}
-              className="w-full"
+              className="w-full !shadow-none"
             >
               結果を見る
             </Button>
@@ -820,17 +825,21 @@ export default function SessionHomePage() {
   if (session.state === 'aggregating') {
     return (
       <>
-      <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
+      <div className="min-h-screen pt-16 pb-20 px-4">
         <PhaseBanner
           sessionState={session.state}
           mode={session.mode}
         />
-        <div className="max-w-md mx-auto mt-8">
-          <div className="ui-card p-6">
-            <h2 className="ui-h3 mb-2">結果を集計中</h2>
-            <p className="text-stone-400 text-sm mb-4">
-              オーナーの公開をお待ちください。公開後は自動で結果へ移動します。
-            </p>
+        <div className="ui-page-shell !pt-8">
+          <p className="ui-kicker">Blind Dram</p>
+          <h1 className="ui-h1 mb-6">{session.title}</h1>
+          <div className="space-y-4">
+            <div>
+              <h2 className="ui-h3 mb-2">結果を集計中</h2>
+              <p className="text-stone-400 text-sm mb-4 leading-relaxed">
+                オーナーの公開をお待ちください。公開後は自動で結果へ移動します。
+              </p>
+            </div>
 
             <div className="space-y-3">
               <Button
@@ -852,19 +861,21 @@ export default function SessionHomePage() {
               )}
 
               {isOwner && ownerToken && (
-                <Button
-                  variant="primary"
-                  onClick={handlePublishResults}
-                  disabled={isPublishingResults}
-                  className="w-full"
-                >
-                  {isPublishingResults ? '公開中...' : '結果を公開する'}
-                </Button>
+                <div className="ui-paper-card !p-1.5">
+                  <Button
+                    variant="primary"
+                    onClick={handlePublishResults}
+                    disabled={isPublishingResults}
+                    className="w-full !shadow-none"
+                  >
+                    {isPublishingResults ? '公開中...' : '結果を公開する'}
+                  </Button>
+                </div>
               )}
             </div>
 
             {ownerToken && !isOwner && (
-              <p className="text-xs text-stone-500 mt-4 leading-relaxed">
+              <p className="text-xs text-stone-500 mt-2 leading-relaxed">
                 オーナー確認中、またはこの端末ではオーナー権限がありません。オーナーの端末で「結果を公開する」を押してください。
               </p>
             )}

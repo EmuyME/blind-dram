@@ -23,6 +23,7 @@ import { formatRankingMatrixText, sanitizeDownloadBasename } from '@/lib/ranking
 import {
   captureElementToPngDataUrl,
   captureReportFromRoot,
+  type ReportCaptureFilter,
   type ReportCaptureKind,
   withCaptureVisible,
 } from '@/lib/capture-ranking-png';
@@ -206,6 +207,8 @@ export default function ResultsPage() {
   const [rankingImageUrl, setRankingImageUrl] = useState<string | null>(null);
   const [reportPreview, setReportPreview] = useState<ReportPreviewPayload | null>(null);
   const [isSavingPreview, setIsSavingPreview] = useState(false);
+  /** iPhone 向け: 必要なレポートだけ DOM に載せる */
+  const [captureFilter, setCaptureFilter] = useState<ReportCaptureFilter | null>(null);
 
   useEffect(() => {
     if (!joinToken) return;
@@ -332,10 +335,16 @@ export default function ResultsPage() {
       return null;
     }
 
+    const nextFilter: ReportCaptureFilter = {
+      kind,
+      participantId: kind === 'personal' ? participantIdForPersonal : undefined,
+    };
+    flushSync(() => setCaptureFilter(nextFilter));
+
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
-    await new Promise<void>((r) => setTimeout(r, 120));
+    await new Promise<void>((r) => setTimeout(r, 180));
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       await document.fonts.ready.catch(() => undefined);
     }
@@ -344,14 +353,19 @@ export default function ResultsPage() {
     const el = posterCaptureRef.current;
     if (!wrapper || !el) {
       showToast('画像を撮影できませんでした。しばらくして再度お試しください。', 'error');
+      flushSync(() => setCaptureFilter(null));
       return null;
     }
 
-    return withCaptureVisible(wrapper, async () => {
-      await preloadImagesInElement(el);
-      await new Promise<void>((r) => setTimeout(r, 150));
-      return captureReportFromRoot(el, kind, participantIdForPersonal);
-    });
+    try {
+      return await withCaptureVisible(wrapper, async () => {
+        await preloadImagesInElement(el);
+        await new Promise<void>((r) => setTimeout(r, 160));
+        return captureReportFromRoot(el, kind, participantIdForPersonal);
+      });
+    } finally {
+      flushSync(() => setCaptureFilter(null));
+    }
   };
 
   const buildReportFilename = (title: string, kind: string, suffix?: string) => {
@@ -562,7 +576,7 @@ export default function ResultsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-900 pt-8 pb-20 px-4">
+    <div className="min-h-screen pt-8 pb-20 px-4 sm:px-6">
       <PhaseBanner
         sessionState="published"
         mode={results.session.mode}
@@ -586,7 +600,11 @@ export default function ResultsPage() {
             </div>
           )}
 
-        <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 tracking-tight">{results.session.title}</h1>
+        <header className="space-y-2">
+          <p className="ui-kicker mb-0">Blind Dram</p>
+          <h1 className="ui-h1">{results.session.title}</h1>
+          <p className="text-sm text-stone-400">結果公開済み</p>
+        </header>
 
         <div className="ui-card p-6">
           <div className="flex items-start justify-between gap-4">
@@ -1030,15 +1048,17 @@ export default function ResultsPage() {
         onSave={handleSavePreviewedReport}
       />
 
-      {/* 結果ポスター（画面外レンダリング・画像キャプチャ用） */}
-      {results && joinToken && (
+      {/* 結果ポスター（画面外レンダリング・画像キャプチャ用）
+          opacity:0 は iOS html2canvas で白紙になるため使わない。translate で退避。 */}
+      {results && joinToken && captureFilter && (
         <div
           ref={posterCaptureWrapperRef}
           aria-hidden
-          className="fixed left-0 top-0 -z-10 opacity-0 pointer-events-none overflow-visible"
+          className="fixed left-0 top-0 pointer-events-none overflow-visible"
+          style={{ transform: 'translate3d(-12000px, 0, 0)', opacity: 1, zIndex: 0 }}
         >
           <div ref={posterCaptureRef}>
-            <ReportCaptureRoot results={toResultsSnapshot(results)} />
+            <ReportCaptureRoot results={toResultsSnapshot(results)} filter={captureFilter} />
           </div>
         </div>
       )}

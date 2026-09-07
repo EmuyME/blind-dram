@@ -1,8 +1,7 @@
 /** DOM 要素を PNG の data URL に変換 */
 
 import {
-  getDefaultPixelRatio,
-  getMaxCanvasDimension,
+  computeSafePixelRatio,
   getMaxChunkHeight,
   isMobileCapture,
 } from '@/lib/capture-device';
@@ -13,20 +12,14 @@ type CaptureOpts = {
   pixelRatio?: number;
 };
 
-function safePixelRatio(width: number, height: number, requested?: number): number {
-  const base = requested ?? getDefaultPixelRatio();
-  const maxDim = getMaxCanvasDimension();
-  const maxSide = Math.max(width, height);
-  if (maxSide * base <= maxDim) return base;
-  return Math.max(1, maxDim / maxSide);
-}
-
 function applyCaptureLayout(el: HTMLElement): {
   overflowEl: HTMLElement | null;
   prevOverflow: string;
   prevWidth: string;
   prevElOverflow: string;
   prevElWidth: string;
+  prevElHeight: string;
+  prevElTransform: string;
   captureWidth: number;
   captureHeight: number;
 } {
@@ -36,6 +29,8 @@ function applyCaptureLayout(el: HTMLElement): {
   const prevWidth = overflowEl?.style.width ?? '';
   const prevElOverflow = el.style.overflow;
   const prevElWidth = el.style.width;
+  const prevElHeight = el.style.height;
+  const prevElTransform = el.style.transform;
   const isReportPage = el.hasAttribute('data-report-capture-page');
   const isFixedExport = el.hasAttribute('data-export-fixed-size');
   const widthAttr = el.getAttribute('data-report-width');
@@ -55,6 +50,7 @@ function applyCaptureLayout(el: HTMLElement): {
   }
   el.style.overflow = 'visible';
   el.style.width = `${captureWidth}px`;
+  el.style.transform = 'none';
   if (isFixedExport) {
     el.style.height = `${captureHeight}px`;
   } else if (isReportPage) {
@@ -67,6 +63,8 @@ function applyCaptureLayout(el: HTMLElement): {
     prevWidth,
     prevElOverflow,
     prevElWidth,
+    prevElHeight,
+    prevElTransform,
     captureWidth,
     captureHeight,
   };
@@ -79,6 +77,8 @@ function restoreCaptureLayout(
   prevWidth: string,
   prevElOverflow: string,
   prevElWidth: string,
+  prevElHeight: string,
+  prevElTransform: string,
 ) {
   if (overflowEl) {
     overflowEl.style.overflow = prevOverflow;
@@ -86,6 +86,8 @@ function restoreCaptureLayout(
   }
   el.style.overflow = prevElOverflow;
   el.style.width = prevElWidth;
+  el.style.height = prevElHeight;
+  el.style.transform = prevElTransform;
 }
 
 function captureBackground(el: HTMLElement): string {
@@ -98,6 +100,18 @@ function captureBackground(el: HTMLElement): string {
   }
   if (el.hasAttribute('data-export-capture-page')) return '#F8F4EC';
   return '#262626';
+}
+
+/** ほぼ空の PNG（白紙キャプチャ）を弾く */
+function assertUsablePngDataUrl(dataUrl: string): string {
+  if (!dataUrl.startsWith('data:image/png')) {
+    throw new Error('Capture did not return a PNG data URL');
+  }
+  // 典型的な白紙〜極小 PNG は数 KB 未満。レポートは通常 50KB 超。
+  if (dataUrl.length < 8000) {
+    throw new Error('Capture produced a blank or tiny PNG');
+  }
+  return dataUrl;
 }
 
 async function captureWithHtml2Canvas(
@@ -113,7 +127,8 @@ async function captureWithHtml2Canvas(
     scale: pixelRatio,
     logging: false,
     useCORS: true,
-    allowTaint: true,
+    // toDataURL 前に taint すると iOS で保存失敗するため false
+    allowTaint: false,
     foreignObjectRendering: !isMobileCapture(),
     width: captureWidth,
     height: captureHeight,
@@ -121,8 +136,44 @@ async function captureWithHtml2Canvas(
     windowHeight: captureHeight,
     scrollX: 0,
     scrollY: 0,
+    onclone: (_doc, cloned) => {
+      cloned.style.transform = 'none';
+      cloned.style.opacity = '1';
+      cloned.style.visibility = 'visible';
+    },
   });
-  return canvas.toDataURL('image/png');
+
+  // 真っ白 canvas の簡易検出
+  try {
+    const ctx = canvas.getContext('2d');
+    if (ctx && canvas.width > 0 && canvas.height > 0) {
+      const sample = ctx.getImageData(
+        Math.min(8, canvas.width - 1),
+        Math.min(8, canvas.height - 1),
+        Math.max(1, Math.min(32, canvas.width)),
+        Math.max(1, Math.min(32, canvas.height)),
+      ).data;
+      let nonEmpty = 0;
+      for (let i = 0; i < sample.length; i += 4) {
+        const a = sample[i + 3];
+        const r = sample[i];
+        const g = sample[i + 1];
+        const b = sample[i + 2];
+        if (a > 8 && (r < 250 || g < 250 || b < 250)) {
+          nonEmpty += 1;
+          if (nonEmpty > 4) break;
+        }
+      }
+      if (nonEmpty <= 4) {
+        throw new Error('html2canvas produced a blank canvas');
+      }
+    }
+  } catch (err) {
+    if ((err as Error)?.message?.includes('blank canvas')) throw err;
+    // getImageData がセキュリティで失敗した場合は続行
+  }
+
+  return assertUsablePngDataUrl(canvas.toDataURL('image/png'));
 }
 
 async function captureWithHtmlToImage(
@@ -133,19 +184,32 @@ async function captureWithHtmlToImage(
 ): Promise<string> {
   const { toPng } = await import('html-to-image');
   const bg = captureBackground(el);
-  return await toPng(el, {
+  const dataUrl = await toPng(el, {
     backgroundColor: bg,
     pixelRatio,
     cacheBust: true,
     width: captureWidth,
     height: captureHeight,
-    style: { overflow: 'visible' },
+    style: {
+      overflow: 'visible',
+      opacity: '1',
+      transform: 'none',
+      visibility: 'visible',
+    },
   });
+  return assertUsablePngDataUrl(dataUrl);
 }
 
 export async function captureSingleElementToPngDataUrl(el: HTMLElement, opts?: CaptureOpts): Promise<string> {
   const layout = applyCaptureLayout(el);
-  const pixelRatio = safePixelRatio(layout.captureWidth, layout.captureHeight, opts?.pixelRatio);
+  const pixelRatio = computeSafePixelRatio(
+    layout.captureWidth,
+    layout.captureHeight,
+    opts?.pixelRatio,
+  );
+
+  // レイアウト確定待ち（iOS で高さ 0 キャプチャを避ける）
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
   try {
     if (isMobileCapture()) {
@@ -191,6 +255,8 @@ export async function captureSingleElementToPngDataUrl(el: HTMLElement, opts?: C
       layout.prevWidth,
       layout.prevElOverflow,
       layout.prevElWidth,
+      layout.prevElHeight,
+      layout.prevElTransform,
     );
   }
 }
@@ -200,7 +266,10 @@ function shouldUseChunkedCapture(el: HTMLElement): boolean {
   return height > getMaxChunkHeight();
 }
 
-/** キャプチャ用に要素を一時的にビューポート内へ（iOS の描画抜け対策） */
+/**
+ * キャプチャ用に要素を一時的にビューポート内へ。
+ * iOS では opacity:0 だと html2canvas が白紙になるため、画面外へ平行移動しつつ opacity:1 を保つ。
+ */
 export async function withCaptureVisible<T>(wrapper: HTMLElement, fn: () => Promise<T>): Promise<T> {
   const prev = {
     position: wrapper.style.position,
@@ -212,19 +281,23 @@ export async function withCaptureVisible<T>(wrapper: HTMLElement, fn: () => Prom
     visibility: wrapper.style.visibility,
     width: wrapper.style.width,
     overflow: wrapper.style.overflow,
+    transform: wrapper.style.transform,
   };
 
   wrapper.style.position = 'fixed';
   wrapper.style.left = '0';
   wrapper.style.top = '0';
-  wrapper.style.opacity = '0';
-  wrapper.style.zIndex = '-1';
+  wrapper.style.opacity = '1';
+  wrapper.style.zIndex = '0';
   wrapper.style.pointerEvents = 'none';
   wrapper.style.visibility = 'visible';
   wrapper.style.overflow = 'visible';
+  // 画面外だが Safari がレイアウト／描画する位置
+  wrapper.style.transform = 'translate3d(-12000px, 0, 0)';
 
   try {
     await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    await new Promise<void>((r) => setTimeout(r, 50));
     return await fn();
   } finally {
     wrapper.style.position = prev.position;
@@ -236,6 +309,7 @@ export async function withCaptureVisible<T>(wrapper: HTMLElement, fn: () => Prom
     wrapper.style.visibility = prev.visibility;
     wrapper.style.width = prev.width;
     wrapper.style.overflow = prev.overflow;
+    wrapper.style.transform = prev.transform;
   }
 }
 
@@ -273,6 +347,11 @@ export async function capturePosterPagesToPngDataUrls(rootEl: HTMLElement): Prom
 }
 
 export type ReportCaptureKind = 'tournament' | 'overall' | 'personal';
+
+export type ReportCaptureFilter = {
+  kind: ReportCaptureKind;
+  participantId?: string;
+};
 
 export async function captureReportFromRoot(
   root: HTMLElement,

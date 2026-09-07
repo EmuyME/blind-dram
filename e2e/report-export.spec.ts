@@ -108,40 +108,35 @@ test.describe('Report image export', () => {
     expect(apiJson.data?.session?.created_at).toBeTruthy();
 
     await page.goto(`/session/${joinToken}/results`);
-    await expect(page.getByRole('button', { name: '大会レポートを保存' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '全体レポートを保存' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '大会レポートをプレビュー' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '全体レポートをプレビュー' })).toBeVisible();
 
-    const captureInfo = await page.evaluate(() => {
+    // キャプチャ DOM はオンデマンド。プレビュー実行中に tournament ページが載ることを確認
+    const capturePromise = page.waitForFunction(() => {
       const root = document.querySelector('[data-report-capture-root]');
-      if (!root) return { ok: false, reason: 'no capture root' };
-      const kinds = ['tournament', 'overall', 'personal'] as const;
-      const pages: Record<string, number> = {};
-      for (const kind of kinds) {
-        pages[kind] = root.querySelectorAll(`[data-report-kind="${kind}"] [data-report-capture-page]`).length;
-      }
-      return { ok: true, pages };
-    });
-    expect(captureInfo.ok).toBe(true);
-    expect(captureInfo.pages?.tournament).toBe(1);
-    expect(captureInfo.pages?.overall).toBe(1);
-    expect((captureInfo.pages?.personal ?? 0)).toBeGreaterThanOrEqual(2);
+      return !!root?.querySelector('[data-report-kind="tournament"] [data-report-capture-page]');
+    }, { timeout: 90000 });
+    await page.getByRole('button', { name: '大会レポートをプレビュー' }).click();
+    await capturePromise;
+    await expect(page.getByRole('dialog', { name: /大会レポート/ })).toBeVisible({ timeout: 90000 });
+    await expect(page.getByRole('img', { name: /大会レポート/ })).toBeVisible();
+    // 白紙でないこと（ある程度の naturalWidth）
+    const natural = await page.getByRole('img', { name: /大会レポート/ }).evaluate((img: HTMLImageElement) => ({
+      w: img.naturalWidth,
+      h: img.naturalHeight,
+    }));
+    expect(natural.w).toBeGreaterThan(400);
+    expect(natural.h).toBeGreaterThan(400);
+    await page.getByRole('button', { name: '閉じる' }).click();
 
-    await page.getByRole('button', { name: '大会レポートを保存' }).click();
-    await expect(page.getByText(/レポート画像をダウンロード|共有シートから画像|長押しして保存/)).toBeVisible({
-      timeout: 90000,
-    });
-
-    await page.getByRole('button', { name: '全体レポートを保存' }).click();
-    await expect(page.getByText(/レポート画像をダウンロード|共有シートから画像|長押しして保存/)).toBeVisible({
-      timeout: 90000,
-    });
+    await page.getByRole('button', { name: '全体レポートをプレビュー' }).click();
+    await expect(page.getByRole('dialog', { name: /全体レポート/ })).toBeVisible({ timeout: 90000 });
+    await page.getByRole('button', { name: '閉じる' }).click();
 
     await page.getByRole('button', { name: '参加者' }).click();
     await page.getByRole('button', { name: /参加者A/ }).click();
-    await expect(page.getByRole('button', { name: '個人レポートを保存' })).toBeEnabled();
-    await page.getByRole('button', { name: '個人レポートを保存' }).click();
-    await expect(page.getByText(/レポート画像をダウンロード|共有シートから画像|長押しして保存/)).toBeVisible({
-      timeout: 90000,
-    });
+    await expect(page.getByRole('button', { name: '個人レポートをプレビュー' })).toBeEnabled();
+    await page.getByRole('button', { name: '個人レポートをプレビュー' }).click();
+    await expect(page.getByRole('dialog', { name: /個人レポート/ })).toBeVisible({ timeout: 90000 });
   });
 });

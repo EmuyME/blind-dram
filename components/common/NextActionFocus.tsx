@@ -42,16 +42,22 @@ export function NextActionFocus({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {(headerKicker || headerMeta) && (
-        <div className="px-4 py-3 border-b text-center shrink-0" style={{ borderColor: 'var(--bd-border)' }}>
-          {headerKicker && <p className="text-xs text-stone-500">{headerKicker}</p>}
+        <div
+          className="px-4 py-3 border-b text-center shrink-0"
+          style={{ borderColor: 'var(--bd-border)' }}
+        >
+          {headerKicker && <p className="text-xs text-stone-500 tracking-wide">{headerKicker}</p>}
           {headerMeta && <p className="text-sm text-stone-300">{headerMeta}</p>}
         </div>
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 pb-8">
+        <p className="ui-kicker mb-4 text-center">Blind Dram</p>
         {icon && <div className="mb-4">{icon}</div>}
         {eyebrow && <p className="text-stone-500 text-sm mb-2">{eyebrow}</p>}
-        <h2 className="text-2xl font-semibold text-stone-100 text-center mb-2">{title}</h2>
+        <h2 className="ui-display text-2xl md:text-3xl font-semibold text-stone-100 text-center mb-2 tracking-tight">
+          {title}
+        </h2>
         {description && (
           <p className="text-stone-400 text-sm text-center mb-10 leading-relaxed max-w-sm">
             {description}
@@ -59,14 +65,18 @@ export function NextActionFocus({
         )}
 
         {primaryAction && (
-          <Button
-            variant="primary"
-            onClick={primaryAction.onClick}
-            disabled={primaryAction.disabled}
-            className="w-full max-w-[280px] py-4 text-lg font-semibold rounded-2xl min-h-[56px]"
-          >
-            {primaryAction.label}
-          </Button>
+          <div className="w-full max-w-[280px]">
+            <div className="ui-paper-card !p-1.5 mb-0">
+              <Button
+                variant="primary"
+                onClick={primaryAction.onClick}
+                disabled={primaryAction.disabled}
+                className="w-full py-4 text-lg font-semibold rounded-xl min-h-[56px] !shadow-none"
+              >
+                {primaryAction.label}
+              </Button>
+            </div>
+          </div>
         )}
 
         {secondaryAction && (

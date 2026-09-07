@@ -58,11 +58,17 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="min-h-screen pt-8 pb-20 px-4">
-      <div className="max-w-md mx-auto mt-8">
-        <h1 className="ui-h1 mb-6">新しいイベント</h1>
+    <div className="min-h-screen">
+      <div className="ui-page-shell">
+        <Link href="/" className="ui-kicker inline-block hover:text-bd-accent transition-colors">
+          Blind Dram
+        </Link>
+        <h1 className="ui-h1 mb-2">新しいイベント</h1>
+        <p className="mb-8 text-sm text-stone-400 leading-relaxed">
+          会の名前と回答モードを決めて、司会を始めます。
+        </p>
 
-        <form onSubmit={handleSubmit} className="ui-card p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-stone-200 mb-2">
               イベント名
@@ -79,29 +85,47 @@ export default function CreatePage() {
           </div>
 
           <div>
-            <p className="block text-sm font-medium text-stone-200 mb-2">回答モード</p>
-            <div className="space-y-1">
-              <label className="flex items-center min-h-[44px] cursor-pointer gap-3">
+            <p className="block text-sm font-medium text-stone-200 mb-3">回答モード</p>
+            <div className="grid gap-2">
+              <label
+                className={`flex items-start min-h-[44px] cursor-pointer gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                  mode === 'sequential'
+                    ? 'border-bd-accent/45 bg-bd-accent/10'
+                    : 'border-white/10 bg-neutral-900/40 hover:bg-neutral-800/60'
+                }`}
+              >
                 <input
                   type="radio"
                   name="mode"
                   value="sequential"
                   checked={mode === 'sequential'}
                   onChange={(e) => setMode(e.target.value as 'sequential' | 'simultaneous')}
-                  className="w-4 h-4 accent-bd-accent"
+                  className="mt-1 w-4 h-4 accent-bd-accent"
                 />
-                <span className="text-stone-100 text-sm">逐次（サンプルごと）</span>
+                <span>
+                  <span className="block text-stone-100 text-sm font-medium">逐次</span>
+                  <span className="block text-stone-500 text-xs mt-0.5">サンプルごとに途中結果</span>
+                </span>
               </label>
-              <label className="flex items-center min-h-[44px] cursor-pointer gap-3">
+              <label
+                className={`flex items-start min-h-[44px] cursor-pointer gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                  mode === 'simultaneous'
+                    ? 'border-bd-accent/45 bg-bd-accent/10'
+                    : 'border-white/10 bg-neutral-900/40 hover:bg-neutral-800/60'
+                }`}
+              >
                 <input
                   type="radio"
                   name="mode"
                   value="simultaneous"
                   checked={mode === 'simultaneous'}
                   onChange={(e) => setMode(e.target.value as 'sequential' | 'simultaneous')}
-                  className="w-4 h-4 accent-bd-accent"
+                  className="mt-1 w-4 h-4 accent-bd-accent"
                 />
-                <span className="text-stone-100 text-sm">一斉（最後にまとめて）</span>
+                <span>
+                  <span className="block text-stone-100 text-sm font-medium">一斉</span>
+                  <span className="block text-stone-500 text-xs mt-0.5">最後にまとめて公開</span>
+                </span>
               </label>
             </div>
           </div>
@@ -116,7 +140,7 @@ export default function CreatePage() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-stone-500">
+        <p className="mt-8 text-center text-sm text-stone-500">
           参加コードがある方は{' '}
           <Link href="/join" className="text-stone-300 underline-offset-2 hover:underline">
             こちら

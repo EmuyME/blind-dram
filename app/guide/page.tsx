@@ -69,11 +69,11 @@ const SECTIONS: Array<{ title: string; body: ReactNode }> = [
 
 export default function GuidePage() {
   return (
-    <div className="min-h-screen pt-8 pb-20 px-4 sm:px-6">
-      <div className="max-w-xl mx-auto space-y-6">
+    <div className="min-h-screen">
+      <div className="relative mx-auto w-full max-w-xl px-4 pt-10 pb-20 sm:px-6 space-y-6">
         <header className="space-y-3">
-          <Link href="/" className="text-sm text-stone-500 hover:text-stone-300">
-            ← トップ
+          <Link href="/" className="ui-kicker inline-block hover:text-bd-accent transition-colors">
+            Blind Dram
           </Link>
           <h1 className="ui-h1">使い方</h1>
           <p className="text-sm text-stone-400 leading-relaxed">
@@ -81,7 +81,7 @@ export default function GuidePage() {
           </p>
         </header>
 
-        <div className="ui-card divide-y divide-white/10 overflow-hidden">
+        <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-[color:var(--bd-border)] bg-neutral-800/70">
           {SECTIONS.map((section) => (
             <details key={section.title} className="group">
               <summary className="cursor-pointer list-none px-5 py-4 min-h-[44px] flex items-center justify-between gap-3 text-stone-100 font-medium hover:bg-neutral-700/40">

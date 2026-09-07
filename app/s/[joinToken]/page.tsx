@@ -295,24 +295,28 @@ function JoinPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-900 pt-16 pb-20 px-4">
+    <div className="min-h-screen pt-16 pb-20 px-4">
       <PhaseBanner
         sessionState={session.state}
         mode={session.mode}
       />
 
-      <div className="max-w-md mx-auto mt-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-stone-100 mb-6 tracking-tight">{session.title}</h1>
+      <div className="ui-page-shell !pt-8">
+        <p className="ui-kicker">Blind Dram</p>
+        <h1 className="ui-h1 mb-2">{session.title}</h1>
         {isEditMode && (
-          <p className="text-sm text-stone-400 mb-4 leading-relaxed">
+          <p className="text-sm text-stone-400 mb-6 leading-relaxed">
             参加登録内容を修正しています。保存すると新しい参加トークンがこの端末に記録されます。
           </p>
+        )}
+        {!isEditMode && (
+          <p className="text-sm text-stone-400 mb-6 leading-relaxed">表示名を登録して会に参加します。</p>
         )}
         
         {/* オーナー向け：参加URLと参加コードの表示 */}
         {isOwner && (
-          <div className="bg-neutral-800 border border-white/10 rounded-2xl shadow-xl shadow-black/40 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-stone-100 mb-4">参加URLを共有</h2>
+          <div className="rounded-2xl border p-5 mb-6 space-y-3" style={{ borderColor: 'var(--bd-border)', background: 'rgba(42,31,24,0.55)' }}>
+            <h2 className="text-sm font-semibold text-stone-200 tracking-wide">参加URLを共有</h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-stone-400 mb-1">参加URL</label>
@@ -321,7 +325,7 @@ function JoinPageContent() {
                     type="text"
                     readOnly
                     value={typeof window !== 'undefined' ? `${window.location.origin}/s/${joinToken}` : ''}
-                    className="flex-1 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none"
+                    className="flex-1 px-4 py-2.5 bg-neutral-900/50 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none"
                   />
                   <Button
                     variant="secondary"
@@ -348,7 +352,7 @@ function JoinPageContent() {
                       type="text"
                       readOnly
                       value={session.join_code}
-                      className="flex-1 px-4 py-2.5 bg-neutral-700 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none"
+                      className="flex-1 px-4 py-2.5 bg-neutral-900/50 border border-white/10 rounded-xl text-stone-100 text-sm focus:outline-none tracking-wider font-mono"
                     />
                     <Button
                       variant="secondary"
@@ -373,7 +377,7 @@ function JoinPageContent() {
           </div>
         )}
         
-        <div className="ui-card p-6 mb-6">
+        <div className="mb-8">
           <ParticipantRecoveryPicker joinToken={joinToken} showToast={showToast} />
         </div>
 
@@ -388,7 +392,7 @@ function JoinPageContent() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="displayName" className="block text-base md:text-lg font-medium text-stone-100 mb-2">
+            <label htmlFor="displayName" className="block text-sm font-medium text-stone-200 mb-2">
               表示名
             </label>
             <input
@@ -396,7 +400,7 @@ function JoinPageContent() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base md:text-lg min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
+              className="w-full px-4 py-3 bg-neutral-900/50 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-xl text-base min-h-[44px] focus:border-bd-accent/50 focus:ring-2 focus:ring-bd-accent/30 transition-all"
               placeholder="例: 山田太郎"
               required
             />
@@ -406,20 +410,20 @@ function JoinPageContent() {
           </div>
 
           <div>
-            <label htmlFor="broughtCount" className="block text-base md:text-lg font-medium text-stone-100 mb-2">
+            <label htmlFor="broughtCount" className="block text-sm font-medium text-stone-200 mb-2">
               持参するボトル数
             </label>
             <BroughtCountInput
               id="broughtCount"
               value={broughtCount}
               onChange={handleBroughtCountChange}
-              className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 rounded-lg text-base md:text-lg min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
+              className="w-full px-4 py-3 bg-neutral-900/50 border border-white/10 text-stone-100 rounded-xl text-base min-h-[44px] focus:border-bd-accent/50 focus:ring-2 focus:ring-bd-accent/30 transition-all"
             />
           </div>
 
           {broughtCount > 0 && (
             <div className="space-y-3">
-              <label className="block text-base md:text-lg font-medium text-stone-100 mb-2">
+              <label className="block text-sm font-medium text-stone-200 mb-2">
                 ボトルのラベル（順番通りに入力）
               </label>
               {Array.from({ length: broughtCount }).map((_, index) => (
@@ -432,7 +436,7 @@ function JoinPageContent() {
                     newLabels[index] = e.target.value;
                     setBottleLabels(newLabels);
                   }}
-                  className="w-full px-4 py-3 bg-neutral-800 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-lg text-base md:text-lg min-h-[44px] focus:border-white/20 focus:ring-2 focus:ring-white/20 transition-all"
+                  className="w-full px-4 py-3 bg-neutral-900/50 border border-white/10 text-stone-100 placeholder:text-stone-500 rounded-xl text-base min-h-[44px] focus:border-bd-accent/50 focus:ring-2 focus:ring-bd-accent/30 transition-all"
                   placeholder={defaultBottleLabel(displayName, index)}
                   required
                 />
@@ -440,14 +444,16 @@ function JoinPageContent() {
             </div>
           )}
 
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={isSubmitting || !displayName.trim()}
-            className="w-full"
-          >
-            {isSubmitting ? '保存中...' : isEditMode ? '変更を保存' : '参加登録する'}
-          </Button>
+          <div className="ui-paper-card !p-1.5">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmitting || !displayName.trim()}
+              className="w-full !shadow-none"
+            >
+              {isSubmitting ? '保存中...' : isEditMode ? '変更を保存' : '参加登録する'}
+            </Button>
+          </div>
         </form>
       </div>
 

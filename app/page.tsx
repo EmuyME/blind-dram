@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 
-function DramGlass() {
+function DramGlass({ idPrefix }: { idPrefix: string }) {
+  const glass = `${idPrefix}-glass`;
+  const liquid = `${idPrefix}-liquid`;
+  const meniscus = `${idPrefix}-meniscus`;
+  const bowl = `${idPrefix}-bowl`;
+
   return (
     <svg
       viewBox="0 0 160 280"
@@ -11,38 +16,38 @@ function DramGlass() {
       aria-hidden
     >
       <defs>
-        <linearGradient id="bd-glass" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="rgba(245,235,224,0.18)" />
-          <stop offset="45%" stopColor="rgba(245,235,224,0.04)" />
-          <stop offset="100%" stopColor="rgba(0,0,0,0.18)" />
+        <linearGradient id={glass} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="rgba(245,235,224,0.22)" />
+          <stop offset="45%" stopColor="rgba(245,235,224,0.05)" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0.22)" />
         </linearGradient>
-        <linearGradient id="bd-liquid" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#d4b584" />
-          <stop offset="35%" stopColor="#c4a574" />
-          <stop offset="75%" stopColor="#8b5a2b" />
+        <linearGradient id={liquid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e0c48a" />
+          <stop offset="30%" stopColor="#c4a574" />
+          <stop offset="70%" stopColor="#8b5a2b" />
           <stop offset="100%" stopColor="#3d2e1f" />
         </linearGradient>
-        <linearGradient id="bd-meniscus" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(245,235,224,0.45)" />
+        <linearGradient id={meniscus} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(245,235,224,0.5)" />
           <stop offset="100%" stopColor="rgba(245,235,224,0)" />
         </linearGradient>
-        <clipPath id="bd-bowl">
-          <path d="M38 78 C38 78 34 168 58 214 C72 240 88 248 80 268 L80 268 C72 248 88 240 102 214 C126 168 122 78 122 78 Z" />
+        <clipPath id={bowl}>
+          <path d="M40 70 C36 120 34 168 58 214 C72 240 88 248 80 268 C72 248 88 240 102 214 C126 168 124 120 120 70 Z" />
         </clipPath>
       </defs>
 
-      <ellipse cx="80" cy="272" rx="28" ry="4" fill="rgba(0,0,0,0.35)" />
+      <ellipse cx="80" cy="272" rx="30" ry="4.5" fill="rgba(0,0,0,0.4)" />
 
       <path
-        d="M34 52 C34 52 28 170 56 220 C72 248 88 256 80 274 C72 256 88 248 104 220 C132 170 126 52 126 52"
-        fill="url(#bd-glass)"
-        stroke="rgba(201,184,150,0.42)"
-        strokeWidth="1.5"
+        d="M34 52 C30 120 28 170 56 220 C72 248 88 256 80 274 C72 256 88 248 104 220 C132 170 130 120 126 52"
+        fill={`url(#${glass})`}
+        stroke="rgba(201,184,150,0.5)"
+        strokeWidth="1.75"
       />
 
-      <g clipPath="url(#bd-bowl)" className="bd-liquid-shimmer">
-        <rect x="30" y="128" width="100" height="150" fill="url(#bd-liquid)" />
-        <rect x="30" y="128" width="100" height="28" fill="url(#bd-meniscus)" />
+      <g clipPath={`url(#${bowl})`} className="bd-liquid-shimmer">
+        <rect x="28" y="118" width="104" height="160" fill={`url(#${liquid})`} />
+        <rect x="28" y="118" width="104" height="30" fill={`url(#${meniscus})`} />
       </g>
 
       <ellipse
@@ -50,14 +55,14 @@ function DramGlass() {
         cy="52"
         rx="46"
         ry="10"
-        fill="none"
-        stroke="rgba(245,235,224,0.35)"
+        fill="rgba(245,235,224,0.06)"
+        stroke="rgba(245,235,224,0.4)"
         strokeWidth="1.5"
       />
       <path
         d="M42 58 C50 74 70 82 80 82 C90 82 110 74 118 58"
         fill="none"
-        stroke="rgba(245,235,224,0.12)"
+        stroke="rgba(245,235,224,0.14)"
         strokeWidth="1"
       />
     </svg>
@@ -74,16 +79,15 @@ export default function Home() {
         <div className="absolute bottom-[-25%] left-[-15%] h-[85vmin] w-[85vmin] rounded-full bg-[radial-gradient(circle,rgba(61,46,31,0.55)_0%,transparent_62%)]" />
       </div>
 
-      {/* Mobile: glass as atmospheric plane behind copy */}
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-[6%] flex justify-center opacity-55 md:hidden"
+        className="pointer-events-none absolute inset-x-0 bottom-[4%] z-0 flex justify-center opacity-50 md:hidden"
         aria-hidden
       >
-        <DramGlass />
+        <DramGlass idPrefix="bd-m" />
       </div>
 
-      <main className="relative mx-auto grid min-h-[100dvh] max-w-6xl grid-cols-1 items-end px-5 pb-16 pt-20 sm:px-8 sm:pb-20 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-center md:gap-10 md:pb-24 lg:gap-12">
-        <div className="relative z-10 max-w-xl bd-rise" style={{ animationDelay: '60ms' }}>
+      <main className="relative z-10 mx-auto grid min-h-[100dvh] max-w-6xl grid-cols-1 items-end px-5 pb-16 pt-20 sm:px-8 sm:pb-20 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:items-center md:gap-10 md:pb-24 lg:gap-14">
+        <div className="max-w-xl bd-rise" style={{ animationDelay: '60ms' }}>
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.28em] text-bd-brand/90 sm:text-xs">
             Blind tasting host
           </p>
@@ -123,8 +127,8 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="pointer-events-none hidden justify-center md:flex md:justify-end md:pr-4 lg:pr-8" aria-hidden>
-          <DramGlass />
+        <div className="pointer-events-none hidden justify-center md:flex md:justify-end md:pr-2 lg:pr-6" aria-hidden>
+          <DramGlass idPrefix="bd-d" />
         </div>
       </main>
     </div>

@@ -27,6 +27,8 @@
   --color-bd-accent-foreground: #3d2e1f;
   --color-bd-secondary: #352820;
   --color-bd-brand: #c4a574;
+  --font-sans: var(--font-bd-sans), "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+  --font-serif: var(--font-bd-serif), Georgia, "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 
 :root {
@@ -37,8 +39,8 @@
   --bd-border: rgba(201, 184, 150, 0.22);
   --bd-border-strong: rgba(201, 184, 150, 0.35);
   --bd-paper-gradient: linear-gradient(180deg, #f4ead8 0%, #ebe0cc 100%);
-  --bd-font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
-  --bd-font-serif: Georgia, "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --bd-font-sans: var(--font-bd-sans), "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+  --bd-font-serif: var(--font-bd-serif), Georgia, "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 
 body {
@@ -151,6 +153,82 @@ h3,
     border: 1px solid var(--bd-border);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
   }
+
+  .ui-page-shell {
+    @apply relative mx-auto w-full max-w-md px-4 pt-10 pb-20 sm:px-6;
+  }
+
+  .ui-kicker {
+    @apply mb-3 text-[11px] font-medium uppercase tracking-[0.22em] text-bd-brand/90;
+  }
+}
+
+/* Landing atmosphere helpers */
+.bd-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: soft-light;
+}
+
+@keyframes bd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bd-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes bd-liquid-shimmer {
+  0%,
+  100% {
+    filter: saturate(1) brightness(1);
+  }
+  50% {
+    filter: saturate(1.15) brightness(1.08);
+  }
+}
+
+@keyframes bd-dram-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  to {
+    opacity: 0.95;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bd-rise {
+  animation: bd-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bd-glow-breathe {
+  animation: bd-glow-breathe 7s ease-in-out infinite;
+}
+
+.bd-liquid-shimmer {
+  animation: bd-liquid-shimmer 5.5s ease-in-out infinite;
+}
+
+.bd-dram-enter {
+  animation: bd-dram-enter 1100ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 200ms;
 }
 
 ::-webkit-scrollbar {
@@ -176,5 +254,15 @@ h3,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .bd-rise,
+  .bd-dram-enter,
+  .bd-glow-breathe,
+  .bd-liquid-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
   }
 }

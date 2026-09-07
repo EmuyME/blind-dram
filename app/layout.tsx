@@ -1,8 +1,23 @@
 ﻿import type { Metadata } from 'next';
+import { Noto_Sans_JP, Noto_Serif_JP } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { PullToRefresh } from '@/components/common/PullToRefresh';
 import './globals.css';
+
+const notoSans = Noto_Sans_JP({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-bd-sans',
+  display: 'swap',
+});
+
+const notoSerif = Noto_Serif_JP({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-bd-serif',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Blind Dram - ブラインドテイスティング会支援',
@@ -15,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={`${notoSans.variable} ${notoSerif.variable}`}>
       <body className="antialiased selection:bg-bd-accent/25 selection:text-stone-50">
         <PullToRefresh />
         {children}
@@ -37,5 +52,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-
